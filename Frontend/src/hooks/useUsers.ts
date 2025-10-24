@@ -1,9 +1,5 @@
 import { useState, useEffect } from "react";
-<<<<<<< HEAD
 import api from "@/lib/api";
-=======
-import axios from "axios";
->>>>>>> ca2965efbdb0910b36d6788750b8bbb771a50f83
 
 export interface User {
   id: string;
@@ -22,11 +18,8 @@ useEffect(() => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-<<<<<<< HEAD
+
       const res = await api.get("/api/users/users");
-=======
-      const res = await axios.get("/api/users");
->>>>>>> ca2965efbdb0910b36d6788750b8bbb771a50f83
      
       setUsers(Array.isArray(res.data) ? res.data : []); // safe fallback
     } catch (err) {
