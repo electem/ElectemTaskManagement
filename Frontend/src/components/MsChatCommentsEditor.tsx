@@ -1,23 +1,42 @@
-// MsChatCommentsEditor.jsx
 import React, { useRef, useState, useEffect } from "react";
 import hljs from "highlight.js";
-import "highlight.js/styles/github.css"; // swap theme if you like
+import "highlight.js/styles/github.css";
+
+interface MsChatCommentsEditorProps {
+  placeholder?: string;
+  className?: string;
+  value?: string;
+  onChange?: (html: string) => void;
+  onSend?: (html: string, mediaFiles?: File[]) => void; // send media along with text
+}
 
 export default function MsChatCommentsEditor({
   placeholder = "Write a comment...",
   className = "max-w-2xl mx-auto",
-}) {
-  const editorRef = useRef(null);
-  const [html, setHtml] = useState("");
+  value = "",
+  onChange,
+  onSend,
+}: MsChatCommentsEditorProps) {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [html, setHtml] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [activeFormats, setActiveFormats] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+    orderedList: false,
+    unorderedList: false,
+  });
 
   useEffect(() => {
-    if (editorRef.current && !editorRef.current.innerHTML) {
-      editorRef.current.innerHTML = "";
+    if (editorRef.current && value !== html) {
+      editorRef.current.innerHTML = value;
+      setHtml(value);
     }
-  }, []);
+  }, [value]);
 
-  // re-highlight whenever preview HTML changes
   useEffect(() => {
     highlightCodeBlocks();
   }, [html]);
@@ -25,162 +44,138 @@ export default function MsChatCommentsEditor({
   function highlightCodeBlocks() {
     if (!editorRef.current) return;
     const codeBlocks = editorRef.current.querySelectorAll("pre code");
-    codeBlocks.forEach((block) => {
-      hljs.highlightElement(block);
-    });
-  }
-
-  function detectLanguage(text) {
-    const result = hljs.highlightAuto(text);
-    return result.language || "plaintext";
-  }
-
-  function sanitizeHtml(dirty) {
-    if (!dirty) return "";
-    const doc = new DOMParser().parseFromString(dirty, "text/html");
-    // remove script/style nodes
-    doc.querySelectorAll("script,style").forEach((n) => n.remove());
-    // remove inline event handlers
-    const all = doc.querySelectorAll("*");
-    all.forEach((el) => {
-      [...el.attributes].forEach((attr) => {
-        if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
-      });
-    });
-    return doc.body.innerHTML;
-  }
-
-  function handlePaste(e) {
-    e.preventDefault();
-    const clipboard = e.clipboardData;
-    const htmlData = clipboard.getData("text/html");
-    const textData = clipboard.getData("text/plain");
-
-    let payload = "";
-    if (htmlData) {
-      // sanitize pasted HTML and keep formatting
-      payload = sanitizeHtml(htmlData);
-    } else if (textData) {
-      // if plain text, detect language and create code blocks per paragraph
-      const language = detectLanguage(textData);
-      const paragraphs = textData
-        .split(/\n{2,}/)
-        .map((p) => `<pre><code class="language-${language}">${escapeHtml(p)}</code></pre>`)
-        .join("");
-      payload = paragraphs;
-    }
-
-    insertHtmlAtCaret(payload);
-    syncHtml();
-  }
-
-  function escapeHtml(text) {
-    return text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function insertHtmlAtCaret(html) {
-    const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) {
-      editorRef.current.insertAdjacentHTML("beforeend", html);
-      return;
-    }
-    const range = sel.getRangeAt(0);
-    range.deleteContents();
-    const fragment = range.createContextualFragment(html);
-    range.insertNode(fragment);
-    // move caret after inserted content
-    range.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(range);
-  }
-
-  function wrapSelectionWithCodeBlock() {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
-    const range = sel.getRangeAt(0);
-    const selectedText = sel.toString();
-    if (!selectedText) return;
-    const language = detectLanguage(selectedText);
-    const pre = document.createElement("pre");
-    const code = document.createElement("code");
-    code.className = `language-${language}`;
-    // use textContent to preserve raw text inside code
-    code.textContent = selectedText;
-    pre.appendChild(code);
-    // replace selection with pre>code
-    range.deleteContents();
-    range.insertNode(pre);
-    // put caret after inserted pre
-    range.setStartAfter(pre);
-    range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
-    hljs.highlightElement(code);
-  }
-
-  function handleKeyDown(e) {
-    // Ctrl+C behavior: convert selection into a code block (per your request)
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
-      // only do the transform when selection has >0 length
-      const sel = window.getSelection();
-      if (sel && sel.toString().trim()) {
-        e.preventDefault();
-        wrapSelectionWithCodeBlock();
-        syncHtml();
-      }
-    }
+    codeBlocks.forEach((block) => hljs.highlightElement(block as HTMLElement));
   }
 
   function handleInput() {
-    syncHtml();
-  }
-
-  function syncHtml() {
-    const inner = editorRef.current ? editorRef.current.innerHTML : "";
+    const inner = editorRef.current?.innerHTML || "";
     setHtml(inner);
+    onChange?.(inner);
+    updateActiveFormats();
   }
 
   function handleSend() {
     const innerHTML = editorRef.current?.innerHTML || "";
-    // generate HTML and post to preview
-    setHtml(innerHTML);
-    // optional: you can also emit this HTML to parent via props/callback
+    if (!innerHTML.trim() && mediaFiles.length === 0) return;
+
+    onSend?.(innerHTML, mediaFiles);
+    clearEditor();
   }
 
+  function clearEditor() {
+    if (editorRef.current) editorRef.current.innerHTML = "";
+    setHtml("");
+    setMediaFiles([]);
+    onChange?.("");
+    setActiveFormats({
+      bold: false,
+      italic: false,
+      underline: false,
+      orderedList: false,
+      unorderedList: false,
+    });
+  }
+
+  function format(command: "bold" | "italic" | "underline" | "insertOrderedList" | "insertUnorderedList") {
+    document.execCommand(command, false);
+    handleInput();
+  }
+
+  function updateActiveFormats() {
+    setActiveFormats({
+      bold: document.queryCommandState("bold"),
+      italic: document.queryCommandState("italic"),
+      underline: document.queryCommandState("underline"),
+      orderedList: document.queryCommandState("insertOrderedList"),
+      unorderedList: document.queryCommandState("insertUnorderedList"),
+    });
+  }
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", updateActiveFormats);
+    return () => document.removeEventListener("selectionchange", updateActiveFormats);
+  }, []);
+
+  function triggerFileInput() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files) return;
+    setMediaFiles(Array.from(e.target.files));
+  }
+
+  const buttonClass = (active: boolean) =>
+    `px-2 py-1 border rounded hover:bg-gray-100 ${active ? "bg-blue-200" : ""}`;
+
   return (
-    <div className={`${className} flex flex-col gap-3`}>
+    <div className={`${className} flex flex-col gap-2`}>
+      {/* Toolbar */}
+      <div className="flex gap-2 mb-1 flex-wrap">
+        <button type="button" className={buttonClass(activeFormats.bold)} onClick={() => format("bold")} title="Bold">
+          <b>B</b>
+        </button>
+        <button type="button" className={buttonClass(activeFormats.italic)} onClick={() => format("italic")} title="Italic">
+          <i>I</i>
+        </button>
+        <button type="button" className={buttonClass(activeFormats.underline)} onClick={() => format("underline")} title="Underline">
+          <u>U</u>
+        </button>
+        <button type="button" className={buttonClass(activeFormats.unorderedList)} onClick={() => format("insertUnorderedList")} title="Bulleted List">
+          • List
+        </button>
+        <button type="button" className={buttonClass(activeFormats.orderedList)} onClick={() => format("insertOrderedList")} title="Numbered List">
+          1. List
+        </button>
+        <button type="button" className="px-2 py-1 border rounded hover:bg-red-100 text-red-500" onClick={clearEditor} title="Clear">
+          Clear
+        </button>
+        {/* Upload */}
+        <button type="button" className="px-2 py-1 border rounded hover:bg-gray-100" onClick={triggerFileInput} title="Upload media">
+          📎
+        </button>
+        <input ref={fileInputRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={handleFileSelect} />
+      </div>
+
+      {/* Media preview */}
+      {mediaFiles.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto mb-1">
+          {mediaFiles.map((file, idx) => {
+            const url = URL.createObjectURL(file);
+            if (file.type.startsWith("image")) {
+              return <img key={idx} src={url} className="w-24 h-24 object-cover rounded" />;
+            } else if (file.type.startsWith("video")) {
+              return <video key={idx} src={url} className="w-32 h-24 rounded" controls />;
+            }
+            return null;
+          })}
+        </div>
+      )}
+
+      {/* Editor */}
       <div className="relative flex items-center border rounded-2xl shadow-sm overflow-hidden bg-white">
         <div
           ref={editorRef}
-          onPaste={handlePaste}
           onInput={handleInput}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          onKeyDown={handleKeyDown}
           contentEditable
           suppressContentEditableWarning
-          className={`min-h-[120px] flex-1 p-4 outline-none break-words whitespace-pre-wrap prose prose-slate list-disc pl-5 ${
-            isFocused ? "ring-2 ring-slate-200" : ""
-          }`}
+          className="min-h-[120px] flex-1 p-4 outline-none break-words"
           aria-label="Rich text comment editor"
-          data-placeholder={placeholder}
-          style={{ whiteSpace: "pre-wrap" }}
+          style={{ whiteSpace: "pre-wrap", listStylePosition: "inside" }}
         />
-        {/* Send arrow */}
-        <button
-          onClick={handleSend}
-          className="absolute right-3 bottom-3 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition"
-          title="Send"
-        >
+        <button onClick={handleSend} className="absolute right-3 bottom-3 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition" title="Send">
           ➤
         </button>
       </div>
+
+      <style>
+        {`
+          [contenteditable] ul { list-style-type: disc; margin-left: 20px; }
+          [contenteditable] ol { list-style-type: decimal; margin-left: 20px; }
+        `}
+      </style>
     </div>
   );
 }
-

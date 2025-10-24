@@ -16,6 +16,7 @@ import Login from "./pages/Login";
 
 import { TaskProvider } from "@/context/TaskContext";
 import { ProjectProvider } from './context/ProjectContext';
+import { ConversationProvider } from "./context/ConversationProvider";
 
 const queryClient = new QueryClient();
 
@@ -52,11 +53,13 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <TaskProvider>
-          <ProjectProvider>
-            <SidebarProvider defaultOpen={false}>
-              <AppLayout />
-            </SidebarProvider>
-          </ProjectProvider>
+          <ConversationProvider>
+            <ProjectProvider>
+              <SidebarProvider defaultOpen={false}>
+                <AppLayout />
+              </SidebarProvider>
+            </ProjectProvider>
+          </ConversationProvider>
         </TaskProvider>
       </BrowserRouter>
     </TooltipProvider>
