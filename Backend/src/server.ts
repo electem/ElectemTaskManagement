@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import taskRoutes from "./routes/task.routes";
 import projectRoutes from "./routes/projects";
 import userRoutes from "./routes/userRoutes";
+import memberRoutes from "./routes/member.routes";
 
 
 dotenv.config();
@@ -19,6 +20,7 @@ app.use((req, res, next) => {
 app.use("/tasks", taskRoutes);
 app.use("/projects", projectRoutes);
 app.use("/api", userRoutes);
+app.use("/api/members", memberRoutes);
 
 app.get("/health", (req, res) => res.json({ status: "OK", message: "Server running" }));
 

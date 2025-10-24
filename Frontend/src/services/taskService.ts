@@ -3,6 +3,7 @@ export interface TaskDTO {
   id: number;
   title: string;
   project: string;
+  projectId: number; 
   owner: string;
   members: string[];
   description: string;

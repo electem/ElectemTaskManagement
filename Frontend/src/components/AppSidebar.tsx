@@ -1,4 +1,9 @@
-import { LayoutDashboard, FolderKanban, ListTodo, UserPlus } from "lucide-react";
+import {
+  LayoutDashboard,
+  FolderKanban,
+  ListTodo,
+  UserPlus,
+} from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -35,23 +40,42 @@ export function AppSidebar() {
   const { open } = useSidebar();
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [newMember, setNewMember] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-  });
+  name: "",
+  email: "",
+  role: "", // new field
+});
 
-  const handleCreateMember = () => {
-    if (!newMember.name || !newMember.email) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
+const handleCreateMember = async () => {
+  if (!newMember.name || !newMember.email || !newMember.role) {
+    toast.error("Please fill in all required fields");
+    return;
+  }
+
+  try {
     
-    // TODO: Store team member in global state or backend
+    const payload = {
+      username: newMember.name,
+      email: newMember.email,
+      role: newMember.role,
+    };
+
+    const response = await fetch("/api/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error("Failed to create member");
+
     toast.success("Team member created successfully!");
-    setNewMember({ name: "", email: "", phone: "", password: "" });
+    setNewMember({ name: "", email: "", role: "" });
     setIsMemberDialogOpen(false);
-  };
+  } catch (error) {
+    toast.error((error as Error).message);
+  }
+};
+
+
 
   return (
     <Sidebar collapsible="icon">
@@ -86,7 +110,11 @@ export function AppSidebar() {
                       }
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0 text-black" />
-                      {open && <span className="font-medium text-black">{item.title}</span>}
+                      {open && (
+                        <span className="font-medium text-black">
+                          {item.title}
+                        </span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -97,7 +125,10 @@ export function AppSidebar() {
 
         {open && (
           <div className="px-4 py-2 border-t border-sidebar-border mt-auto">
-            <Dialog open={isMemberDialogOpen} onOpenChange={setIsMemberDialogOpen}>
+            <Dialog
+              open={isMemberDialogOpen}
+              onOpenChange={setIsMemberDialogOpen}
+            >
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full shadow-md">
                   <UserPlus className="mr-2 h-4 w-4" />
@@ -114,7 +145,9 @@ export function AppSidebar() {
                     <Input
                       id="member-name"
                       value={newMember.name}
-                      onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                      onChange={(e) =>
+                        setNewMember({ ...newMember, name: e.target.value })
+                      }
                       placeholder="Enter member name"
                     />
                   </div>
@@ -124,27 +157,21 @@ export function AppSidebar() {
                       id="email"
                       type="email"
                       value={newMember.email}
-                      onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                      onChange={(e) =>
+                        setNewMember({ ...newMember, email: e.target.value })
+                      }
                       placeholder="member@example.com"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="role">Role</Label>
                     <Input
-                      id="phone"
-                      value={newMember.phone}
-                      onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
-                      placeholder="123-456-7890"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={newMember.password}
-                      onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
-                      placeholder="Enter password"
+                      id="role"
+                      value={newMember.role}
+                      onChange={(e) =>
+                        setNewMember({ ...newMember, role: e.target.value })
+                      }
+                      placeholder="Enter role (e.g., admin, member)"
                     />
                   </div>
                   <Button onClick={handleCreateMember} className="w-full">

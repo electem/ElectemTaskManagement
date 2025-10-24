@@ -22,6 +22,8 @@ import { Plus, Edit2, X, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { TaskDTO, getTasks,deleteTask  } from "@/services/taskService";
+import { useProjectContext } from "@/context/ProjectContext";
+
 
 
 interface TeamMember {
@@ -75,12 +77,11 @@ const TaskManagement = () => {
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [fetchedTasks, setFetchedTasks] = useState<TaskDTO[]>([]);
-const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+   const { projects, fetchProjects } = useProjectContext();
 
-  const projects = [
-    { id: "1", name: "Website Redesign" },
-    { id: "2", name: "Mobile App" },
-  ];
+
+ 
 
   const owners = ["John Doe", "Jane Smith"];
 
@@ -109,6 +110,12 @@ useEffect(() => {
 
   fetchTasks();
 }, []);
+
+
+useEffect(() => {
+  fetchProjects();
+}, []);
+
   // Filter tasks
   const filteredTasks = fetchedTasks.filter((task) => {
   if (statusFilter !== "Completed" && task.status === "Completed") return false;
