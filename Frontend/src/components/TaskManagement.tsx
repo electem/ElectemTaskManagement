@@ -21,10 +21,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Edit2, X, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { TaskDTO, getTasks,deleteTask  } from "@/services/taskService";
+import { TaskDTO, getTasks, deleteTask } from "@/services/taskService";
 import { useProjectContext } from "@/context/ProjectContext";
-
-
 
 interface TeamMember {
   id: string;
@@ -71,61 +69,63 @@ const statusOptions = [
 
 const TaskManagement = () => {
   const navigate = useNavigate();
-  const { tasks: contextTasks, closeTask } = useTaskContext(); 
+  const { tasks: contextTasks, closeTask } = useTaskContext();
 
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [fetchedTasks, setFetchedTasks] = useState<TaskDTO[]>([]);
   const [loading, setLoading] = useState(true);
-   const { projects, fetchProjects } = useProjectContext();
+  const { projects, fetchProjects } = useProjectContext();
 
-
- 
-
-  const owners = ["John Doe", "Jane Smith"];
-
-const handleCloseTask = async (taskId: number) => {
-  try {
-    await deleteTask(taskId); // API expects number
-    setFetchedTasks(fetchedTasks.filter((t) => t.id !== taskId));
-    toast.success("Task closed successfully");
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to close task");
-  }
-};
-
-useEffect(() => {
-  const fetchTasks = async () => {
+  const handleCloseTask = async (taskId: number) => {
     try {
-      const data = await getTasks(); // your API call
-      setFetchedTasks(data);
+      await deleteTask(taskId); // API expects number
+      setFetchedTasks(fetchedTasks.filter((t) => t.id !== taskId));
+      toast.success("Task closed successfully");
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
+      toast.error("Failed to close task");
     }
   };
 
-  fetchTasks();
-}, []);
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const data = await getTasks(); // your API call
+        setFetchedTasks(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchTasks();
+  }, []);
 
-useEffect(() => {
-  fetchProjects();
-}, []);
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  // Get unique owners dynamically from fetched tasks
+  const owners = Array.from(new Set(fetchedTasks.map((task) => task.owner)));
 
   // Filter tasks
   const filteredTasks = fetchedTasks.filter((task) => {
-  if (statusFilter !== "Completed" && task.status === "Completed") return false;
-  if (projectFilter !== "all" && task.project !== projectFilter) return false;
-  if (ownerFilter !== "all" && task.owner !== ownerFilter) return false;
-  if (statusFilter !== "all" && task.status !== statusFilter) return false;
-  return true;
-});
-  if (loading) return <div className="flex items-center justify-center h-full">Loading tasks...</div>;
-
+    if (statusFilter !== "Completed" && task.status === "Completed")
+      return false;
+    if (projectFilter !== "all" && task.project !== projectFilter) return false;
+    if (ownerFilter !== "all" && task.owner !== ownerFilter) return false;
+    if (statusFilter !== "all" && task.status !== statusFilter) return false;
+    return true;
+  });
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-full">
+        Loading tasks...
+      </div>
+    );
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -227,7 +227,11 @@ useEffect(() => {
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {task.members.slice(0, 2).map((member, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs"
+                          >
                             {member}
                           </Badge>
                         ))}
@@ -240,7 +244,9 @@ useEffect(() => {
                     </TableCell>
                     <TableCell>{task.dueDate}</TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(task.status)}>{task.status}</Badge>
+                      <Badge className={getStatusColor(task.status)}>
+                        {task.status}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

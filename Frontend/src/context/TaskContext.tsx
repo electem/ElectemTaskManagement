@@ -44,6 +44,8 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       console.error("Error fetching tasks:", err);
     }
   };
+  console.log("fetchTasks",tasks);
+  
 
   // 🟢 Add new task
   const addTask = async (task: Omit<Task, "id">) => {
