@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  email     String   @unique
+  role      String
+  createdAt DateTime @default(now())
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String   @default("No description provided")
+  tasks       Task[]   @relation("ProjectTasks") // One-to-many relation
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Task {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  dueDate     DateTime?
+  status      String    @default("Pending")
+  
+  projectId   Int
+  project     String    // Project name
+
+  owner       String
+  members     String[]  // store member names as array
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relation to Project
+  projectRel  Project   @relation("ProjectTasks", fields: [projectId], references: [id])
+
+  // 👇 Relation to messages
+  messages    Message[]
+}
+
+model Message {
+  id              Int       @id @default(autoincrement())
+  taskId          Int       // Foreign key to Task
+  conversationId  BigInt       // Optional, used if multiple chat contexts exist
+  conversation    Json      // All messages stored as JSON array
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // 👇 Relation to Task
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId]) // One conversation per task
+}
