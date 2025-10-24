@@ -3,8 +3,9 @@ import {
   FolderKanban,
   ListTodo,
   UserPlus,
+  LogOut,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
   Sidebar,
@@ -31,51 +32,54 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const menuItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Task Management", url: "/tasks", icon: ListTodo },
 ];
 
 export function AppSidebar() {
   const { open } = useSidebar();
+  const navigate = useNavigate();
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [newMember, setNewMember] = useState({
-  name: "",
-  email: "",
-  role: "", // new field
-});
+    name: "",
+    email: "",
+    role: "", // new field
+  });
 
-const handleCreateMember = async () => {
-  if (!newMember.name || !newMember.email || !newMember.role) {
-    toast.error("Please fill in all required fields");
-    return;
-  }
+  const handleCreateMember = async () => {
+    if (!newMember.name || !newMember.email || !newMember.role) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
 
-  try {
-    
-    const payload = {
-      username: newMember.name,
-      email: newMember.email,
-      role: newMember.role,
-    };
+    try {
+      const payload = {
+        username: newMember.name,
+        email: newMember.email,
+        role: newMember.role,
+      };
 
-    const response = await fetch("/api/members", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const response = await fetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    if (!response.ok) throw new Error("Failed to create member");
+      if (!response.ok) throw new Error("Failed to create member");
 
-    toast.success("Team member created successfully!");
-    setNewMember({ name: "", email: "", role: "" });
-    setIsMemberDialogOpen(false);
-  } catch (error) {
-    toast.error((error as Error).message);
-  }
-};
-
-
+      toast.success("Team member created successfully!");
+      setNewMember({ name: "", email: "", role: "" });
+      setIsMemberDialogOpen(false);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  };
+  const handleLogout = () => {
+    localStorage.removeItem("username");
+    navigate("/");
+    toast.success("Logged out successfully!");
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -124,17 +128,18 @@ const handleCreateMember = async () => {
         </SidebarGroup>
 
         {open && (
-          <div className="px-4 py-2 border-t border-sidebar-border mt-auto">
+          <div className="px-4 py-2 border-t border-sidebar-border mt-auto space-y-2">
             <Dialog
               open={isMemberDialogOpen}
               onOpenChange={setIsMemberDialogOpen}
             >
               <DialogTrigger asChild>
-                <Button variant="outline" className="w-full shadow-md">
+                <Button className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold shadow-lg hover:from-indigo-600 hover:to-purple-600 transition-colors flex items-center justify-center">
                   <UserPlus className="mr-2 h-4 w-4" />
                   Create Member
                 </Button>
               </DialogTrigger>
+
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>Create Team Member</DialogTitle>
@@ -180,6 +185,13 @@ const handleCreateMember = async () => {
                 </div>
               </DialogContent>
             </Dialog>
+            <Button
+              onClick={handleLogout}
+              className="w-full bg-red-600 text-white font-semibold shadow-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
           </div>
         )}
       </SidebarContent>
