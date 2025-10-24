@@ -60,7 +60,11 @@ export function AppSidebar() {
         role: newMember.role,
       };
 
+<<<<<<< HEAD
       const response = await fetch(import.meta.env.VITE_API_BASE + "/api/members", {
+=======
+      const response = await fetch("/api/members", {
+>>>>>>> ca2965efbdb0910b36d6788750b8bbb771a50f83
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

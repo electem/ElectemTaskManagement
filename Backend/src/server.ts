@@ -24,7 +24,11 @@ app.use((req, res, next) => {
 app.use("/messages",messageRoute)
 app.use("/tasks", taskRoutes);
 app.use("/projects", projectRoutes);
+<<<<<<< HEAD
 app.use("/api/users", userRoutes);
+=======
+// app.use("/api", userRoutes);
+>>>>>>> ca2965efbdb0910b36d6788750b8bbb771a50f83
 app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
 

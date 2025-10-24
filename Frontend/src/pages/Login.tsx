@@ -29,7 +29,11 @@ const Login = () => {
   
     try {
       // Send username to backend
+<<<<<<< HEAD
       const res = await axios.post("https://iot.electems.com/task/api/api/auth/users", { username });
+=======
+      const res = await axios.post("http://localhost:5000/api/auth/users", { username });
+>>>>>>> ca2965efbdb0910b36d6788750b8bbb771a50f83
       
       // Response contains token and username
       const { token, username: returnedUsername } = res.data;
