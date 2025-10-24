@@ -1,11 +1,6 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { toast } from "sonner";
+import api from "@/lib/api"; // Axios instance with interceptor
 
 export interface Project {
   id: number;
@@ -27,15 +22,12 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider = ({ children }: { children: ReactNode }) => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const API_URL = "http://localhost:5000/projects"; // ✅ your backend endpoint
 
   // Fetch all projects
   const fetchProjects = async () => {
     try {
-      const res = await fetch(API_URL);
-      if (!res.ok) throw new Error("Failed to fetch projects");
-      const data = await res.json();
-      setProjects(data);
+      const res = await api.get("/projects");
+      setProjects(res.data);
     } catch (err) {
       console.error("Error fetching projects:", err);
       toast.error("Failed to fetch projects");
@@ -45,14 +37,8 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
   // Add new project
   const addProject = async (project: Omit<Project, "id">) => {
     try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(project),
-      });
-      if (!res.ok) throw new Error("Failed to create project");
-      const newProject = await res.json();
-      setProjects((prev) => [newProject, ...prev]);
+      const res = await api.post("/projects", project);
+      setProjects((prev) => [res.data, ...prev]);
       toast.success("Project created successfully!");
     } catch (err) {
       console.error("Error adding project:", err);
@@ -63,15 +49,9 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
   // Update a project
   const updateProject = async (id: number, project: Partial<Project>) => {
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(project),
-      });
-      if (!res.ok) throw new Error("Failed to update project");
-      const updatedProject = await res.json();
+      const res = await api.put(`/projects/${id}`, project);
       setProjects((prev) =>
-        prev.map((p) => (p.id === id ? updatedProject : p))
+        prev.map((p) => (p.id === id ? res.data : p))
       );
       toast.success("Project updated successfully!");
     } catch (err) {
@@ -83,8 +63,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
   // Delete a project
   const deleteProject = async (id: number) => {
     try {
-      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete project");
+      await api.delete(`/projects/${id}`);
       setProjects((prev) => prev.filter((p) => p.id !== id));
       toast.success("Project deleted successfully!");
     } catch (err) {
@@ -95,7 +74,8 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
 
   // Load projects initially
   useEffect(() => {
-    fetchProjects();
+    const token = localStorage.getItem("token");
+    if (token) fetchProjects();
   }, []);
 
   return (

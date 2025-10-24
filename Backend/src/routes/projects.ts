@@ -5,12 +5,13 @@ import {
   updateProject,
   deleteProject,
 } from "../controllers/project.controller";
+import { authGuard } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-router.get("/", getProjects);
-router.post("/", createProject);
-router.put("/:id", updateProject);
-router.delete("/:id", deleteProject);
+router.get("/", authGuard ,getProjects);
+router.post("/",authGuard , createProject);
+router.put("/:id",authGuard , updateProject);
+router.delete("/:id",authGuard , deleteProject);
 
 export default router;

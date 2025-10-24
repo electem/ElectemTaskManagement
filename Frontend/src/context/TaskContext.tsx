@@ -1,14 +1,9 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import api from "@/lib/api"; // Axios instance with interceptor
 
 export interface Task {
-  id: number; // should match DB auto-increment
-  projectId: number; // <-- required
+  id: number;
+  projectId: number;
   project?: string;
   owner?: string;
   members: string[];
@@ -31,88 +26,61 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const API_URL = "http://localhost:5000/tasks"; // ✅ your backend route
 
-  // 🟢 Fetch all tasks from backend
+  // Fetch all tasks
   const fetchTasks = async () => {
     try {
-      const res = await fetch(API_URL);
-      if (!res.ok) throw new Error("Failed to fetch tasks");
-      const data = await res.json();
-      setTasks(data);
+      const res = await api.get("/tasks"); // Axios automatically attaches token
+      setTasks(res.data);
     } catch (err) {
       console.error("Error fetching tasks:", err);
     }
   };
-  console.log("fetchTasks",tasks);
-  
 
-  // 🟢 Add new task
+  // Add new task
   const addTask = async (task: Omit<Task, "id">) => {
     try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(task),
-      });
-      if (!res.ok) throw new Error("Failed to create task");
-      const newTask = await res.json();
-      setTasks((prev) => [newTask, ...prev]);
+      const res = await api.post("/tasks", task);
+      setTasks((prev) => [res.data, ...prev]);
     } catch (err) {
       console.error("Error adding task:", err);
     }
   };
 
-  // 🟢 Update a task
+  // Update a task
   const updateTask = async (id: number, task: Partial<Task>) => {
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(task),
-      });
-      if (!res.ok) throw new Error("Failed to update task");
-      const updatedTask = await res.json();
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? updatedTask : t))
-      );
+      const res = await api.put(`/tasks/${id}`, task);
+      setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
     } catch (err) {
       console.error("Error updating task:", err);
     }
   };
 
-  // 🟢 Close (complete) task
+  // Close (complete) task
   const closeTask = async (id: number) => {
     try {
-      const res = await fetch(`${API_URL}/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Completed" }),
-      });
-      if (!res.ok) throw new Error("Failed to close task");
-      const updatedTask = await res.json();
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? updatedTask : t))
-      );
+      const res = await api.patch(`/tasks/${id}/status`, { status: "Completed" });
+      setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
     } catch (err) {
       console.error("Error closing task:", err);
     }
   };
 
-  // 🟢 Delete task
+  // Delete task
   const deleteTask = async (id: number) => {
     try {
-      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete task");
+      await api.delete(`/tasks/${id}`);
       setTasks((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
       console.error("Error deleting task:", err);
     }
   };
 
-  // 🟢 Load tasks initially
+  // Load tasks initially (only if token exists)
   useEffect(() => {
-    fetchTasks();
+    const token = localStorage.getItem("token");
+    if (token) fetchTasks();
   }, []);
 
   return (

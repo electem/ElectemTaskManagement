@@ -1,4 +1,6 @@
 // src/services/taskService.ts
+import api from "@/lib/api"; // Axios instance with interceptor
+
 export interface TaskDTO {
   id: number;
   title: string;
@@ -11,38 +13,38 @@ export interface TaskDTO {
   status: string;
 }
 
-const API_URL = "http://localhost:5000"; // your backend URL
-
 export const getTasks = async (): Promise<TaskDTO[]> => {
-  const res = await fetch(`${API_URL}/tasks`, {
-    cache: "no-store", 
-  });
-  if (!res.ok) throw new Error("Failed to fetch tasks");
-  return res.json();
+  try {
+    const res = await api.get("/tasks");
+    return res.data;
+  } catch (err) {
+    throw new Error("Failed to fetch tasks");
+  }
 };
 
 export const createTask = async (task: Partial<TaskDTO>) => {
-  const res = await fetch(`${API_URL}/tasks`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(task),
-  });
-  if (!res.ok) throw new Error("Failed to create task");
-  return res.json();
+  try {
+    const res = await api.post("/tasks", task);
+    return res.data;
+  } catch (err) {
+    throw new Error("Failed to create task");
+  }
 };
 
 export const updateTask = async (id: number, task: Partial<TaskDTO>) => {
-  const res = await fetch(`${API_URL}/tasks/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(task),
-  });
-  if (!res.ok) throw new Error("Failed to update task");
-  return res.json();
+  try {
+    const res = await api.put(`/tasks/${id}`, task);
+    return res.data;
+  } catch (err) {
+    throw new Error("Failed to update task");
+  }
 };
 
 export const deleteTask = async (id: number) => {
-  const res = await fetch(`${API_URL}/tasks/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Failed to delete task");
-  return res.json();
+  try {
+    const res = await api.delete(`/tasks/${id}`);
+    return res.data;
+  } catch (err) {
+    throw new Error("Failed to delete task");
+  }
 };

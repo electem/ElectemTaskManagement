@@ -15,7 +15,7 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
     if (!username.trim()) {
       toast({
         title: "Error",
@@ -24,48 +24,38 @@ const Login = () => {
       });
       return;
     }
-
+  
     setLoading(true);
-
+  
     try {
-      // Fetch users from API on login click
-      const res = await axios.get("/api/users");
-      const users = Array.isArray(res.data) ? res.data : [];
-
-      // Match username (case-insensitive)
-      const matchedUser = users.find(
-        (user) => user.username.toLowerCase() === username.toLowerCase()
-      );
-
-      if (!matchedUser) {
-        toast({
-          title: "Login Failed",
-          description: "Username not found",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Store username in localStorage
-      localStorage.setItem("username", matchedUser.username);
-
+      // Send username to backend
+      const res = await axios.post("http://localhost:5000/api/auth/users", { username });
+      
+      // Response contains token and username
+      const { token, username: returnedUsername } = res.data;
+  
+      // Store token & username in localStorage
+      localStorage.setItem("token", token);
+      localStorage.setItem("username", returnedUsername);
+  
       toast({
         title: "Login Successful",
-        description: `Welcome, ${matchedUser.username}!`,
+        description: `Welcome, ${returnedUsername}!`,
       });
-
+  
       navigate("/dashboard");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       toast({
-        title: "Error",
-        description: "Failed to fetch users. Try again later.",
+        title: "Login Failed",
+        description: err.response?.data?.message || "Failed to login. Try again later.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
