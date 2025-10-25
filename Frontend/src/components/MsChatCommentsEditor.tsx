@@ -79,31 +79,32 @@ export default function MsChatCommentsEditor({
     };
 
     // In MsChatCommentsEditor.tsx - Update the WebSocket message handler
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      console.log("Received update:", msg);
-      setThreads(msg);
+    // In MsChatCommentsEditor.tsx - Update the WebSocket message handler
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  console.log('Received update:', msg);
+  setThreads(msg);
 
-      // 🎯 NEW: Trigger unread count for other users
-      // Get current user from localStorage
-      const currentUser = localStorage.getItem("username") || "Guest";
-      const userPrefix = currentUser.substring(0, 3).toUpperCase();
+  // 🎯 NEW: Trigger unread count for other users
+  // Get current user from localStorage
+  const currentUser = localStorage.getItem('username') || 'Guest';
+  const userPrefix = currentUser.substring(0, 3).toUpperCase();
 
-      // Check if the message is from another user
-      const latestMessage = msg[msg.length - 1];
-      if (latestMessage && latestMessage.content) {
-        const messageSender = latestMessage.content.match(/^(\w+)\(/);
-        if (messageSender && messageSender[1] !== userPrefix) {
-          // This message is from another user, increment unread count
-          // We'll need to pass this information to parent components
-          // For now, we'll use a custom event
-          const unreadEvent = new CustomEvent("taskMessageReceived", {
-            detail: { taskId, fromUser: messageSender[1] },
-          });
-          window.dispatchEvent(unreadEvent);
-        }
-      }
-    };
+  // Check if the message is from another user
+  const latestMessage = msg[msg.length - 1];
+  if (latestMessage && latestMessage.content) {
+    const messageSender = latestMessage.content.match(/^(\w+)\(/);
+    if (messageSender && messageSender[1] !== userPrefix) {
+      // This message is from another user, increment unread count
+      // We'll need to pass this information to parent components
+      // For now, we'll use a custom event
+      const unreadEvent = new CustomEvent('taskMessageReceived', {
+        detail: { taskId, fromUser: messageSender[1] }
+      });
+      window.dispatchEvent(unreadEvent);
+    }
+  }
+};
 
     ws.onclose = () => {
       console.warn("WebSocket disconnected. Retrying...");

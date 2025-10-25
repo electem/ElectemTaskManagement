@@ -13,10 +13,10 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
   const { incrementUnreadCount } = useTaskContext();
 
   useEffect(() => {
-    // Listen for unread messages
-    websocketService.onUnreadMessage((taskId, fromUser) => {
-      console.log(`New message from ${fromUser} in task ${taskId}`);
-      incrementUnreadCount(taskId.toString());
+    // Listen for unread messages from WebSocket
+    websocketService.onUnreadMessage((taskId) => {
+      console.log(`Incrementing unread count for task ${taskId}`);
+      incrementUnreadCount(taskId);
     });
 
     return () => {
