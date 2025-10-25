@@ -297,6 +297,7 @@ export default function MsChatCommentsEditor({
     if (!finalInnerHTML.trim()) return;
 
     const updatedThreads = [...threads];
+    const newMessageObj = { content: finalInnerHTML, replies: [] };
 
     if (editing) {
       const { path } = editing;
@@ -305,14 +306,12 @@ export default function MsChatCommentsEditor({
       setThreads(updatedThreads);
       setEditing(null);
     } else {
-      const newThread = { content: finalInnerHTML, replies: [] };
-
       if (parentIndex === null) {
-        updatedThreads.push(newThread);
+        updatedThreads.push(newMessageObj);
       } else {
         let parent = updatedThreads[parentIndex];
         if (replyIndex !== null) parent = parent.replies[replyIndex];
-        parent.replies = [...(parent.replies || []), newThread];
+        parent.replies = [...(parent.replies || []), newMessageObj];
       }
       setThreads(updatedThreads);
     }
