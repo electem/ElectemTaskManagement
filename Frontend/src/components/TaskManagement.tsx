@@ -24,15 +24,9 @@ import { Badge } from "@/components/ui/badge";
 import { TaskDTO, getTasks, deleteTask } from "@/services/taskService";
 import { useProjectContext } from "@/context/ProjectContext";
 
-interface TeamMember {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-}
-
+// Ensure this matches your TaskDTO or Task interface structure
 interface Task {
-  id: string;
+  id: string; 
   project: string;
   owner: string;
   members: string[];
@@ -67,6 +61,30 @@ const statusOptions = [
   "Resolved",
 ];
 
+// Helper function to format the date
+const formatDate = (dateString: string) => {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch (error) {
+    return dateString;
+  }
+};
+
+// Helper function to truncate text
+const truncateText = (text: string, maxLength: number) => {
+  if (text.length > maxLength) {
+    return text.substring(0, maxLength) + "...";
+  }
+  return text;
+};
+
+
 const TaskManagement = () => {
   const navigate = useNavigate();
   const { tasks: contextTasks, closeTask } = useTaskContext();
@@ -78,10 +96,17 @@ const TaskManagement = () => {
   const [loading, setLoading] = useState(true);
   const { projects, fetchProjects } = useProjectContext();
 
-  const handleCloseTask = async (taskId: number) => {
+  // FIX: handleCloseTask now explicitly accepts a string (task.id)
+  const handleCloseTask = async (taskId: string) => {
     try {
-      await deleteTask(taskId); // API expects number
-      setFetchedTasks(fetchedTasks.filter((t) => t.id !== taskId));
+      // Convert the string ID back to number for the deleteTask API call
+      const idAsNumber = Number(taskId);
+      if (isNaN(idAsNumber)) {
+        throw new Error("Invalid Task ID");
+      }
+      // Note: If your deleteTask service truly needs a number, this conversion is necessary.
+      await deleteTask(idAsNumber); 
+      setFetchedTasks(fetchedTasks.filter((t) => t.id.toString() !== taskId));
       toast.success("Task closed successfully");
     } catch (err) {
       console.error(err);
@@ -92,7 +117,7 @@ const TaskManagement = () => {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const data = await getTasks(); // your API call
+        const data = await getTasks();
         setFetchedTasks(data);
       } catch (err) {
         console.error(err);
@@ -113,6 +138,7 @@ const TaskManagement = () => {
 
   // Filter tasks
   const filteredTasks = fetchedTasks.filter((task) => {
+    // Note: The logic below seems to be designed to exclude 'Completed' tasks unless the filter is explicitly set to 'Completed'
     if (statusFilter !== "Completed" && task.status === "Completed")
       return false;
     if (projectFilter !== "all" && task.project !== projectFilter) return false;
@@ -120,6 +146,7 @@ const TaskManagement = () => {
     if (statusFilter !== "all" && task.status !== statusFilter) return false;
     return true;
   });
+
   if (loading)
     return (
       <div className="flex items-center justify-center h-full">
@@ -138,6 +165,14 @@ const TaskManagement = () => {
       Rejected: "bg-red-600",
     };
     return colors[status] || "bg-muted";
+  };
+
+  const handleChatClick = (taskId: string) => {
+    navigate(`/tasks/${taskId}/chat`);
+  };
+
+  const handleTitleClick = (taskId: string) => {
+    navigate(`/tasks/${taskId}/edit`);
   };
 
   return (
@@ -209,75 +244,50 @@ const TaskManagement = () => {
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
+                  {/* Title column: Clickable for Edit */}
                   <TableHead>Title</TableHead>
-                  <TableHead>Project</TableHead>
+                  {/* Replaced 'Project' with 'Description' */}
+                  <TableHead>Description</TableHead>
                   <TableHead>Owner</TableHead>
-                  <TableHead>Members</TableHead>
+                  {/* Due Date column: Formatted date */}
                   <TableHead>Due Date</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  {/* New 'Message' column: Clickable for Chat */}
+                  <TableHead>Message</TableHead>
+                  {/* 'Members' and 'Actions' columns are removed */}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTasks.map((task) => (
                   <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.title}</TableCell>
-                    <TableCell>{task.project}</TableCell>
-                    <TableCell>{task.owner}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {task.members.slice(0, 2).map((member, index) => (
-                          <Badge
-                            key={index}
-                            variant="outline"
-                            className="text-xs"
-                          >
-                            {member}
-                          </Badge>
-                        ))}
-                        {task.members.length > 2 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{task.members.length - 2}
-                          </Badge>
-                        )}
-                      </div>
+                    {/* Title cell - now clickable for edit */}
+                    <TableCell
+                      className="font-medium cursor-pointer hover:underline text-primary"
+                      onClick={() => handleTitleClick(task.id.toString())}
+                      title="Click to Edit Task"
+                    >
+                      {task.title}
                     </TableCell>
-                    <TableCell>{task.dueDate}</TableCell>
+                    {/* Description cell - truncated to 20 characters */}
+                    <TableCell title={task.description}>
+                      {truncateText(task.description, 20)}
+                    </TableCell>
+                    <TableCell>{task.owner}</TableCell>
+                    {/* Due Date cell - now formatted */}
+                    <TableCell>{formatDate(task.dueDate)}</TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(task.status)}>
                         {task.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => navigate(`/tasks/${task.id}/chat`)}
-                          className="hover:bg-primary/10"
-                          title="Chat"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => navigate(`/tasks/${task.id}/edit`)}
-                          className="hover:bg-primary/10"
-                          title="Edit"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleCloseTask(task.id)}
-                          className="hover:bg-destructive/10 hover:text-destructive"
-                          title="Close"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    {/* New Message cell - clickable for chat */}
+                    <TableCell
+                      className="cursor-pointer hover:text-primary hover:underline flex items-center gap-1"
+                      onClick={() => handleChatClick(task.id.toString())}
+                      title="Click to view chat"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-1" />
+                      Latest Message...
                     </TableCell>
                   </TableRow>
                 ))}

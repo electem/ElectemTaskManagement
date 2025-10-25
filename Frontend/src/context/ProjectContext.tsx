@@ -13,9 +13,7 @@ export interface Project {
 interface ProjectContextType {
   projects: Project[];
   fetchProjects: () => Promise<void>;
-  addProject: (project: Omit<Project, "id">) => Promise<void>;
-  updateProject: (id: number, project: Partial<Project>) => Promise<void>;
-  deleteProject: (id: number) => Promise<void>;
+  
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -34,43 +32,10 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Add new project
-  const addProject = async (project: Omit<Project, "id">) => {
-    try {
-      const res = await api.post("/projects", project);
-      setProjects((prev) => [res.data, ...prev]);
-      toast.success("Project created successfully!");
-    } catch (err) {
-      console.error("Error adding project:", err);
-      toast.error("Failed to create project");
-    }
-  };
+  
 
-  // Update a project
-  const updateProject = async (id: number, project: Partial<Project>) => {
-    try {
-      const res = await api.put(`/projects/${id}`, project);
-      setProjects((prev) =>
-        prev.map((p) => (p.id === id ? res.data : p))
-      );
-      toast.success("Project updated successfully!");
-    } catch (err) {
-      console.error("Error updating project:", err);
-      toast.error("Failed to update project");
-    }
-  };
+  
 
-  // Delete a project
-  const deleteProject = async (id: number) => {
-    try {
-      await api.delete(`/projects/${id}`);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-      toast.success("Project deleted successfully!");
-    } catch (err) {
-      console.error("Error deleting project:", err);
-      toast.error("Failed to delete project");
-    }
-  };
 
   // Load projects initially
   useEffect(() => {
@@ -83,9 +48,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
       value={{
         projects,
         fetchProjects,
-        addProject,
-        updateProject,
-        deleteProject,
+  
       }}
     >
       {children}

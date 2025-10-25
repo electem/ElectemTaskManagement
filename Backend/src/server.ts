@@ -7,6 +7,7 @@ import userRoutes from "./routes/userRoutes";
 import memberRoutes from "./routes/member.routes";
 import messageRoute from "./routes/message.routes"
 import authRoutes from "./routes/authRoutes"
+import projectRoutes from "./routes/projects";
 
 dotenv.config();
 const app = express();
@@ -23,7 +24,7 @@ app.use((req, res, next) => {
 
 app.use("/messages",messageRoute)
 app.use("/tasks", taskRoutes);
-
+app.use("/projects", projectRoutes);
 
 app.use("/api/users", userRoutes);
 
