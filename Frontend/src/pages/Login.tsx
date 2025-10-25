@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import api from "@/lib/api";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -29,7 +30,7 @@ const Login = () => {
   
     try {
       // Send username to backend
-      const res = await axios.post("http://localhost:5000/api/auth/users", { username });
+      const res = await api.post("/api/auth/users", { username });
       
       // Response contains token and username
       const { token, username: returnedUsername } = res.data;
