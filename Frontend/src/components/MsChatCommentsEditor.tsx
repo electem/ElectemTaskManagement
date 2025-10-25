@@ -1,11 +1,26 @@
 import React, { useRef, useState, useEffect } from "react";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
+import api from "@/lib/api";
+import { Message, useConversationContext } from "@/context/ConversationProvider";
+
+interface Props {
+  placeholder?: string;
+  className?: string;
+  taskId: number;
+  value?: string;
+  onChange?: (html: string) => void;
+  onSend?: (html: string) => void;
+}
 
 export default function MsChatCommentsEditor({
   placeholder = "Write a comment...",
   className = "max-w-2xl mx-auto",
-}) {
+  taskId,
+  value = "",
+  onChange,
+  onSend,
+}: Props) {
   const editorRef = useRef(null);
   const [html, setHtml] = useState("");
   const [isFocused, setIsFocused] = useState(false);
@@ -13,16 +28,84 @@ export default function MsChatCommentsEditor({
   const [threads, setThreads] = useState([]);
   const [collapsed, setCollapsed] = useState({});
   const [editing, setEditing] = useState(null); // { path: [indexes] }
+  const currentUser = localStorage.getItem("username") || "Guest";
+  const [socket, setSocket] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
+  const { conversations } = useConversationContext();
+  const messages: Message[] = conversations[taskId] || [];
 
+  
+  // --- HERE: map messages to threads ---
+  useEffect(() => {
+    if (messages.length > 0) {
+      const mappedThreads = messages.map(msg => ({
+        content: `${msg.sender}(${msg.time}): ${msg.text}`, // format like SHI(25/10 10:49): wwww
+        replies: [], // no nested replies yet
+      }));
+      setThreads(mappedThreads);
+    }
+  }, [messages]);
+  
+  
+  console.log("conversationsconversations",conversations);
+  
   useEffect(() => {
     if (editorRef.current && !editorRef.current.innerHTML) {
       editorRef.current.innerHTML = "";
     }
   }, []);
 
+  
+
   useEffect(() => {
     highlightCodeBlocks();
   }, [html, threads]);
+
+  // =========================
+  // WebSocket Connection with Auto-Reconnect + Status Indicator
+  // =========================
+  const connectWebSocket = () => {
+    const ws = new WebSocket('ws://localhost:8089');
+
+    ws.onopen = () => {
+      console.log('Connected to WebSocket server');
+      // Send a JSON object immediately after connection opens
+      const initMessage = JSON.stringify({ type: 'INIT', taskId });
+      ws.send(initMessage);
+
+      setRetryCount(0);
+      setIsConnected(true);
+      setSocket(ws);
+    };
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      console.log('Received update:', msg);
+      setThreads(msg);      
+    };
+
+    ws.onclose = () => {
+      console.warn('WebSocket disconnected. Retrying...');
+      setIsConnected(false);
+      setTimeout(() => {
+        setRetryCount((prev) => prev + 1);
+        connectWebSocket();
+      }, Math.min(5000, (retryCount + 1) * 1000)); // Exponential backoff up to 5s
+    };
+
+    ws.onerror = (err) => {
+      console.error('WebSocket error:', err);
+      ws.close();
+    };
+  };
+
+  useEffect(() => {
+    connectWebSocket();
+    return () => {
+      if (socket) socket.close();
+    };
+  }, []);
 
   function highlightCodeBlocks() {
     if (!editorRef.current) return;
@@ -173,32 +256,56 @@ export default function MsChatCommentsEditor({
     return current;
   }
 
-  async function uploadThreadsToBackend(updatedThreads) {
+  async function uploadThreadsToBackend(newMessage, isEdit = false) {
     try {
-      await fetch("http://localhost:4000/save-conversation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation: updatedThreads }),
+      await api.post("/messages/upsert", {
+        taskId,
+        newMessage,
+        isEdit,
       });
     } catch (err) {
       console.error("Failed to upload conversation", err);
     }
   }
+  
+  
 
   async function handleSend(parentIndex = null, replyIndex = null) {
-    const innerHTML = editorRef.current?.innerHTML || "";
-    if (!innerHTML.trim()) return;
+    const innerHTML = editorRef.current?.innerHTML?.trim() || "";
+
+    // 1. Get username from local storage (assuming it's stored under the key 'username')
+    const fullUsername = localStorage.getItem('username') || "---"; 
+    // Extract the first three characters or use '---' as a fallback
+    const usernamePrefix = fullUsername.substring(0, 3).toUpperCase(); 
+
+    // 2. Format the current Date and Time
+    const now = new Date();
+
+    // Get day, month, minute, and second
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    const second = String(now.getSeconds()).padStart(2, '0');
+
+    // Create the date/time string: DD/MM MI:SS
+    const dateTimeString = `${day}/${month} ${minute}:${second}`;
+
+    // 3. Prepend the prefix and date/time to innerHTML
+    const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${innerHTML}`;
+
+// Example output: JON(25/10 48:31): <div>Hello world!</div>
+    if (!finalInnerHTML.trim()) return;
 
     const updatedThreads = [...threads];
 
     if (editing) {
       const { path } = editing;
       const target = path.length ? getReplyByPath(updatedThreads[path[0]], path.slice(1)) : updatedThreads[path[0]];
-      if (target) target.content = innerHTML;
+      if (target) target.content = finalInnerHTML;
       setThreads(updatedThreads);
       setEditing(null);
     } else {
-      const newThread = { content: innerHTML, replies: [] };
+      const newThread = { content: finalInnerHTML, replies: [] };
 
       if (parentIndex === null) {
         updatedThreads.push(newThread);

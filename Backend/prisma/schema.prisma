@@ -49,7 +49,6 @@ model Task {
 model Message {
   id              Int       @id @default(autoincrement())
   taskId          Int       // Foreign key to Task
-  conversationId  BigInt       // Optional, used if multiple chat contexts exist
   conversation    Json      // All messages stored as JSON array
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

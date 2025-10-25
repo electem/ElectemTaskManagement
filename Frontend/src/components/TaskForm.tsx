@@ -35,6 +35,8 @@ interface Task {
   description: string;
   dueDate: string;
   status: string;
+ url?: string;                
+  dependentTaskId?: string; 
 }
 
 const statusOptions = [
@@ -67,7 +69,7 @@ const TaskForm = () => {
   const { taskId } = useParams();
   const numericTaskId = taskId ? Number(taskId) : null;
   const isEditMode = !!taskId;
-  const { projects, addProject } = useProjectContext();
+  const { projects,} = useProjectContext();
   const { tasks, addTask, updateTask } = useTaskContext();
   const { users, loading: usersLoading } = useUsers();
 
@@ -80,6 +82,8 @@ const TaskForm = () => {
     description: "",
     dueDate: "",
     status: "Pending",
+     url: "",
+     dependentTaskId: "",
   });
 
   useEffect(() => {
@@ -96,6 +100,8 @@ const TaskForm = () => {
           description: task.description,
           dueDate: task.dueDate,
           status: task.status,
+           url: task.url || "",                     // ✅ added
+        dependentTaskId: task.dependentTaskId?.toString() || "", // ✅ added
         });
       }
     }
@@ -107,17 +113,20 @@ const TaskForm = () => {
       return;
     }
 
-    const taskData = {
-      projectId: Number(formData.projectId),
-      project: formData.project,
-      owner: formData.owner,
-      members: formData.members,
-      title: formData.title,
-      description: formData.description,
-      dueDate: formData.dueDate,
-      status: formData.status,
-    };
-
+     const taskData = {
+    projectId: Number(formData.projectId),
+    project: formData.project,
+    owner: formData.owner,
+    members: formData.members,
+    title: formData.title,
+    description: formData.description,
+    dueDate: formData.dueDate,
+    status: formData.status,
+    url: formData.url,
+    dependentTaskId: formData.dependentTaskId
+      ? Number(formData.dependentTaskId)
+      : null,
+  };
     if (isEditMode && numericTaskId) {
       updateTask(numericTaskId, taskData);
       toast.success("Task updated successfully!");
@@ -141,202 +150,248 @@ const TaskForm = () => {
       </Button>
 
       <Card className="shadow-md max-w-3xl">
-        <CardHeader>
-          <CardTitle>{isEditMode ? "Edit Task" : "Create New Task"}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Row 1: Project and Owner */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Select Project *</Label>
-                <Select
-                  value={formData.projectId} // store id here
-                  onValueChange={(value) => {
-                    const selectedProject = projects.find(
-                      (p) => p.id === Number(value)
-                    );
-                    if (selectedProject) {
+  <CardHeader>
+    <CardTitle>{isEditMode ? "Edit Task" : "Create New Task"}</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="space-y-4">
+      
+      {/* New Row 1: Project and URL */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Select Project *</Label>
+          <Select
+            value={formData.projectId} // store id here
+            onValueChange={(value) => {
+              const selectedProject = projects.find(
+                (p) => p.id === Number(value)
+              );
+              if (selectedProject) {
+                setFormData({
+                  ...formData,
+                  projectId: selectedProject.id.toString(),
+                  project: selectedProject.name,
+                });
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Choose a project" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((project) => (
+                <SelectItem
+                  key={project.id}
+                  value={project.id.toString()}
+                >
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* New URL Input Field */}
+       <div className="space-y-2">
+  <Label htmlFor="url">Enter URL</Label>
+  <Input
+    id="url"
+    placeholder="Enter URL"
+    value={formData.url}
+    onChange={(e) =>
+      setFormData({ ...formData, url: e.target.value })
+    }
+  />
+</div>
+
+      </div>
+
+      {/* New Row 2: Owner and Members */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Select Owner *</Label>
+          <Select
+            value={formData.owner}
+            onValueChange={(value) =>
+              setFormData({ ...formData, owner: value })
+            }
+            disabled={usersLoading}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Choose an owner" />
+            </SelectTrigger>
+            <SelectContent>
+              {(users || []).map((user) => (
+                <SelectItem key={user.id} value={user.username}>
+                  {user.username}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Select Members</Label>
+          <Select
+            value="" // Keep value empty for selecting new member
+            onValueChange={(value) => {
+              if (!formData.members.includes(value)) {
+                setFormData({
+                  ...formData,
+                  members: [...formData.members, value],
+                });
+              }
+            }}
+            disabled={usersLoading}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Choose team members" />
+            </SelectTrigger>
+            <SelectContent>
+              {(users || []).map((user) => (
+                <SelectItem key={user.id} value={user.username}>
+                  {user.username}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {formData.members.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.members.map((member, index) => (
+                <Badge
+                  key={index}
+                  variant="secondary"
+                  className="cursor-pointer"
+                >
+                  {member}
+                  <button
+                    onClick={() =>
                       setFormData({
                         ...formData,
-                        projectId: selectedProject.id.toString(),
-                        project: selectedProject.name,
-                      });
+                        members: formData.members.filter(
+                          (m) => m !== member
+                        ),
+                      })
                     }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem
-                        key={project.id}
-                        value={project.id.toString()}
-                      >
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Select Owner *</Label>
-                <Select
-                  value={formData.owner}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, owner: value })
-                  }
-                  disabled={usersLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose an owner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(users || []).map((user) => (
-                      <SelectItem key={user.id} value={user.username}>
-                        {user.username}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    className="ml-2"
+                  >
+                    &times;
+                  </button>
+                </Badge>
+              ))}
             </div>
+          )}
+        </div>
+      </div>
+      
+    
 
-            {/* Row 2: Members and Title */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Select Members</Label>
-                <Select
-                  value=""
-                  onValueChange={(value) => {
-                    if (!formData.members.includes(value)) {
-                      setFormData({
-                        ...formData,
-                        members: [...formData.members, value],
-                      });
-                    }
-                  }}
-                  disabled={usersLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose team members" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(users || []).map((user) => (
-                      <SelectItem key={user.id} value={user.username}>
-                        {user.username}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {formData.members.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.members.map((member, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="cursor-pointer"
-                      >
-                        {member}
-                        <button
-                          onClick={() =>
-                            setFormData({
-                              ...formData,
-                              members: formData.members.filter(
-                                (m) => m !== member
-                              ),
-                            })
-                          }
-                          className="ml-2"
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+      {/* New Row 4: Status and Due Date (Same as old Row 3) */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select
+            value={formData.status}
+            onValueChange={(value) =>
+              setFormData({ ...formData, status: value })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              {statusOptions.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  placeholder="Enter task title"
-                />
-              </div>
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="dueDate">Due Date</Label>
+          <Input
+            id="dueDate"
+            type="date"
+            value={formData.dueDate}
+            onChange={(e) =>
+              setFormData({ ...formData, dueDate: e.target.value })
+            }
+          />
+        </div>
+      </div>
+        {/* New Row 3: Title (Full Width) */}
+      <div className="space-y-2">
+        <Label htmlFor="title">Title *</Label>
+        <Input
+          id="title"
+          value={formData.title}
+          onChange={(e) =>
+            setFormData({ ...formData, title: e.target.value })
+          }
+          placeholder="Enter task title"
+        />
+      </div>
 
-            {/* Row 3: Status and Due Date */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {statusOptions.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      {/* New Row 5: Description (Full Width) - Changed Textarea rows to 1 as requested ("single line") */}
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
+          placeholder="Enter task description"
+          rows={1} // Changed from rows={4} to rows={1} for "single line"
+        />
+      </div>
+      
+      {/* New Row 6: Dependant Task (Full Width) */}
+     <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+  <Label>Dependent Task</Label>
+  <Select
+    value={formData.dependentTaskId}
+    onValueChange={(value) =>
+      setFormData({ ...formData, dependentTaskId: value })
+    }
+  >
+    <SelectTrigger>
+      <SelectValue placeholder="Select a dependent task" />
+    </SelectTrigger>
+    <SelectContent>
+  {tasks
+    .filter((t) => t.id !== (taskId ? Number(taskId) : null)) // inline conversion
+    .map((task) => (
+      <SelectItem key={task.id} value={task.id.toString()}>
+        {task.title}
+      </SelectItem>
+    ))}
+</SelectContent>
 
-              <div className="space-y-2">
-                <Label htmlFor="dueDate">Due Date</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={formData.dueDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, dueDate: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+  </Select>
+</div>
 
-            {/* Description - Full Width */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Enter task description"
-                rows={4}
-              />
-            </div>
+      </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button onClick={handleSubmit} className="flex-1">
-                {isEditMode ? "Update Task" : "Create Task"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate("/tasks")}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
+      <div className="flex gap-3 pt-4">
+        <Button onClick={handleSubmit} className="flex-1">
+          {isEditMode ? "Update Task" : "Create Task"}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => navigate("/tasks")}
+          className="flex-1"
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  </CardContent>
+</Card>
     </div>
   );
 };

@@ -25,6 +25,9 @@ export default function ChatView() {
 
   const { conversations, fetchConversation, addMessage } = useConversationContext();
 
+  console.log("conversationsconversations",conversations);
+  
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   // Load messages from backend on mount or taskId change
@@ -87,6 +90,7 @@ export default function ChatView() {
   <div className="p-2 border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-[#252526] rounded-t-xl">
     <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-200">Chat</h2>
   </div>
+  
 
   {/* Sticky editor */}
   <div className="sticky bottom-0 bg-[#f5f5f5] dark:bg-[#1e1e1e] px-2 py-1 border-t border-gray-300 dark:border-gray-700">
@@ -95,6 +99,7 @@ export default function ChatView() {
       placeholder="Write rich comment..."
       className=""
       value={comment}
+      taskId={taskIdNumber}
       onChange={setComment}
       onSend={handleSendMessage}
     />

@@ -20,7 +20,7 @@ export const getTasks = async (req: Request, res: Response) => {
 // Create task
 export const createTask = async (req: Request, res: Response) => {
   try {
-    const { title, description, dueDate, status, projectId,project,owner, members } = req.body;
+    const { title, description, dueDate, status, projectId,project,owner, members,memberIds,url,dependentTaskId, } = req.body;
     const task = await prisma.task.create({
       data: {
         title,
@@ -31,6 +31,8 @@ export const createTask = async (req: Request, res: Response) => {
         owner,
         project, // ✅ include this
         members,
+        url,
+        dependentTaskId,
       },
     });
     res.json(task);
@@ -44,7 +46,7 @@ export const createTask = async (req: Request, res: Response) => {
 export const updateTask = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, description, dueDate, status, projectId, members,owner, } = req.body;
+    const { title, description, dueDate, status, projectId,project,owner, members,memberIds,url,dependentTaskId, } = req.body;
     const task = await prisma.task.update({
       where: { id: Number(id) },
       data: {
@@ -55,6 +57,8 @@ export const updateTask = async (req: Request, res: Response) => {
         owner,
         projectId,
         members,
+        url,
+        dependentTaskId,
       },
     });
     res.json(task);

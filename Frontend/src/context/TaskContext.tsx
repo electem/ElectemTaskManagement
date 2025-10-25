@@ -11,6 +11,8 @@ export interface Task {
   description: string;
   dueDate: string;
   status: string;
+  url?: string;                // new field
+  dependentTaskId?: number;
 }
 
 interface TaskContextType {

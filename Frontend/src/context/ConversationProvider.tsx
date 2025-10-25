@@ -23,17 +23,63 @@ const ConversationContext = createContext<ConversationContextType | undefined>(u
 export const ConversationProvider = ({ children }: { children: ReactNode }) => {
   const [conversations, setConversations] = useState<Record<number, Message[]>>({});
 
+  function flattenConversation(conversation: any[]): Message[] {
+    let messages: Message[] = [];
+  
+    function traverse(item: any) {
+      if (Array.isArray(item)) {
+        item.forEach(traverse);
+        return;
+      }
+  
+      // Extract sender, time, text from "SHI(25/10 36:05): hiii"
+      const match = item.content.match(/^(\w+)\(([^)]+)\):\s*(.*)$/);
+      let sender = "Unknown";
+      let time = "";
+      let text = item.content;
+  
+      if (match) {
+        sender = match[1];
+        time = match[2];
+        text = match[3];
+      }
+  
+      messages.push({
+        id: Date.now() + Math.random(), // unique id
+        sender,
+        text,
+        time,
+        fromMe: sender === "Surya",
+        media: [],
+      });
+  
+      if (item.replies?.length) {
+        item.replies.forEach(traverse);
+      }
+    }
+  
+    conversation.forEach(traverse);
+    return messages;
+  }
+  
+  
+
   // Fetch conversation for a task
   const fetchConversation = async (taskId: number) => {
     try {
       const res = await api.get("/messages", { params: { taskId } });
-      const messages = Array.isArray(res.data) ? res.data : [];
+      const rawData = Array.isArray(res.data) ? res.data : [];
+
+      console.log("rawData",rawData);
+      
+      const messages = flattenConversation(rawData);
       setConversations((prev) => ({ ...prev, [taskId]: messages }));
     } catch (err) {
       console.error("Error fetching conversation:", err);
       toast.error("Failed to fetch conversation");
     }
   };
+  
 
   // Add new message or upsert conversation
   const addMessage = async (taskId: number, newMessage: Message, isEdit = false) => {
