@@ -96,9 +96,19 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <TaskListSidebar sidebarOpen={open} />
+        {!open && (
+          <div className="flex justify-center mt-2">
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-sidebar-accent transition"
+            >
+              <LogOut className="h-5 w-5 text-black" />
+            </button>
+          </div>
+        )}
+
         {open && (
           <div className="px-4 py-2 border-t border-sidebar-border mt-auto space-y-2">
-
             <Button
               onClick={handleLogout}
               className="w-full bg-red-600 text-white font-semibold shadow-lg hover:bg-red-700 transition-colors flex items-center justify-center"
