@@ -7,7 +7,6 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 
 import Index from "./pages/Index";
-import ProjectsPage from "./pages/ProjectsPage";
 import TasksPage from "./pages/TasksPage";
 import NotFound from "./pages/NotFound";
 import ChatView from "./components/ChatView";
@@ -34,7 +33,7 @@ const AppLayout = () => {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/dashboard" element={<Index />} />
-          <Route path="/projects" element={<ProjectsPage />} />
+          
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/tasks/new" element={<TaskFormPage />} />
           <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />

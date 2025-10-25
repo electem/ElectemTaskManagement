@@ -33,7 +33,6 @@ import { toast } from "sonner";
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Task Management", url: "/tasks", icon: ListTodo },
 ];
 
