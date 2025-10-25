@@ -88,56 +88,6 @@ export default function ChatView() {
     <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-200">Chat</h2>
   </div>
 
-  {/* Messages */}
-  <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-    {messages.map((msg) => (
-      <div key={msg.id} className={`flex flex-col ${msg.fromMe ? "items-end" : "items-start"}`}>
-        <div className={`text-[10px] mb-0.5 ${msg.fromMe ? "text-right text-gray-500" : "text-left text-gray-500"}`}>
-          <span className="font-semibold">{msg.sender}</span>{" "}
-          <span className="ml-1 text-gray-400">
-            {msg.time} {msg.edited && <span className="text-[9px] italic ml-1">(Edited)</span>}
-          </span>
-        </div>
-
-        <div className={`inline-flex items-center space-x-1 max-w-full`}>
-          <div
-            className={`px-2 py-1 text-[12px] leading-[16px] rounded-2xl break-words ${msg.fromMe
-                ? "bg-[#cfe4ff] text-black rounded-br-none"
-                : "bg-white dark:bg-[#2d2d2d] text-gray-900 dark:text-gray-100 rounded-bl-none"
-              } shadow-sm flex-shrink-0`}
-            style={{ maxWidth: "calc(100% - 30px)" }}
-            dangerouslySetInnerHTML={{ __html: msg.text }}
-          />
-          <button
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs flex-shrink-0"
-            title="Edit message"
-            onClick={() => handleEditMessage(msg.id)}
-          >
-            ✏️
-          </button>
-        </div>
-
-        {msg.media && msg.media.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {msg.media.map((url, idx) =>
-              url.match(/\.(mp4|webm|ogg)$/) ? (
-                <video key={idx} src={url} controls className="w-24 h-18 rounded" />
-              ) : (
-                <img
-                  key={idx}
-                  src={url}
-                  className="w-20 h-20 object-cover rounded cursor-pointer"
-                  onClick={() => setFullViewImage(url)}
-                />
-              )
-            )}
-          </div>
-        )}
-      </div>
-    ))}
-    <div ref={messagesEndRef} />
-  </div>
-
   {/* Sticky editor */}
   <div className="sticky bottom-0 bg-[#f5f5f5] dark:bg-[#1e1e1e] px-2 py-1 border-t border-gray-300 dark:border-gray-700">
     {editingMessageId && <div className="text-xs text-gray-500 mb-1 px-2">Editing message...</div>}

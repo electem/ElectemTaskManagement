@@ -47,34 +47,6 @@ export function AppSidebar() {
     role: "", // new field
   });
 
-  const handleCreateMember = async () => {
-    if (!newMember.name || !newMember.email || !newMember.role) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    try {
-      const payload = {
-        username: newMember.name,
-        email: newMember.email,
-        role: newMember.role,
-      };
-      const response = await fetch(import.meta.env.VITE_API_BASE + "/api/members", {
-
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) throw new Error("Failed to create member");
-
-      toast.success("Team member created successfully!");
-      setNewMember({ name: "", email: "", role: "" });
-      setIsMemberDialogOpen(false);
-    } catch (error) {
-      toast.error((error as Error).message);
-    }
-  };
   const handleLogout = () => {
     localStorage.removeItem("username");
     navigate("/");
@@ -129,62 +101,7 @@ export function AppSidebar() {
 
         {open && (
           <div className="px-4 py-2 border-t border-sidebar-border mt-auto space-y-2">
-            <Dialog
-              open={isMemberDialogOpen}
-              onOpenChange={setIsMemberDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold shadow-lg hover:from-indigo-600 hover:to-purple-600 transition-colors flex items-center justify-center">
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Create Member
-                </Button>
-              </DialogTrigger>
-
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>Create Team Member</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="member-name">Name</Label>
-                    <Input
-                      id="member-name"
-                      value={newMember.name}
-                      onChange={(e) =>
-                        setNewMember({ ...newMember, name: e.target.value })
-                      }
-                      placeholder="Enter member name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newMember.email}
-                      onChange={(e) =>
-                        setNewMember({ ...newMember, email: e.target.value })
-                      }
-                      placeholder="member@example.com"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Input
-                      id="role"
-                      value={newMember.role}
-                      onChange={(e) =>
-                        setNewMember({ ...newMember, role: e.target.value })
-                      }
-                      placeholder="Enter role (e.g., admin, member)"
-                    />
-                  </div>
-                  <Button onClick={handleCreateMember} className="w-full">
-                    Create Member
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+          
             <Button
               onClick={handleLogout}
               className="w-full bg-red-600 text-white font-semibold shadow-lg hover:bg-red-700 transition-colors flex items-center justify-center"
