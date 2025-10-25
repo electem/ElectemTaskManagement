@@ -77,7 +77,7 @@ const TaskManagement = () => {
   const [fetchedTasks, setFetchedTasks] = useState<TaskDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const { projects, fetchProjects } = useProjectContext();
-
+  const username = localStorage.getItem("username");
   const handleCloseTask = async (taskId: number) => {
     try {
       await deleteTask(taskId); // API expects number
@@ -118,8 +118,13 @@ const TaskManagement = () => {
     if (projectFilter !== "all" && task.project !== projectFilter) return false;
     if (ownerFilter !== "all" && task.owner !== ownerFilter) return false;
     if (statusFilter !== "all" && task.status !== statusFilter) return false;
+
+    // 🔹 Only show if username exists in task.members
+    if (!task.members.includes(username)) return false;
+
     return true;
   });
+
   if (loading)
     return (
       <div className="flex items-center justify-center h-full">

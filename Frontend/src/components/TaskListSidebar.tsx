@@ -207,6 +207,7 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { refreshTasks } = useTaskContext();
+  const username = localStorage.getItem("username");
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -269,6 +270,11 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
     return (order[a.status] || 4) - (order[b.status] || 4);
   });
 
+  // 🔹 Filter tasks where current user is a member
+  const filteredTasks = sortedTasks.filter((task) =>
+    task.members.includes(username)
+  );
+
   return (
     <div className="px-3 space-y-2 mt-4">
       <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider pl-3">
@@ -281,12 +287,12 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Loading Tasks...
           </div>
-        ) : sortedTasks.length === 0 ? (
+        ) : filteredTasks.length === 0 ? (
           <p className="text-center text-xs text-gray-500 dark:text-gray-400 p-4">
             No tasks found.
           </p>
         ) : (
-          sortedTasks.map((task) => (
+          filteredTasks.map((task) => (
             <div
               key={task.id}
               className="rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
