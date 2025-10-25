@@ -33,7 +33,7 @@ const AppLayout = () => {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/dashboard" element={<Index />} />
-          
+          <Route path="/task" element={<Index />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/tasks/new" element={<TaskFormPage />} />
           <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />

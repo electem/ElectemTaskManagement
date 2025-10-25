@@ -48,10 +48,11 @@ export function AppSidebar() {
   });
 
   const handleLogout = () => {
-    localStorage.removeItem("username");
+    localStorage.clear(); // removes all items from localStorage
     navigate("/");
     toast.success("Logged out successfully!");
   };
+  
 
   return (
     <Sidebar collapsible="icon">
