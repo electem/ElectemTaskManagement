@@ -306,12 +306,14 @@ export default function MsChatCommentsEditor({
       setThreads(updatedThreads);
       setEditing(null);
     } else {
+      const newThread = { content: finalInnerHTML, replies: [] };
+
       if (parentIndex === null) {
-        updatedThreads.push(newMessageObj);
+        updatedThreads.push(newThread);
       } else {
         let parent = updatedThreads[parentIndex];
         if (replyIndex !== null) parent = parent.replies[replyIndex];
-        parent.replies = [...(parent.replies || []), newMessageObj];
+        parent.replies = [...(parent.replies || []), newThread];
       }
       setThreads(updatedThreads);
     }
@@ -407,6 +409,7 @@ export default function MsChatCommentsEditor({
             isFocused ? "ring-2 ring-slate-200" : ""
           }`}
           aria-label="Rich text comment editor"
+          placeholder={placeholder}
           style={{ whiteSpace: "pre-wrap" }}
         />
 

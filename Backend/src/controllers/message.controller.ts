@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../prisma/client";
+import { broadcastUpdate } from "../server";
 
 export const getMessages = async (req: Request, res: Response) => {
   try {
@@ -57,6 +58,7 @@ export const upsertMessage = async (req: Request, res: Response) => {
       },
     });
 
+    broadcastUpdate(newMessage,taskId)
     res.json(result);
 
   } catch (error) {
