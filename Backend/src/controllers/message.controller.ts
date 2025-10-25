@@ -32,34 +32,19 @@ export const upsertMessage = async (req: Request, res: Response) => {
       where: { taskId },
     });
 
-    // Prepare updated conversation
-    let updatedConversation: any[] = [];
-
-    if (existing && Array.isArray(existing.conversation)) {
-      if (isEdit) {
-        // For editing, we expect the full updated threads array
-        updatedConversation = newMessage;
-      } else {
-        // For new messages, we expect a single message object to add
-        updatedConversation = [...existing.conversation, newMessage];
-      }
-    } else {
-      // If no existing conversation, start with the new message
-      updatedConversation = [newMessage];
-    }
 
     // Upsert the message record
     const result = await prisma.message.upsert({
       where: { taskId },
-      update: { conversation: updatedConversation },
+      update: { conversation: newMessage },
       create: {
         taskId,
-        conversation: updatedConversation,
+        conversation: newMessage,
       },
     });
 
     // Broadcast the updated conversation to all connected clients
-    broadcastUpdate(updatedConversation, taskId);
+    broadcastUpdate(newMessage, taskId);
     
     res.json(result);
 

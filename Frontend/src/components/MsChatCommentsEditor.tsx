@@ -37,6 +37,7 @@ export default function MsChatCommentsEditor({
   const [isConnected, setIsConnected] = useState(false);
   const { conversations } = useConversationContext();
   const messages: Message[] = conversations[taskId] || [];
+  const isPosting = useRef(false);
 
   // --- HERE: map messages to threads ---
   useEffect(() => {
@@ -82,7 +83,9 @@ export default function MsChatCommentsEditor({
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
       console.log("Received update:", msg);
-      setThreads(msg);
+      if (!isPosting.current) {
+        setThreads(msg.data.message);
+      }
 
       // 🎯 NEW: Trigger unread count for other users
       // Get current user from localStorage
@@ -326,11 +329,15 @@ export default function MsChatCommentsEditor({
 
   async function uploadThreadsToBackend(messageData: any, isEdit = false) {
     try {
+      isPosting.current = true;
       await api.post("/messages/upsert", {
         taskId,
         newMessage: messageData,
         isEdit,
       });
+      setTimeout(() => {
+        isPosting.current = false;
+      }, 1000); // short cooldown to avoid self duplication
     } catch (err) {
       console.error("Failed to upload conversation", err);
     }
