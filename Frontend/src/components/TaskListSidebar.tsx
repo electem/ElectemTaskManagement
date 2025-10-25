@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { getTasks, updateTask } from "@/services/taskService";
 import { Navigate, useNavigate } from "react-router-dom";
+// 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
 import { useTaskContext } from "@/context/TaskContext";
 
 // --- INTERFACES ---
@@ -206,44 +207,35 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
   const [loading, setLoading] = useState(true);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { refreshTasks } = useTaskContext();
+  // 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
+  const { refreshTasks, unreadCounts, markTaskAsRead } = useTaskContext();
   const username = localStorage.getItem("username");
 
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    try {
+      const fetchedTasks = await getTasks();
+      setTasks(
+        fetchedTasks.map((t) => ({
+          ...t,
+          id: t.id.toString(), // ✅ convert number → string
+        }))
+      );
+    } catch (error) {
+      toast.error("Could not fetch tasks.");
+      console.error("Fetch Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const loadTasks = async () => {
-      setLoading(true);
-      try {
-        const fetchedTasks = await getTasks();
-        setTasks(
-          fetchedTasks.map((t) => ({
-            ...t,
-            id: t.id.toString(), // ✅ convert number → string
-          }))
-        );
-      } catch (error) {
-        toast.error("Could not fetch tasks.");
-        console.error("Fetch Error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadTasks();
   }, []);
 
   useEffect(() => {
-    const loadTasks = async () => {
-      setLoading(true);
-      try {
-        const fetchedTasks = await getTasks();
-        setTasks(fetchedTasks.map((t) => ({ ...t, id: t.id.toString() })));
-      } catch (error) {
-        toast.error("Could not fetch tasks.");
-      } finally {
-        setLoading(false);
-      }
-    };
     loadTasks();
-  }, [refreshTasks]);
+  }, [refreshTasks, loadTasks]);
 
   const handleTaskUpdate = useCallback((id: string, updates: Partial<Task>) => {
     setTasks((prevTasks) =>
@@ -251,7 +243,9 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
     );
   }, []);
 
+  // 🎯 UPDATED: Mark chat as read when toggling/opening the task
   const handleToggle = (taskId: string) => {
+    markTaskAsRead(taskId);
     setExpandedTaskId((prevId) => (prevId === taskId ? null : taskId));
     navigate(`/tasks/`);
     navigate(`/tasks/${taskId}/chat`);
@@ -292,46 +286,60 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
             No tasks found.
           </p>
         ) : (
-          filteredTasks.map((task) => (
-            <div
-              key={task.id}
-              className="rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-            >
-              <Button
-                variant="ghost"
-                onClick={() => handleToggle(task.id)}
-                className={`w-full h-auto px-3 py-2 justify-start transition-colors ${
-                  expandedTaskId === task.id
-                    ? "bg-gray-100 dark:bg-gray-700"
-                    : "hover:bg-gray-50 dark:hover:bg-gray-800"
-                }`}
+          filteredTasks.map((task) => {
+            const taskIdStr = task.id;
+            // 🎯 GET UNREAD COUNT
+            const unreadCount = unreadCounts[taskIdStr] || 0;
+
+            return (
+              <div
+                key={task.id}
+                className="rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
               >
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center space-x-2 truncate">
-                    {expandedTaskId === task.id ? (
-                      <ChevronDown className="h-4 w-4 flex-shrink-0 text-primary" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
-                    )}
-                    <span className="text-sm font-medium truncate">
-                      {task.title}
+                <Button
+                  variant="ghost"
+                  onClick={() => handleToggle(task.id)}
+                  className={`w-full h-auto px-3 py-2 justify-start transition-colors ${
+                    expandedTaskId === task.id
+                      ? "bg-gray-100 dark:bg-gray-700"
+                      : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center space-x-2 truncate">
+                      {expandedTaskId === task.id ? (
+                        <ChevronDown className="h-4 w-4 flex-shrink-0 text-primary" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
+                      )}
+                      <span className="text-sm font-medium truncate">
+                        {task.title}
+                      </span>
+
+                      {/* 🎯 DISPLAY UNREAD BUBBLE in Sidebar */}
+                      {unreadCount > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center p-0.5 ml-1 flex-shrink-0 animate-pulse">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+
+                    </div>
+                    <span
+                      className={`text-xs font-semibold rounded-full px-2 py-0.5 ml-2 flex-shrink-0 ${
+                        statusColors[task.status] || statusColors.default
+                      }`}
+                    >
+                      {task.status}
                     </span>
                   </div>
-                  <span
-                    className={`text-xs font-semibold rounded-full px-2 py-0.5 ml-2 flex-shrink-0 ${
-                      statusColors[task.status] || statusColors.default
-                    }`}
-                  >
-                    {task.status}
-                  </span>
-                </div>
-              </Button>
+                </Button>
 
-              {expandedTaskId === task.id && (
-                <TaskDetailComponent task={task} onUpdate={handleTaskUpdate} />
-              )}
-            </div>
-          ))
+                {expandedTaskId === task.id && (
+                  <TaskDetailComponent task={task} onUpdate={handleTaskUpdate} />
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>

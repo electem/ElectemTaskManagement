@@ -26,7 +26,7 @@ import { useProjectContext } from "@/context/ProjectContext";
 
 // Ensure this matches your TaskDTO or Task interface structure
 interface Task {
-  id: string; 
+  id: string;
   project: string;
   owner: string;
   members: string[];
@@ -87,7 +87,8 @@ const truncateText = (text: string, maxLength: number) => {
 
 const TaskManagement = () => {
   const navigate = useNavigate();
-  const { tasks: contextTasks, closeTask } = useTaskContext();
+  // 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
+  const { tasks: contextTasks, closeTask, unreadCounts, markTaskAsRead } = useTaskContext();
 
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
@@ -105,7 +106,7 @@ const TaskManagement = () => {
         throw new Error("Invalid Task ID");
       }
       // Note: If your deleteTask service truly needs a number, this conversion is necessary.
-      await deleteTask(idAsNumber); 
+      await deleteTask(idAsNumber);
       setFetchedTasks(fetchedTasks.filter((t) => t.id.toString() !== taskId));
       toast.success("Task closed successfully");
     } catch (err) {
@@ -171,7 +172,9 @@ const TaskManagement = () => {
     return colors[status] || "bg-muted";
   };
 
+  // 🎯 ADDED: Function to mark as read before navigation
   const handleChatClick = (taskId: string) => {
+    markTaskAsRead(taskId);
     navigate(`/tasks/${taskId}/chat`);
   };
 
@@ -262,8 +265,13 @@ const TaskManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTasks.map((task) => (
-                  <TableRow key={task.id}>
+                {filteredTasks.map((task) => {
+                  const taskIdStr = task.id.toString();
+                  // 🎯 GET UNREAD COUNT
+                  const unreadCount = unreadCounts[taskIdStr] || 0;
+
+                  return (
+                    <TableRow key={task.id}>
                     {/* Title cell - now clickable for edit */}
                     <TableCell
                       className="font-medium cursor-pointer hover:underline text-primary"
@@ -286,15 +294,24 @@ const TaskManagement = () => {
                     </TableCell>
                     {/* New Message cell - clickable for chat */}
                     <TableCell
-                      className="cursor-pointer hover:text-primary hover:underline flex items-center gap-1"
-                      onClick={() => handleChatClick(task.id.toString())}
-                      title="Click to view chat"
+                      className="cursor-pointer hover:text-primary flex items-center gap-1"
+                      onClick={() => handleChatClick(taskIdStr)}
+                      title={`Click to view chat${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
                     >
                       <MessageCircle className="h-4 w-4 mr-1" />
-                      Latest Message...
+
+                      {/* 🎯 DISPLAY UNREAD BUBBLE */}
+                      {unreadCount > 0 ? (
+                        <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs font-bold animate-pulse">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Chat</span>
+                      )}
                     </TableCell>
                   </TableRow>
-                ))}
+                );
+              })}
               </TableBody>
             </Table>
           </div>

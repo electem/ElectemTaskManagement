@@ -15,6 +15,11 @@ export interface Task {
   dependentTaskId?: number;
 }
 
+// 🎯 ADDED: Interface for unread counts
+interface TaskUnreadCounts {
+  [taskId: string]: number; // Maps taskId (string) to unread count (number)
+}
+
 interface TaskContextType {
   tasks: Task[];
   fetchTasks: () => Promise<void>;
@@ -24,6 +29,10 @@ interface TaskContextType {
   deleteTask: (id: number) => Promise<void>;
   refreshTasks: boolean;
   triggerTaskRefresh: () => void;
+  // 🎯 ADDED: Unread message state and functions
+  unreadCounts: TaskUnreadCounts;
+  markTaskAsRead: (taskId: string) => void;
+  incrementUnreadCount: (taskId: string) => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -31,10 +40,13 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [refreshTasks, setRefreshTasks] = useState(false);
+  // 🎯 ADDED: State for unread message counts
+  const [unreadCounts, setUnreadCounts] = useState<TaskUnreadCounts>({});
 
   const triggerTaskRefresh = () => {
     setRefreshTasks((prev) => !prev);
   };
+
   // Fetch all tasks
   const fetchTasks = async () => {
     try {
@@ -89,6 +101,25 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // 🎯 ADDED: Function to mark a task's chat as read
+  const markTaskAsRead = (taskId: string) => {
+    setUnreadCounts((prev) => {
+      if (prev[taskId] > 0) {
+        // In a real app, this would also call a backend API to persist the 'read' state
+        return { ...prev, [taskId]: 0 };
+      }
+      return prev;
+    });
+  };
+
+  // 🎯 ADDED: Function to increment unread count
+  const incrementUnreadCount = (taskId: string) => {
+    setUnreadCounts((prev) => ({
+      ...prev,
+      [taskId]: (prev[taskId] || 0) + 1,
+    }));
+  };
+
   // Load tasks initially (only if token exists)
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -104,8 +135,12 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
         updateTask,
         closeTask,
         deleteTask,
-        refreshTasks,         // 👈 new value
-        triggerTaskRefresh,   // 👈 new value
+        refreshTasks,
+        triggerTaskRefresh,
+        // 🎯 ADDED: New context values
+        unreadCounts,
+        markTaskAsRead,
+        incrementUnreadCount,
       }}
     >
       {children}

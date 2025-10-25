@@ -2,7 +2,10 @@ import React, { useRef, useState, useEffect } from "react";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import api from "@/lib/api";
-import { Message, useConversationContext } from "@/context/ConversationProvider";
+import {
+  Message,
+  useConversationContext,
+} from "@/context/ConversationProvider";
 
 interface Props {
   placeholder?: string;
@@ -35,28 +38,24 @@ export default function MsChatCommentsEditor({
   const { conversations } = useConversationContext();
   const messages: Message[] = conversations[taskId] || [];
 
-  
   // --- HERE: map messages to threads ---
   useEffect(() => {
     if (messages.length > 0) {
-      const mappedThreads = messages.map(msg => ({
+      const mappedThreads = messages.map((msg) => ({
         content: `${msg.sender}(${msg.time}): ${msg.text}`, // format like SHI(25/10 10:49): wwww
         replies: [], // no nested replies yet
       }));
       setThreads(mappedThreads);
     }
   }, [messages]);
-  
-  
-  console.log("conversationsconversations",conversations);
-  
+
+  console.log("conversationsconversations", conversations);
+
   useEffect(() => {
     if (editorRef.current && !editorRef.current.innerHTML) {
       editorRef.current.innerHTML = "";
     }
   }, []);
-
-  
 
   useEffect(() => {
     highlightCodeBlocks();
@@ -66,12 +65,12 @@ export default function MsChatCommentsEditor({
   // WebSocket Connection with Auto-Reconnect + Status Indicator
   // =========================
   const connectWebSocket = () => {
-    const ws = new WebSocket('ws://localhost:8089');
+    const ws = new WebSocket("ws://localhost:8089");
 
     ws.onopen = () => {
-      console.log('Connected to WebSocket server');
+      console.log("Connected to WebSocket server");
       // Send a JSON object immediately after connection opens
-      const initMessage = JSON.stringify({ type: 'INIT', taskId });
+      const initMessage = JSON.stringify({ type: "INIT", taskId });
       ws.send(initMessage);
 
       setRetryCount(0);
@@ -79,14 +78,35 @@ export default function MsChatCommentsEditor({
       setSocket(ws);
     };
 
+    // In MsChatCommentsEditor.tsx - Update the WebSocket message handler
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
-      console.log('Received update:', msg);
-      setThreads(msg);      
+      console.log("Received update:", msg);
+      setThreads(msg);
+
+      // 🎯 NEW: Trigger unread count for other users
+      // Get current user from localStorage
+      const currentUser = localStorage.getItem("username") || "Guest";
+      const userPrefix = currentUser.substring(0, 3).toUpperCase();
+
+      // Check if the message is from another user
+      const latestMessage = msg[msg.length - 1];
+      if (latestMessage && latestMessage.content) {
+        const messageSender = latestMessage.content.match(/^(\w+)\(/);
+        if (messageSender && messageSender[1] !== userPrefix) {
+          // This message is from another user, increment unread count
+          // We'll need to pass this information to parent components
+          // For now, we'll use a custom event
+          const unreadEvent = new CustomEvent("taskMessageReceived", {
+            detail: { taskId, fromUser: messageSender[1] },
+          });
+          window.dispatchEvent(unreadEvent);
+        }
+      }
     };
 
     ws.onclose = () => {
-      console.warn('WebSocket disconnected. Retrying...');
+      console.warn("WebSocket disconnected. Retrying...");
       setIsConnected(false);
       setTimeout(() => {
         setRetryCount((prev) => prev + 1);
@@ -95,7 +115,7 @@ export default function MsChatCommentsEditor({
     };
 
     ws.onerror = (err) => {
-      console.error('WebSocket error:', err);
+      console.error("WebSocket error:", err);
       ws.close();
     };
   };
@@ -144,7 +164,12 @@ export default function MsChatCommentsEditor({
       const language = detectLanguage(textData);
       const paragraphs = textData
         .split(/\n{2,}/)
-        .map((p) => `<pre><code class='language-${language}'>${escapeHtml(p)}</code></pre>`)
+        .map(
+          (p) =>
+            `<pre><code class='language-${language}'>${escapeHtml(
+              p
+            )}</code></pre>`
+        )
         .join("");
       payload = paragraphs;
     }
@@ -267,25 +292,23 @@ export default function MsChatCommentsEditor({
       console.error("Failed to upload conversation", err);
     }
   }
-  
-  
 
   async function handleSend(parentIndex = null, replyIndex = null) {
     const innerHTML = editorRef.current?.innerHTML?.trim() || "";
 
     // 1. Get username from local storage (assuming it's stored under the key 'username')
-    const fullUsername = localStorage.getItem('username') || "---"; 
+    const fullUsername = localStorage.getItem("username") || "---";
     // Extract the first three characters or use '---' as a fallback
-    const usernamePrefix = fullUsername.substring(0, 3).toUpperCase(); 
+    const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
 
     // 2. Format the current Date and Time
     const now = new Date();
 
     // Get day, month, minute, and second
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-    const minute = String(now.getMinutes()).padStart(2, '0');
-    const second = String(now.getSeconds()).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+    const minute = String(now.getMinutes()).padStart(2, "0");
+    const second = String(now.getSeconds()).padStart(2, "0");
 
     // Create the date/time string: DD/MM MI:SS
     const dateTimeString = `${day}/${month} ${minute}:${second}`;
@@ -293,7 +316,7 @@ export default function MsChatCommentsEditor({
     // 3. Prepend the prefix and date/time to innerHTML
     const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${innerHTML}`;
 
-// Example output: JON(25/10 48:31): <div>Hello world!</div>
+    // Example output: JON(25/10 48:31): <div>Hello world!</div>
     if (!finalInnerHTML.trim()) return;
 
     const updatedThreads = [...threads];
@@ -301,7 +324,9 @@ export default function MsChatCommentsEditor({
 
     if (editing) {
       const { path } = editing;
-      const target = path.length ? getReplyByPath(updatedThreads[path[0]], path.slice(1)) : updatedThreads[path[0]];
+      const target = path.length
+        ? getReplyByPath(updatedThreads[path[0]], path.slice(1))
+        : updatedThreads[path[0]];
       if (target) target.content = finalInnerHTML;
       setThreads(updatedThreads);
       setEditing(null);
@@ -345,18 +370,41 @@ export default function MsChatCommentsEditor({
       const isCollapsed = collapsed[replyId];
 
       return (
-        <div key={replyId} className={`ml-${level * 4} mt-2 border-l-2 pl-2 border-gray-300`}>
+        <div
+          key={replyId}
+          className={`ml-${level * 4} mt-2 border-l-2 pl-2 border-gray-300`}
+        >
           <div className="flex justify-between items-center">
             <div dangerouslySetInnerHTML={{ __html: reply.content }} />
             <div className="flex gap-2 text-sm">
-              <button className="hover:text-blue-600" onClick={() => handleSend(path[0], i)} title="Reply">↩</button>
-              <button className="hover:text-green-600" onClick={() => handleEdit(replyPath)} title="Edit">✎</button>
-              <button className="hover:text-gray-500" onClick={() => toggleCollapse(replyId)} title="Collapse / Expand">{isCollapsed ? "▶" : "▼"}</button>
+              <button
+                className="hover:text-blue-600"
+                onClick={() => handleSend(path[0], i)}
+                title="Reply"
+              >
+                ↩
+              </button>
+              <button
+                className="hover:text-green-600"
+                onClick={() => handleEdit(replyPath)}
+                title="Edit"
+              >
+                ✎
+              </button>
+              <button
+                className="hover:text-gray-500"
+                onClick={() => toggleCollapse(replyId)}
+                title="Collapse / Expand"
+              >
+                {isCollapsed ? "▶" : "▼"}
+              </button>
             </div>
           </div>
 
           {!isCollapsed && reply.replies && reply.replies.length > 0 && (
-            <div>{renderReplies(reply.replies, replyPath, level + 1, replyId)}</div>
+            <div>
+              {renderReplies(reply.replies, replyPath, level + 1, replyId)}
+            </div>
           )}
         </div>
       );
@@ -366,7 +414,6 @@ export default function MsChatCommentsEditor({
   return (
     <div className={`${className} flex flex-col gap-3`}>
       <div className="mt-2 text-sm text-slate-600">
-
         <div className="bg-slate-50 p-3 rounded overflow-auto text-xs whitespace-pre-wrap prose prose-slate list-disc pl-5">
           {threads.length > 0 ? (
             threads.map((thread, index) => {
@@ -378,19 +425,42 @@ export default function MsChatCommentsEditor({
                   <div className="flex justify-between items-center">
                     <div dangerouslySetInnerHTML={{ __html: thread.content }} />
                     <div className="flex gap-2 text-sm">
-                      <button className="hover:text-blue-600" onClick={() => handleSend(index)} title="Reply">↩</button>
-                      <button className="hover:text-green-600" onClick={() => handleEdit(threadPath)} title="Edit">✎</button>
-                      <button className="hover:text-gray-500" onClick={() => toggleCollapse(threadId)} title="Collapse / Expand">{isCollapsed ? "▶" : "▼"}</button>
+                      <button
+                        className="hover:text-blue-600"
+                        onClick={() => handleSend(index)}
+                        title="Reply"
+                      >
+                        ↩
+                      </button>
+                      <button
+                        className="hover:text-green-600"
+                        onClick={() => handleEdit(threadPath)}
+                        title="Edit"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        className="hover:text-gray-500"
+                        onClick={() => toggleCollapse(threadId)}
+                        title="Collapse / Expand"
+                      >
+                        {isCollapsed ? "▶" : "▼"}
+                      </button>
                     </div>
                   </div>
-                  {!isCollapsed && thread.replies && thread.replies.length > 0 && renderReplies(thread.replies, threadPath, 1, threadId)}
+                  {!isCollapsed &&
+                    thread.replies &&
+                    thread.replies.length > 0 &&
+                    renderReplies(thread.replies, threadPath, 1, threadId)}
                 </div>
               );
             })
           ) : html ? (
             <div dangerouslySetInnerHTML={{ __html: html }} />
           ) : (
-            <div className="text-slate-400">No content yet — start typing or paste formatted text.</div>
+            <div className="text-slate-400">
+              No content yet — start typing or paste formatted text.
+            </div>
           )}
         </div>
       </div>
@@ -420,7 +490,12 @@ export default function MsChatCommentsEditor({
             }`}
           >
             📎
-            <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+            <input
+              type="file"
+              className="hidden"
+              onChange={handleFileUpload}
+              disabled={uploading}
+            />
           </label>
           <button
             onClick={() => handleSend()}
@@ -431,8 +506,6 @@ export default function MsChatCommentsEditor({
           </button>
         </div>
       </div>
-
-      
     </div>
   );
 }

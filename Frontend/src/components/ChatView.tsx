@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import MsChatCommentsEditor from "./MsChatCommentsEditor.tsx";
 import { useConversationContext } from "@/context/ConversationProvider.tsx";
 import { useParams, useNavigate } from "react-router-dom"; // import useNavigate
-
+import { useWebSocket } from '@/context/WebSocketProvider';
+import { useTaskContext } from '@/context/TaskContext';
 interface Message {
   id: number;
   sender: string;
@@ -16,6 +17,8 @@ interface Message {
 export default function ChatView() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate(); // initialize navigate
+  const { connectToTask } = useWebSocket();
+  const { markTaskAsRead } = useTaskContext();
   if (!taskId) return <div>Task not found</div>;
   const taskIdNumber = Number(taskId);
 
@@ -25,7 +28,16 @@ export default function ChatView() {
 
   const { conversations, fetchConversation, addMessage } = useConversationContext();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    connectToTask(taskIdNumber);
 
+    // Mark as read when opening the chat
+    markTaskAsRead(taskId);
+
+    return () => {
+      // Optional: Disconnect when leaving if needed
+    };
+  }, [taskIdNumber, connectToTask, markTaskAsRead]);
   useEffect(() => {
     fetchConversation(taskIdNumber);
   }, [taskIdNumber]);

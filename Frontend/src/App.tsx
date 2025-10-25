@@ -16,6 +16,7 @@ import Login from "./pages/Login";
 import { TaskProvider } from "@/context/TaskContext";
 import { ProjectProvider } from './context/ProjectContext';
 import { ConversationProvider } from "./context/ConversationProvider";
+import { WebSocketProvider } from "@/context/WebSocketProvider"; // 🎯 ADDED
 
 const queryClient = new QueryClient();
 
@@ -52,13 +53,15 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <TaskProvider>
-          <ConversationProvider>
-            <ProjectProvider>
-              <SidebarProvider defaultOpen={false}>
-                <AppLayout />
-              </SidebarProvider>
-            </ProjectProvider>
-          </ConversationProvider>
+          <WebSocketProvider> {/* 🎯 ADDED - Wrap with WebSocketProvider */}
+            <ConversationProvider>
+              <ProjectProvider>
+                <SidebarProvider defaultOpen={false}>
+                  <AppLayout />
+                </SidebarProvider>
+              </ProjectProvider>
+            </ConversationProvider>
+          </WebSocketProvider>
         </TaskProvider>
       </BrowserRouter>
     </TooltipProvider>
