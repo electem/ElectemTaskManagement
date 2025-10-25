@@ -79,32 +79,31 @@ export default function MsChatCommentsEditor({
     };
 
     // In MsChatCommentsEditor.tsx - Update the WebSocket message handler
-    // In MsChatCommentsEditor.tsx - Update the WebSocket message handler
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  console.log('Received update:', msg);
-  setThreads(msg);
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      console.log("Received update:", msg);
+      setThreads(msg);
 
-  // 🎯 NEW: Trigger unread count for other users
-  // Get current user from localStorage
-  const currentUser = localStorage.getItem('username') || 'Guest';
-  const userPrefix = currentUser.substring(0, 3).toUpperCase();
+      // 🎯 NEW: Trigger unread count for other users
+      // Get current user from localStorage
+      const currentUser = localStorage.getItem("username") || "Guest";
+      const userPrefix = currentUser.substring(0, 3).toUpperCase();
 
-  // Check if the message is from another user
-  const latestMessage = msg[msg.length - 1];
-  if (latestMessage && latestMessage.content) {
-    const messageSender = latestMessage.content.match(/^(\w+)\(/);
-    if (messageSender && messageSender[1] !== userPrefix) {
-      // This message is from another user, increment unread count
-      // We'll need to pass this information to parent components
-      // For now, we'll use a custom event
-      const unreadEvent = new CustomEvent('taskMessageReceived', {
-        detail: { taskId, fromUser: messageSender[1] }
-      });
-      window.dispatchEvent(unreadEvent);
-    }
-  }
-};
+      // Check if the message is from another user
+      const latestMessage = msg[msg.length - 1];
+      if (latestMessage && latestMessage.content) {
+        const messageSender = latestMessage.content.match(/^(\w+)\(/);
+        if (messageSender && messageSender[1] !== userPrefix) {
+          // This message is from another user, increment unread count
+          // We'll need to pass this information to parent components
+          // For now, we'll use a custom event
+          const unreadEvent = new CustomEvent("taskMessageReceived", {
+            detail: { taskId, fromUser: messageSender[1] },
+          });
+          window.dispatchEvent(unreadEvent);
+        }
+      }
+    };
 
     ws.onclose = () => {
       console.warn("WebSocket disconnected. Retrying...");
@@ -231,34 +230,74 @@ ws.onmessage = (event) => {
     }
   }
 
-  async function handleFileUpload(e) {
+  async function handleFileUpload(e, taskId) {
     const file = e.target.files[0];
     if (!file) return;
-
+  
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("http://localhost:4000/upload", {
-        method: "POST",
-        body: formData,
+      formData.append("taskId", taskId);
+      
+      const res = await api.post("/uploads", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
-
-      const data = await res.json();
+  
+      const data = res.data;
       if (data && data.url) {
-        let embedHtml = "";
+        // Get username and timestamp (same logic as handleSend)
+        const fullUsername = localStorage.getItem("username") || "---";
+        const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, "0");
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const minute = String(now.getMinutes()).padStart(2, "0");
+        const second = String(now.getSeconds()).padStart(2, "0");
+        const dateTimeString = `${day}/${month} ${minute}:${second}`;
+  
+        // Create file embed HTML based on file type
+        let fileEmbedHtml = "";
         if (file.type.startsWith("image/")) {
-          embedHtml = `<img src='${data.url}' alt='uploaded image' class='max-w-full rounded-md my-2' />`;
+          fileEmbedHtml = `<img src='${data.url}' alt='${file.name}' class='max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer' />`;
         } else if (file.type.startsWith("video/")) {
-          embedHtml = `<video src='${data.url}' controls class='max-w-full rounded-md my-2'></video>`;
+          fileEmbedHtml = `<video src='${data.url}' controls class='max-w-[200px] rounded-md my-2'></video>`;
         } else {
-          embedHtml = `<a href='${data.url}' target='_blank' class='text-blue-600 underline'>${file.name}</a>`;
+          fileEmbedHtml = `<a href='${data.url}' target='_blank' class='text-blue-600 underline'>${file.name}</a>`;
         }
-        insertHtmlAtCaret(embedHtml);
-        syncHtml();
+  
+        // Create the complete message content with user info and file (same format as handleSend)
+        const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${fileEmbedHtml}`;
+  
+        // Use the SAME LOGIC as handleSend for updating threads
+        const updatedThreads = [...threads];
+        const newThread = { content: finalInnerHTML, replies: [] };
+  
+        // For file uploads, always create as top-level message (parentIndex = null)
+        // If you want file uploads to be replies, you can pass parentIndex and replyIndex as parameters
+        const parentIndex = null; // Top-level message
+        const replyIndex = null;
+  
+        if (parentIndex === null) {
+          updatedThreads.push(newThread);
+        } else {
+          let parent = updatedThreads[parentIndex];
+          if (replyIndex !== null) parent = parent.replies[replyIndex];
+          parent.replies = [...(parent.replies || []), newThread];
+        }
+        setThreads(updatedThreads);
+        
+        // Use the SAME LOGIC as handleSend for backend upload
+        // For new file messages, send only the new message object (same as handleSend)
+        await uploadThreadsToBackend(newThread, false);
+  
+        // Clear the file input
+        e.target.value = '';
       }
     } catch (err) {
-      console.error("Upload failed", err);
+      console.error("Upload failed:", err);
     } finally {
       setUploading(false);
     }
@@ -276,17 +315,20 @@ ws.onmessage = (event) => {
   function getReplyByPath(root, path) {
     let current = root;
     for (const idx of path) {
-      if (!current.replies || !current.replies[idx]) return null;
+      if (!current.replies || !current.replies[idx]) {
+        console.error(`Invalid path at index ${idx}`, current);
+        return null;
+      }
       current = current.replies[idx];
     }
     return current;
   }
 
-  async function uploadThreadsToBackend(newMessage, isEdit = false) {
+  async function uploadThreadsToBackend(messageData: any, isEdit = false) {
     try {
       await api.post("/messages/upsert", {
         taskId,
-        newMessage,
+        newMessage: messageData,
         isEdit,
       });
     } catch (err) {
@@ -296,33 +338,33 @@ ws.onmessage = (event) => {
 
   async function handleSend(parentIndex = null, replyIndex = null) {
     const innerHTML = editorRef.current?.innerHTML?.trim() || "";
-
+  
     // 1. Get username from local storage (assuming it's stored under the key 'username')
     const fullUsername = localStorage.getItem("username") || "---";
     // Extract the first three characters or use '---' as a fallback
     const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
-
+  
     // 2. Format the current Date and Time
     const now = new Date();
-
+  
     // Get day, month, minute, and second
     const day = String(now.getDate()).padStart(2, "0");
     const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
     const minute = String(now.getMinutes()).padStart(2, "0");
     const second = String(now.getSeconds()).padStart(2, "0");
-
+  
     // Create the date/time string: DD/MM MI:SS
     const dateTimeString = `${day}/${month} ${minute}:${second}`;
-
+  
     // 3. Prepend the prefix and date/time to innerHTML
     const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${innerHTML}`;
-
+  
     // Example output: JON(25/10 48:31): <div>Hello world!</div>
     if (!finalInnerHTML.trim()) return;
-
+  
     const updatedThreads = [...threads];
-    const newMessageObj = { content: finalInnerHTML, replies: [] };
-
+    // const newMessageObj = { content: finalInnerHTML, replies: [] };
+  
     if (editing) {
       const { path } = editing;
       const target = path.length
@@ -331,9 +373,12 @@ ws.onmessage = (event) => {
       if (target) target.content = finalInnerHTML;
       setThreads(updatedThreads);
       setEditing(null);
+      
+      // For editing, send the updated threads array
+      await uploadThreadsToBackend(updatedThreads, true);
     } else {
       const newThread = { content: finalInnerHTML, replies: [] };
-
+  
       if (parentIndex === null) {
         updatedThreads.push(newThread);
       } else {
@@ -342,10 +387,11 @@ ws.onmessage = (event) => {
         parent.replies = [...(parent.replies || []), newThread];
       }
       setThreads(updatedThreads);
+      
+      // For new messages, send only the new message object
+      await uploadThreadsToBackend(newThread, false);
     }
-
-    await uploadThreadsToBackend(updatedThreads);
-
+  
     editorRef.current.innerHTML = "";
     setHtml("");
   }
@@ -364,6 +410,27 @@ ws.onmessage = (event) => {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
   }
 
+  const MessageContent = ({ htmlContent }: { htmlContent: string }) => {
+    const handleImageClick = (url: string) => {
+      window.open(url, "_blank");
+    };
+  
+    return (
+      <div
+        className="message-content"
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          // If clicked element is an <img>, open in new tab
+          if (target.tagName === "IMG") {
+            handleImageClick((target as HTMLImageElement).src);
+          }
+        }}
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
+      />
+    );
+  };
+  
+
   const renderReplies = (replies, path, level = 1, parentId = "") => {
     return replies.map((reply, i) => {
       const replyPath = [...path, i];
@@ -376,7 +443,7 @@ ws.onmessage = (event) => {
           className={`ml-${level * 4} mt-2 border-l-2 pl-2 border-gray-300`}
         >
           <div className="flex justify-between items-center">
-            <div dangerouslySetInnerHTML={{ __html: reply.content }} />
+           <MessageContent htmlContent={reply.content} />
             <div className="flex gap-2 text-sm">
               <button
                 className="hover:text-blue-600"
@@ -424,7 +491,7 @@ ws.onmessage = (event) => {
               return (
                 <div key={threadId} className="mb-2">
                   <div className="flex justify-between items-center">
-                    <div dangerouslySetInnerHTML={{ __html: thread.content }} />
+                  <MessageContent htmlContent={thread.content} />
                     <div className="flex gap-2 text-sm">
                       <button
                         className="hover:text-blue-600"
@@ -480,7 +547,6 @@ ws.onmessage = (event) => {
             isFocused ? "ring-2 ring-slate-200" : ""
           }`}
           aria-label="Rich text comment editor"
-          placeholder={placeholder}
           style={{ whiteSpace: "pre-wrap" }}
         />
 
@@ -494,7 +560,7 @@ ws.onmessage = (event) => {
             <input
               type="file"
               className="hidden"
-              onChange={handleFileUpload}
+              onChange={(e) => handleFileUpload(e, taskId)} 
               disabled={uploading}
             />
           </label>

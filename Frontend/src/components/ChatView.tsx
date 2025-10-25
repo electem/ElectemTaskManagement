@@ -88,14 +88,15 @@ export default function ChatView() {
     <div className="flex flex-col h-full bg-[#f5f5f5] dark:bg-[#1e1e1e] rounded-xl shadow-sm font-[Segoe UI,Arial,sans-serif] text-sm">
 
       {/* Header */}
-      <div className="p-2 border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-[#252526] rounded-t-xl flex items-center justify-between">
+      <div className="sticky top-0 z-50 flex items-center justify-between bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 shadow">
         <button
-          className="text-[12px] text-blue-500 hover:underline"
-          onClick={() => navigate(-1)} // go back
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 px-3 py-1 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition text-gray-700 dark:text-gray-200 font-medium"
         >
           ← Back
         </button>
-        <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-200">Chat</h2>
+        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Chat</h2>
+        <div className="w-10" /> {/* Placeholder for alignment */}
       </div>
 
       {/* Sticky editor */}

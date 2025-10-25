@@ -33,18 +33,18 @@ export const upsertMessage = async (req: Request, res: Response) => {
     });
 
     // Prepare updated conversation
-    let updatedConversation: typeof newMessage[] = [];
+    let updatedConversation: any[] = [];
 
     if (existing && Array.isArray(existing.conversation)) {
       if (isEdit) {
-        // Replace the message with the same ID safely
-        updatedConversation = existing.conversation
-          .filter((m): m is typeof newMessage => m !== null)
-          .map((m) => (m.id === newMessage.id ? newMessage : m));
+        // For editing, we expect the full updated threads array
+        updatedConversation = newMessage;
       } else {
+        // For new messages, we expect a single message object to add
         updatedConversation = [...existing.conversation, newMessage];
       }
     } else {
+      // If no existing conversation, start with the new message
       updatedConversation = [newMessage];
     }
 
@@ -58,7 +58,9 @@ export const upsertMessage = async (req: Request, res: Response) => {
       },
     });
 
-    broadcastUpdate(newMessage,taskId)
+    // Broadcast the updated conversation to all connected clients
+    broadcastUpdate(updatedConversation, taskId);
+    
     res.json(result);
 
   } catch (error) {
@@ -66,5 +68,3 @@ export const upsertMessage = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to upsert message" });
   }
 };
-
-  

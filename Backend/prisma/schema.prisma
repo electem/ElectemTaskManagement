@@ -64,3 +64,17 @@ model Message {
 
   @@unique([taskId]) // One conversation per task
 }
+
+model UploadedFile {
+  id            Int      @id @default(autoincrement())
+  originalName  String   // Original filename
+  fileName      String   // Stored filename
+  filePath      String   // Path on server
+  mimeType      String   // File type
+  size          Int      // File size in bytes
+  taskId        Int?     // Associated task ID
+  messageId     String?  // Associated message ID
+  uploadDate    DateTime @default(now())
+  
+  @@map("uploaded_files")
+}

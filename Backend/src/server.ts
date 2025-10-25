@@ -8,8 +8,9 @@ import memberRoutes from "./routes/member.routes";
 import messageRoute from "./routes/message.routes"
 import authRoutes from "./routes/authRoutes"
 import projectRoutes from "./routes/projects";
+import fileRoutes from "./routes/fileRoutes";
 import { WebSocketServer } from "ws";
-
+import path from "path";
 dotenv.config();
 const app = express();
 app.use(cors({
@@ -23,6 +24,10 @@ app.use((req, res, next) => {
   next();
 });
 
+
+// Serve uploads folder statically
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
+
 app.use("/messages",messageRoute)
 app.use("/tasks", taskRoutes);
 app.use("/projects", projectRoutes);
@@ -31,6 +36,8 @@ app.use("/api/users", userRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
+// Serve static files from uploads directory
+app.use("/uploads", fileRoutes);
 
 app.get("/health", (req, res) => res.json({ status: "OK", message: "Server running" }));
 
