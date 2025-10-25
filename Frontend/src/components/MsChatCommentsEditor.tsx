@@ -407,7 +407,6 @@ export default function MsChatCommentsEditor({
             isFocused ? "ring-2 ring-slate-200" : ""
           }`}
           aria-label="Rich text comment editor"
-          placeholder={placeholder}
           style={{ whiteSpace: "pre-wrap" }}
         />
 
