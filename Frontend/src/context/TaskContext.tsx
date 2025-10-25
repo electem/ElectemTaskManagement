@@ -20,13 +20,19 @@ interface TaskContextType {
   updateTask: (id: number, task: Partial<Task>) => Promise<void>;
   closeTask: (id: number) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
+  refreshTasks: boolean;
+  triggerTaskRefresh: () => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [refreshTasks, setRefreshTasks] = useState(false);
 
+  const triggerTaskRefresh = () => {
+    setRefreshTasks((prev) => !prev);
+  };
   // Fetch all tasks
   const fetchTasks = async () => {
     try {
@@ -42,6 +48,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await api.post("/tasks", task);
       setTasks((prev) => [res.data, ...prev]);
+      triggerTaskRefresh();
     } catch (err) {
       console.error("Error adding task:", err);
     }
@@ -52,6 +59,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await api.put(`/tasks/${id}`, task);
       setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
+      triggerTaskRefresh();
     } catch (err) {
       console.error("Error updating task:", err);
     }
@@ -62,6 +70,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await api.patch(`/tasks/${id}/status`, { status: "Completed" });
       setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
+      triggerTaskRefresh();
     } catch (err) {
       console.error("Error closing task:", err);
     }
@@ -72,6 +81,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     try {
       await api.delete(`/tasks/${id}`);
       setTasks((prev) => prev.filter((t) => t.id !== id));
+      triggerTaskRefresh();
     } catch (err) {
       console.error("Error deleting task:", err);
     }
@@ -92,6 +102,8 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
         updateTask,
         closeTask,
         deleteTask,
+        refreshTasks,         // 👈 new value
+        triggerTaskRefresh,   // 👈 new value
       }}
     >
       {children}
