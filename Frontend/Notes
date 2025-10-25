@@ -1,0 +1,258 @@
+// =========================
+// WebSocket + Express Backend (server.js)
+// =========================
+// Run: node server.js
+// Requires: npm install express ws cors body-parser multer path fs
+
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { WebSocketServer } from 'ws';
+
+const app = express();
+app.use(cors());
+app.use(bodyParser.json({ limit: '10mb' }));
+
+// =========================
+// File Upload API (/uploads)
+// =========================
+
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, unique + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage });
+
+app.post('/uploads', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    res.json({ url: fileUrl });
+  } catch (error) {
+    console.error('File upload error:', error);
+    res.status(500).json({ error: 'Failed to upload file' });
+  }
+});
+
+// =========================
+// Save Conversation API (/save-conversation)
+// =========================
+
+app.post('/save-conversation', async (req, res) => {
+  try {
+    const { conversationId, timestamp, taskId, message } = req.body;
+
+    if (!conversationId || !timestamp || !taskId || !message) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const filePath = path.join(__dirname, 'data');
+    if (!fs.existsSync(filePath)) fs.mkdirSync(filePath);
+
+    const file = path.join(filePath, `${taskId}.json`);
+    const dataToSave = { conversationId, timestamp, taskId, message };
+
+    fs.writeFileSync(file, JSON.stringify(dataToSave, null, 2));
+
+    // Notify all WebSocket clients
+    broadcastUpdate({ event: 'messageUpdated', data: dataToSave });
+
+    res.json({ success: true, message: 'Conversation saved successfully', data: dataToSave });
+  } catch (error) {
+    console.error('Error saving conversation:', error);
+    res.status(500).json({ error: 'Failed to save conversation' });
+  }
+});
+
+// =========================
+// WebSocket Server Setup
+// =========================
+
+const wss = new WebSocketServer({ port: 8080 });
+let clients = new Set();
+
+wss.on('connection', (ws) => {
+  clients.add(ws);
+  console.log('New client connected');
+
+  ws.on('close', () => {
+    clients.delete(ws);
+    console.log('Client disconnected');
+  });
+});
+
+function broadcastUpdate(payload) {
+  const message = JSON.stringify(payload);
+  for (const client of clients) {
+    if (client.readyState === 1) {
+      client.send(message);
+    }
+  }
+}
+
+// =========================
+// Express + Static Files
+// =========================
+
+app.use('/uploads', express.static(uploadDir));
+app.listen(4000, () => console.log('HTTP server running on port 4000...'));
+
+console.log('WebSocket server running on port 8080...');
+
+
+
+
+
+
+
+React Sample Code: 
+
+import React, { useEffect, useState, useRef } from 'react';
+
+export default function MsChatCommentsEditorWithWebSocket() {
+  const [threads, setThreads] = useState([]);
+  const [message, setMessage] = useState('');
+  const [socket, setSocket] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
+  const editorRef = useRef(null);
+
+  // =========================
+  // WebSocket Connection with Auto-Reconnect + Status Indicator
+  // =========================
+  const connectWebSocket = () => {
+    const ws = new WebSocket('ws://localhost:8080?taskid=1');
+
+    ws.onopen = () => {
+      console.log('Connected to WebSocket server');
+      setRetryCount(0);
+      setIsConnected(true);
+      setSocket(ws);
+    };
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+              console.log('Received update:', msg.data);
+        setThreads(msg.data.message);
+      
+    };
+
+    ws.onclose = () => {
+      console.warn('WebSocket disconnected. Retrying...');
+      setIsConnected(false);
+      setTimeout(() => {
+        setRetryCount((prev) => prev + 1);
+        connectWebSocket();
+      }, Math.min(5000, (retryCount + 1) * 1000)); // Exponential backoff up to 5s
+    };
+
+    ws.onerror = (err) => {
+      console.error('WebSocket error:', err);
+      ws.close();
+    };
+  };
+
+  useEffect(() => {
+    connectWebSocket();
+    return () => {
+      if (socket) socket.close();
+    };
+  }, []);
+
+  // =========================
+  // Handle Message Input and Send
+  // =========================
+
+  const handleInput = (e) => {
+    setMessage(e.target.innerHTML);
+  };
+
+  const handleSend = async () => {
+    if (!message.trim()) return;
+
+    const updatedThreads = [...threads, { content: message, replies: [] }];
+    setThreads(updatedThreads);
+
+    const payload = {
+      conversationId: 'conv-' + Date.now(),
+      timestamp: new Date().toISOString(),
+      taskId: 'task-001',
+      message: updatedThreads,
+    };
+
+    try {
+      await fetch('http://localhost:4000/save-conversation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.error('Error saving conversation:', err);
+    }
+
+    if (editorRef.current) editorRef.current.innerHTML = '';
+    setMessage('');
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-4">
+      <div className="border rounded-lg p-3 bg-white shadow">
+        <div
+          ref={editorRef}
+          contentEditable
+          onInput={handleInput}
+          className="min-h-[100px] border p-2 rounded-md outline-none"
+          placeholder="Write a message..."
+        />
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={handleSend}
+            className="bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600"
+          >
+            ➤ Send
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 bg-gray-50 p-3 rounded shadow-sm">
+        <h3 className="font-semibold mb-2 flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            Conversation
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full ${
+                isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}
+            >
+              {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+            </span>
+          </span>
+
+          {retryCount > 0 && !isConnected && (
+            <span className="text-xs text-red-500">Reconnecting... (Attempt {retryCount})</span>
+          )}
+        </h3>
+        {threads.length > 0 ? (
+          threads.map((t, i) => (
+            <div key={i} className="border-b py-1">
+              <div dangerouslySetInnerHTML={{ __html: t.content }} />
+            </div>
+          ))
+        ) : (
+          <p className="text-gray-400">No messages yet...</p>
+        )}
+      </div>
+    </div>
+  );
+}
