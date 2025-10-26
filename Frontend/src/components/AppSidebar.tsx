@@ -49,18 +49,41 @@ export function AppSidebar() {
 
   const handleLogout = () => {
     localStorage.clear(); // removes all items from localStorage
-    navigate("/");
+    navigate("/login");
     toast.success("Logged out successfully!");
   };
   
 
   return (
     <Sidebar collapsible="icon">
-      <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-        {open && (
-          <h2 className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
-            TaskFlow
-          </h2>
+      <div className="flex items-center justify-between p-1 border-b border-sidebar-border">
+        {open && menuItems.map((item) => (          
+            <NavLink
+              to={item.url}
+              end
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg transition-smooth ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "hover:bg-sidebar-accent text-black"
+                }`
+              }
+            >
+              <item.icon className="h-5 w-5 flex-shrink-0 text-black" />
+              
+            </NavLink>
+           
+          ))
+        }
+         {open && (
+          <div className="px-4 py-2 border-t border-sidebar-border mt-auto space-y-2">
+            <Button
+              onClick={handleLogout}
+              className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-sidebar-accent transition"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+            </Button>
+          </div>
         )}
         <SidebarTrigger className={!open ? "mx-auto" : ""} />
       </div>
@@ -69,7 +92,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+             {!open && menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -84,15 +107,12 @@ export function AppSidebar() {
                       }
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0 text-black" />
-                      {open && (
-                        <span className="font-medium text-black">
-                          {item.title}
-                        </span>
-                      )}
+                    
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -108,17 +128,7 @@ export function AppSidebar() {
           </div>
         )}
 
-        {open && (
-          <div className="px-4 py-2 border-t border-sidebar-border mt-auto space-y-2">
-            <Button
-              onClick={handleLogout}
-              className="w-full bg-red-600 text-white font-semibold shadow-lg hover:bg-red-700 transition-colors flex items-center justify-center"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
-          </div>
-        )}
+       
       </SidebarContent>
     </Sidebar>
   );

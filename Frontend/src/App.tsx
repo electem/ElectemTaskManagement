@@ -16,7 +16,6 @@ import Login from "./pages/Login";
 import { TaskProvider } from "@/context/TaskContext";
 import { ProjectProvider } from './context/ProjectContext';
 import { ConversationProvider } from "./context/ConversationProvider";
-import { WebSocketProvider } from "@/context/WebSocketProvider"; // 🎯 ADDED
 
 const queryClient = new QueryClient();
 
@@ -32,13 +31,13 @@ const AppLayout = () => {
       {showSidebar && <AppSidebar />}
       <main className="flex-1 bg-gradient-subtle">
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Index />} />
           <Route path="/task" element={<Index />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/tasks/new" element={<TaskFormPage />} />
           <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
-          <Route path="/tasks/:taskId/chat" element={<ChatView />} />
+          <Route path="/tasks/:taskId/:title/chat" element={<ChatView />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -53,7 +52,6 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <TaskProvider>
-          <WebSocketProvider> {/* 🎯 ADDED - Wrap with WebSocketProvider */}
             <ConversationProvider>
               <ProjectProvider>
                 <SidebarProvider defaultOpen={false}>
@@ -61,7 +59,6 @@ const App = () => (
                 </SidebarProvider>
               </ProjectProvider>
             </ConversationProvider>
-          </WebSocketProvider>
         </TaskProvider>
       </BrowserRouter>
     </TooltipProvider>

@@ -50,8 +50,6 @@ export default function MsChatCommentsEditor({
     }
   }, [messages]);
 
-  console.log("conversationsconversations", conversations);
-
   useEffect(() => {
     if (editorRef.current && !editorRef.current.innerHTML) {
       editorRef.current.innerHTML = "";
@@ -66,7 +64,7 @@ export default function MsChatCommentsEditor({
   // WebSocket Connection with Auto-Reconnect + Status Indicator
   // =========================
   const connectWebSocket = () => {
-    const ws = new WebSocket("ws://localhost:8089");
+    const ws = new WebSocket("wss://iot.electems.com/task/ws");
 
     ws.onopen = () => {
       console.log("Connected to WebSocket server");
@@ -84,7 +82,7 @@ export default function MsChatCommentsEditor({
       const msg = JSON.parse(event.data);
       console.log("Received update:", msg);
       if (!isPosting.current) {
-        setThreads(msg.data.message);
+        setThreads(msg);
       }
 
       // 🎯 NEW: Trigger unread count for other users
@@ -294,7 +292,7 @@ export default function MsChatCommentsEditor({
         
         // Use the SAME LOGIC as handleSend for backend upload
         // For new file messages, send only the new message object (same as handleSend)
-        await uploadThreadsToBackend(newThread, false);
+        await uploadThreadsToBackend(updatedThreads, false);
   
         // Clear the file input
         e.target.value = '';
@@ -396,7 +394,7 @@ export default function MsChatCommentsEditor({
       setThreads(updatedThreads);
       
       // For new messages, send only the new message object
-      await uploadThreadsToBackend(newThread, false);
+      await uploadThreadsToBackend(updatedThreads, false);
     }
   
     editorRef.current.innerHTML = "";

@@ -173,9 +173,9 @@ const TaskManagement = () => {
   };
 
   // 🎯 ADDED: Function to mark as read before navigation
-  const handleChatClick = (taskId: string) => {
+  const handleChatClick = (taskId: string, title: string) => {
     markTaskAsRead(taskId);
-    navigate(`/tasks/${taskId}/chat`);
+    navigate(`/tasks/${taskId}/${title}/chat`);
   };
 
   const handleTitleClick = (taskId: string) => {
@@ -295,7 +295,7 @@ const TaskManagement = () => {
                     {/* New Message cell - clickable for chat */}
                     <TableCell
                       className="cursor-pointer hover:text-primary flex items-center gap-1"
-                      onClick={() => handleChatClick(taskIdStr)}
+                      onClick={() => handleChatClick(taskIdStr, task.title)}
                       title={`Click to view chat${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
                     >
                       <MessageCircle className="h-4 w-4 mr-1" />

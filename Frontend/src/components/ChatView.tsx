@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import MsChatCommentsEditor from "./MsChatCommentsEditor.tsx";
 import { useConversationContext } from "@/context/ConversationProvider.tsx";
 import { useParams, useNavigate } from "react-router-dom"; // import useNavigate
-import { useWebSocket } from '@/context/WebSocketProvider';
+
 import { useTaskContext } from '@/context/TaskContext';
 interface Message {
   id: number;
@@ -16,8 +16,9 @@ interface Message {
 
 export default function ChatView() {
   const { taskId } = useParams<{ taskId: string }>();
+  const { title } = useParams<{ title: string }>();
   const navigate = useNavigate(); // initialize navigate
-  const { connectToTask } = useWebSocket();
+
   const { markTaskAsRead } = useTaskContext();
   if (!taskId) return <div>Task not found</div>;
   const taskIdNumber = Number(taskId);
@@ -28,16 +29,7 @@ export default function ChatView() {
 
   const { conversations, fetchConversation, addMessage } = useConversationContext();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    connectToTask(taskIdNumber);
-
-    // Mark as read when opening the chat
-    markTaskAsRead(taskId);
-
-    return () => {
-      // Optional: Disconnect when leaving if needed
-    };
-  }, [taskIdNumber, connectToTask, markTaskAsRead]);
+  
   useEffect(() => {
     fetchConversation(taskIdNumber);
   }, [taskIdNumber]);
@@ -95,7 +87,7 @@ export default function ChatView() {
         >
           ← Back
         </button>
-        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Chat</h2>
+        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{title}</h2>
         <div className="w-10" /> {/* Placeholder for alignment */}
       </div>
 
