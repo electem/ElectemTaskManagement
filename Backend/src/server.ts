@@ -57,23 +57,16 @@ wss.on('connection', (ws) => {
         const data = JSON.parse(message);
 
         if (data.type === 'INIT') {
-          const taskId = data.taskId;
+          const username = data.currentUser;
 
-          if (taskId) {
-              // 2. Get the Set for this taskId, or create a new one if it doesn't exist
-              if (!taskConnections.has(taskId)) {
-                  taskConnections.set(taskId, new Set());
-              }
+          if (username) {              
               
-              const clientSet = taskConnections.get(taskId);
-              
-              // 3. Add the new ws object to the Set
-              clientSet.add(ws);
-              
+              taskConnections.set(username, ws);
+
               // Optional: Attach the taskId to the ws object itself for easy lookup on disconnect
-              ws.taskId = taskId; 
+              ws.username = username; 
 
-              console.log(`Task ID: ${taskId} registered. Clients now: ${clientSet.size}.`);
+              console.log(`Task ID: ${username} registered. Clients now: ${taskConnections.size}.`);
         } else {
             // Handle regular messages here
             console.log(`Received regular message: ${data}`);
@@ -86,31 +79,28 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    if (ws.taskId) {
-        const taskId = ws.taskId;
-        const clientSet = taskConnections.get(taskId);
-        
-        if (clientSet) {
-          // Remove the specific ws object from the Set
-          clientSet.delete(ws);
-          console.log(`Connection for Task ID ${taskId} closed. Clients remaining: ${clientSet.size}.`);
-
-          // If the Set is now empty, clean up the Task ID entry in the main Map
-          if (clientSet.size === 0) {
-              taskConnections.delete(taskId);
-              console.log(`Task ID ${taskId} removed from registry (0 clients).`);
-          }
-        }
-      }
+    if (ws.username) {
+      const username = ws.username;
+      console.log(`Connection for Task ID ${username} closed. Clients remaining: ${taskConnections.size}.`);
+      taskConnections.delete(username);       
+    }
   });
 });
 
-export function broadcastUpdate(payload: any, taskId: string) {
+export function broadcastUpdate(payload: any, taskId: string, currentUser: string) {
   const message = JSON.stringify(payload);
-  const clients = taskConnections.get(taskId);
-  for (const client of clients) {
+
+  for (const [key, client] of taskConnections) {
+    if (key === currentUser) continue; // Skip this key
+    console.log(`Value for ${key}:`, client.readyState);
+
     if (client.readyState === 1) {
-      client.send(message);
+      const data = {
+        "payload":payload,
+        "taskId":taskId,
+        "currentUser":currentUser
+      }
+      client.send(JSON.stringify(data));
     }
   }
 }

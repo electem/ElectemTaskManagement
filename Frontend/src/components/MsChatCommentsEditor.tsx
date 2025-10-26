@@ -6,6 +6,7 @@ import {
   Message,
   useConversationContext,
 } from "@/context/ConversationProvider";
+import { useTaskContext } from "@/context/TaskContext";
 
 interface Props {
   placeholder?: string;
@@ -37,7 +38,8 @@ export default function MsChatCommentsEditor({
   const [isConnected, setIsConnected] = useState(false);
   const { conversations } = useConversationContext();
   const messages: Message[] = conversations[taskId] || [];
-  const isPosting = useRef(false);
+  const currentTaskID = useRef(0);
+  const { incrementUnreadCount } = useTaskContext();
 
   // --- HERE: map messages to threads ---
   useEffect(() => {
@@ -47,6 +49,7 @@ export default function MsChatCommentsEditor({
         replies: [], // no nested replies yet
       }));
       setThreads(mappedThreads);
+      currentTaskID.current = taskId;
     }
   }, [messages]);
 
@@ -69,7 +72,7 @@ export default function MsChatCommentsEditor({
     ws.onopen = () => {
       console.log("Connected to WebSocket server");
       // Send a JSON object immediately after connection opens
-      const initMessage = JSON.stringify({ type: "INIT", taskId });
+      const initMessage = JSON.stringify({ type: "INIT", currentUser });
       ws.send(initMessage);
 
       setRetryCount(0);
@@ -79,31 +82,17 @@ export default function MsChatCommentsEditor({
 
     // In MsChatCommentsEditor.tsx - Update the WebSocket message handler
     ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      console.log("Received update:", msg);
-      if (!isPosting.current) {
-        setThreads(msg);
-      }
+      const response = JSON.parse(event.data);
+      console.log("Received update:", response, currentTaskID.current);      
 
-      // 🎯 NEW: Trigger unread count for other users
-      // Get current user from localStorage
-      const currentUser = localStorage.getItem("username") || "Guest";
-      const userPrefix = currentUser.substring(0, 3).toUpperCase();
-
-      // Check if the message is from another user
-      const latestMessage = msg[msg.length - 1];
-      if (latestMessage && latestMessage.content) {
-        const messageSender = latestMessage.content.match(/^(\w+)\(/);
-        if (messageSender && messageSender[1] !== userPrefix) {
-          // This message is from another user, increment unread count
-          // We'll need to pass this information to parent components
-          // For now, we'll use a custom event
-          const unreadEvent = new CustomEvent("taskMessageReceived", {
-            detail: { taskId, fromUser: messageSender[1] },
-          });
-          window.dispatchEvent(unreadEvent);
-        }
+      if(response.taskId == currentTaskID.current) {
+        setThreads(response.payload);
       }
+      console.log("Received update:", taskId, currentUser);   
+      if(response.taskId !== currentTaskID.current && response.currentUser !== currentUser) {
+        console.log("incrementUnreadCount update:");   
+        incrementUnreadCount(response.taskId);
+      }  
     };
 
     ws.onclose = () => {
@@ -122,10 +111,7 @@ export default function MsChatCommentsEditor({
   };
 
   useEffect(() => {
-    connectWebSocket();
-    return () => {
-      if (socket) socket.close();
-    };
+    connectWebSocket();  
   }, []);
 
   function highlightCodeBlocks() {
@@ -327,15 +313,14 @@ export default function MsChatCommentsEditor({
 
   async function uploadThreadsToBackend(messageData: any, isEdit = false) {
     try {
-      isPosting.current = true;
+    
       await api.post("/messages/upsert", {
         taskId,
         newMessage: messageData,
+        currentUser,
         isEdit,
       });
-      setTimeout(() => {
-        isPosting.current = false;
-      }, 1000); // short cooldown to avoid self duplication
+
     } catch (err) {
       console.error("Failed to upload conversation", err);
     }

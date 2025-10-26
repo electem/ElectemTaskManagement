@@ -21,7 +21,7 @@ export const getMessages = async (req: Request, res: Response) => {
 
 export const upsertMessage = async (req: Request, res: Response) => {
   try {
-    const { taskId, newMessage, isEdit } = req.body;
+    const { taskId, newMessage, currentUser, isEdit } = req.body;
 
     if (!taskId || !newMessage) {
       return res.status(400).json({ error: "taskId and newMessage are required" });
@@ -44,7 +44,7 @@ export const upsertMessage = async (req: Request, res: Response) => {
     });
 
     // Broadcast the updated conversation to all connected clients
-    broadcastUpdate(newMessage, taskId);
+    broadcastUpdate(newMessage, taskId, currentUser);
     
     res.json(result);
 
