@@ -7,6 +7,7 @@ import {
   User,
   CheckCircle,
   Calendar,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -109,20 +110,14 @@ const TaskDetailComponent: React.FC<TaskDetailProps> = ({ task, onUpdate }) => {
   return (
     <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-b-lg border-t border-gray-200 dark:border-gray-700 space-y-3">
       {/* Title */}
-      <div>
-        <h4 className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
-          Title
-        </h4>
+      <div>      
         <p className="font-medium text-sm text-gray-900 dark:text-gray-100">
           {task.title}
         </p>
       </div>
 
       {/* Description */}
-      <div>
-        <h4 className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
-          Description
-        </h4>
+      <div>        
         <p className="text-xs text-gray-700 dark:text-gray-300">
           {truncateDescription(task.description, 300)}
         </p>
@@ -131,10 +126,7 @@ const TaskDetailComponent: React.FC<TaskDetailProps> = ({ task, onUpdate }) => {
       {/* Due Date (now editable) */}
       <div className="flex items-center space-x-2">
         <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-        <div className="flex flex-col w-full">
-          <h4 className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
-            Due Date
-          </h4>
+        <div className="flex flex-col w-full">          
           <input
             type="date"
             value={localDueDate ? localDueDate.split("T")[0] : ""}
@@ -244,9 +236,12 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
   }, []);
 
   // 🎯 UPDATED: Mark chat as read when toggling/opening the task
-  const handleToggle = (taskId: string) => {
-    markTaskAsRead(taskId);
-    setExpandedTaskId((prevId) => (prevId === taskId ? null : taskId));
+  const handleToggle = (taskId: string) => {   
+    setExpandedTaskId((prevId) => (prevId === taskId ? null : taskId));    
+  };
+
+  const openChat = (taskId: string) => {
+    markTaskAsRead(taskId);    
     navigate(`/tasks/`);
     navigate(`/tasks/${taskId}/chat`);
   };
@@ -271,9 +266,6 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
 
   return (
     <div className="px-3 space-y-2 mt-4">
-      <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider pl-3">
-        My Tasks
-      </h3>
 
       <div className="space-y-1">
         {loading ? (
@@ -296,15 +288,7 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
                 key={task.id}
                 className="rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
               >
-                <Button
-                  variant="ghost"
-                  onClick={() => handleToggle(task.id)}
-                  className={`w-full h-auto px-3 py-2 justify-start transition-colors ${
-                    expandedTaskId === task.id
-                      ? "bg-gray-100 dark:bg-gray-700"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-800"
-                  }`}
-                >
+                
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center space-x-2 truncate">
                       {expandedTaskId === task.id ? (
@@ -312,17 +296,38 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
                       ) : (
                         <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
                       )}
-                      <span className="text-sm font-medium truncate">
-                        {task.title}
-                      </span>
-
-                      {/* 🎯 DISPLAY UNREAD BUBBLE in Sidebar */}
-                      {unreadCount > 0 && (
-                        <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center p-0.5 ml-1 flex-shrink-0 animate-pulse">
-                          {unreadCount > 9 ? '9+' : unreadCount}
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleToggle(task.id)}
+                        className={`w-full h-auto px-3 py-2 justify-start transition-colors ${
+                          expandedTaskId === task.id
+                            ? "bg-gray-100 dark:bg-gray-700"
+                            : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                      
+                        <span className="text-sm font-medium truncate">
+                          {task.title}
                         </span>
-                      )}
+                      </Button>
 
+                      <Button
+                        variant="ghost"
+                        onClick={() => openChat(task.id)}
+                        className={`w-full h-auto px-3 py-2 justify-start transition-colors ${
+                          expandedTaskId === task.id
+                            ? "bg-gray-100 dark:bg-gray-700"
+                            : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-1" />
+                          {/* 🎯 DISPLAY UNREAD BUBBLE in Sidebar */}
+                          {unreadCount > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center p-0.5 ml-1 flex-shrink-0 animate-pulse">
+                              {unreadCount > 9 ? '9+' : unreadCount}
+                            </span>
+                          )}
+                      </Button>
                     </div>
                     <span
                       className={`text-xs font-semibold rounded-full px-2 py-0.5 ml-2 flex-shrink-0 ${
@@ -332,7 +337,7 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
                       {task.status}
                     </span>
                   </div>
-                </Button>
+                
 
                 {expandedTaskId === task.id && (
                   <TaskDetailComponent task={task} onUpdate={handleTaskUpdate} />
