@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import api from "@/lib/api";
@@ -229,6 +229,11 @@ export default function MsChatCommentsEditor({
     }
   }
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [threads]); // ✅ only scroll when new messages arrive, not on editor typing
+  
+
   async function handleFileUpload(e, taskId) {
     const file = e.target.files[0];
     if (!file) return;
@@ -352,11 +357,11 @@ export default function MsChatCommentsEditor({
     // Get day, month, minute, and second
     const day = String(now.getDate()).padStart(2, "0");
     const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+    const hour = String(now.getHours()).padStart(2, "0");
     const minute = String(now.getMinutes()).padStart(2, "0");
-    const second = String(now.getSeconds()).padStart(2, "0");
 
     // Create the date/time string: DD/MM MI:SS
-    const dateTimeString = `${day}/${month} ${minute}:${second}`;
+    const dateTimeString = `${day}/${month} ${hour}:${minute}`;
 
     // 3. Prepend the prefix and date/time to innerHTML
     const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${innerHTML}`;
@@ -412,25 +417,72 @@ export default function MsChatCommentsEditor({
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
   }
 
-  const MessageContent = ({ htmlContent }: { htmlContent: string }) => {
-    const handleImageClick = (url: string) => {
-      window.open(url, "_blank");
-    };
-
+  const MessageContent = React.memo(({ htmlContent }: { htmlContent: string }) => {
+    const handleImageClick = (url: string) => window.open(url, "_blank");
+  
     return (
       <div
         className="message-content"
         onClick={(e) => {
           const target = e.target as HTMLElement;
-          // If clicked element is an <img>, open in new tab
-          if (target.tagName === "IMG") {
-            handleImageClick((target as HTMLImageElement).src);
-          }
+          if (target.tagName === "IMG") handleImageClick((target as HTMLImageElement).src);
         }}
         dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
     );
-  };
+  });
+
+  const renderedThreads = useMemo(() => {
+    return threads.length > 0 ? (
+      threads.map((thread, index) => {
+        const threadPath = [index];
+        const threadId = `t-${index}`;
+        const isCollapsed = collapsed[threadId];
+        return (
+          <div key={threadId} className="mb-2">
+            <div className="flex justify-between items-center">
+              <MessageContent htmlContent={thread.content} />
+              <div className="flex gap-2 text-sm">
+                <button
+                  className="hover:text-blue-600"
+                  onClick={() => handleSend(index)}
+                  title="Reply"
+                >
+                  ↩
+                </button>
+                <button
+                  className="hover:text-green-600"
+                  onClick={() => handleEdit(threadPath)}
+                  title="Edit"
+                >
+                  ✎
+                </button>
+                <button
+                  className="hover:text-gray-500"
+                  onClick={() => toggleCollapse(threadId)}
+                  title="Collapse / Expand"
+                >
+                  {isCollapsed ? "▶" : "▼"}
+                </button>
+              </div>
+            </div>
+            {!isCollapsed &&
+              thread.replies &&
+              thread.replies.length > 0 &&
+              renderReplies(thread.replies, threadPath, 1, threadId)}
+          </div>
+        );
+      })
+    ) : html ? (
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+    ) : (
+      <div className="text-slate-400">
+        No content yet — start typing or paste formatted text.
+      </div>
+    );
+  }, [threads, collapsed]); // 👈 only recalc if threads or collapsed changes
+  
+  
 
 
   const renderReplies = (replies, path, level = 1, parentId = "") => {
@@ -484,56 +536,11 @@ export default function MsChatCommentsEditor({
   return (
     <div className={`${className} flex flex-col gap-3`}>
       <div className="mt-2 text-sm text-slate-600">
-        <div className="bg-slate-50 p-3 rounded overflow-auto text-xs whitespace-pre-wrap prose prose-slate list-disc pl-5">
-          {threads.length > 0 ? (
-            threads.map((thread, index) => {
-              const threadPath = [index];
-              const threadId = `t-${index}`;
-              const isCollapsed = collapsed[threadId];
-              return (
-                <div key={threadId} className="mb-2">
-                  <div className="flex justify-between items-center">
-                    <MessageContent htmlContent={thread.content} />
-                    <div className="flex gap-2 text-sm">
-                      <button
-                        className="hover:text-blue-600"
-                        onClick={() => handleSend(index)}
-                        title="Reply"
-                      >
-                        ↩
-                      </button>
-                      <button
-                        className="hover:text-green-600"
-                        onClick={() => handleEdit(threadPath)}
-                        title="Edit"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        className="hover:text-gray-500"
-                        onClick={() => toggleCollapse(threadId)}
-                        title="Collapse / Expand"
-                      >
-                        {isCollapsed ? "▶" : "▼"}
-                      </button>
-                    </div>
-                  </div>
-                  {!isCollapsed &&
-                    thread.replies &&
-                    thread.replies.length > 0 &&
-                    renderReplies(thread.replies, threadPath, 1, threadId)}
-                </div>
-              );
-            })
-          ) : html ? (
-            <div dangerouslySetInnerHTML={{ __html: html }} />
-          ) : (
-            <div className="text-slate-400">
-              No content yet — start typing or paste formatted text.
-            </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
+      <div className="bg-slate-50 p-3 rounded overflow-auto text-xs whitespace-pre-wrap prose prose-slate list-disc pl-5">
+  {renderedThreads}
+  <div ref={bottomRef} />
+</div>
+
       </div>
 
       {/* Message Input Area */}
@@ -554,6 +561,7 @@ export default function MsChatCommentsEditor({
             whiteSpace: "pre-wrap",
             wordWrap: "break-word",
             overflowWrap: "break-word",
+            overflowX: "hidden", // ✅ Prevent horizontal scroll
           }}
         />
 
