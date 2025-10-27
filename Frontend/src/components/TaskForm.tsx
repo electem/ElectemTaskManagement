@@ -116,7 +116,7 @@ const TaskForm = () => {
           members: task.members || [],
           title: task.title,
           description: task.description,
-          dueDate: task.dueDate,
+          dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
           status: task.status,
            url: task.url || "",                     // ✅ added
        dependentTaskId: Array.isArray(task.dependentTaskId)
@@ -407,7 +407,7 @@ const TaskForm = () => {
                       .map((task) => (
                         <SelectItem key={task.id} value={task.id.toString()}>
                           {task.title}
-                        </SelectItem> 
+                        </SelectItem>
                       ))}
                   </SelectContent>
                 </Select>

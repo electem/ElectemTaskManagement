@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import api from "@/lib/api"; // Axios instance with interceptor
-
+import { useCallback } from "react";
 export interface Task {
   id: number;
   projectId: number;
@@ -49,14 +49,14 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Fetch all tasks
-  const fetchTasks = async () => {
-    try {
-      const res = await api.get("/tasks"); // Axios automatically attaches token
-      setTasks(res.data);
-    } catch (err) {
-      console.error("Error fetching tasks:", err);
-    }
-  };
+ const fetchTasks = useCallback(async () => {
+  try {
+    const res = await api.get("/tasks");
+    setTasks(res.data);
+  } catch (err) {
+    console.error("Error fetching tasks:", err);
+  }
+}, []);
 
   // Add new task
   const addTask = async (task: Omit<Task, "id">) => {
