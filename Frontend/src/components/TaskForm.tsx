@@ -407,7 +407,7 @@ const TaskForm = () => {
                       .map((task) => (
                         <SelectItem key={task.id} value={task.id.toString()}>
                           {task.title}
-                        </SelectItem>
+                        </SelectItem> 
                       ))}
                   </SelectContent>
                 </Select>
