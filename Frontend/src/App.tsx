@@ -26,16 +26,9 @@ const AppLayout = () => {
   const showSidebar = location.pathname !== "/login";
 
   return (
-    <div className="flex min-h-screen w-full overflow-x-hidden">
-      {showSidebar && (
-        <div className="flex-shrink-0">
-          <AppSidebar />
-        </div>
-      )}
-      <main
-        className="flex-1 bg-gradient-subtle overflow-x-hidden 
-                   min-w-0 w-full relative"
-      >
+    <div className="flex min-h-screen w-full">
+      {showSidebar && <AppSidebar />}
+      <main className="flex-1 bg-gradient-subtle">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Index />} />
@@ -50,7 +43,6 @@ const AppLayout = () => {
     </div>
   );
 };
-
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
