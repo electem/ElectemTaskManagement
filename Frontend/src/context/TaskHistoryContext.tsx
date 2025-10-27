@@ -1,11 +1,23 @@
 import { createContext, useContext, ReactNode } from "react";
 import { toast } from "sonner";
-import api from "@/lib/api"; // Axios instance with baseURL and interceptors
+import api from "@/lib/api";
 
-interface TaskChange {
+export interface TaskChange {
   fieldChanged: string;
   oldValue: string;
   newValue: string;
+}
+
+export interface TaskChangeGroup {
+  changeGroupId: string;
+  changedAt: string;
+  changes: TaskChange[];
+}
+
+export interface TaskHistoryResponse {
+  taskId: number;
+  totalGroups: number;
+  history: TaskChangeGroup[];
 }
 
 interface TaskHistoryContextType {
@@ -14,6 +26,7 @@ interface TaskHistoryContextType {
     oldTask: any,
     updatedTask: any
   ) => Promise<void>;
+  fetchTaskHistory: (taskId: number) => Promise<TaskHistoryResponse | null>;
 }
 
 const TaskHistoryContext = createContext<TaskHistoryContextType | undefined>(
@@ -40,7 +53,6 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
         }
       });
 
-      // ✅ Only call API if at least one field has changed
       if (changes.length > 0) {
         await api.post("/task-history", {
           taskId,
@@ -55,8 +67,19 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const fetchTaskHistory = async (taskId: number) => {
+    try {
+      const res = await api.get(`/task-history/${taskId}`);
+      return res.data;
+    } catch (error) {
+      console.error("Failed to fetch task history:", error);
+      toast.error("Failed to fetch task history");
+      return null;
+    }
+  };
+
   return (
-    <TaskHistoryContext.Provider value={{ logTaskHistory }}>
+    <TaskHistoryContext.Provider value={{ logTaskHistory, fetchTaskHistory }}>
       {children}
     </TaskHistoryContext.Provider>
   );

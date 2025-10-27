@@ -1,353 +1,377 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  ListTodo,
-  Loader2,
-  User,
-  CheckCircle,
-  Calendar,
-  MessageCircle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { getTasks, updateTask } from "@/services/taskService";
-import { Navigate, useNavigate } from "react-router-dom";
-// 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
-import { useTaskContext } from "@/context/TaskContext";
+  import React, { useState, useEffect, useCallback } from "react";
+  import {
+    ChevronDown,
+    ChevronRight,
+    ListTodo,
+    Loader2,
+    User,
+    CheckCircle,
+    Calendar,
+    MessageCircle,
+  } from "lucide-react";
+  import { Button } from "@/components/ui/button";
+  import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from "@/components/ui/select";
+  import { toast } from "sonner";
+  import { getTasks, updateTask } from "@/services/taskService";
+  import { Navigate, useNavigate } from "react-router-dom";
+  // 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
+  import { useTaskContext } from "@/context/TaskContext";
+import { useTaskHistory } from "@/context/TaskHistoryContext";
+import { useUsers } from "@/hooks/useUsers";
 
-// --- INTERFACES ---
-interface Task {
-  id: string;
-  project: string;
-  owner: string;
-  members: string[];
-  title: string;
-  description: string;
-  dueDate: string;
-  status: string;
-}
+  // --- INTERFACES ---
+  interface Task {
+    id: string;
+    project: string;
+    owner: string;
+    members: string[];
+    title: string;
+    description: string;
+    dueDate: string;
+    status: string;
+  }
 
-interface TaskListSidebarProps {
-  sidebarOpen: boolean;
-}
+  interface TaskListSidebarProps {
+    sidebarOpen: boolean;
+  }
 
-// --- STATUS COLORS ---
-const statusColors: Record<string, string> = {
-  "To Do":
-    "text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900",
-  "In Progress":
-    "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900",
-  Done: "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900",
-  Pending:
-    "text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900",
-  Completed:
-    "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900",
-  "On Hold":
-    "text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900",
-  Cancelled: "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900",
-  Approved: "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900",
-  Rejected: "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900",
-  default: "text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-800",
-};
-
-// --- TASK DETAIL COMPONENT ---
-interface TaskDetailProps {
-  task: Task;
-  onUpdate: (id: string, updates: Partial<Task>) => void;
-}
-
-const TaskDetailComponent: React.FC<TaskDetailProps> = ({ task, onUpdate }) => {
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [localDueDate, setLocalDueDate] = useState(task.dueDate);
-  const truncateDescription = (desc: string, limit: number) => {
-    return desc.length > limit ? desc.substring(0, limit) + "..." : desc;
+  // --- STATUS COLORS ---
+  const statusColors: Record<string, string> = {
+    "To Do":
+      "text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900",
+    "In Progress":
+      "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900",
+    Done: "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900",
+    Pending:
+      "text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900",
+    Completed:
+      "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900",
+    "On Hold":
+      "text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900",
+    Cancelled: "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900",
+    Approved: "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900",
+    Rejected: "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900",
+    default: "text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-800",
   };
 
-  const handleDropdownChange = async (field: keyof Task, value: string) => {
-    if (task[field] === value || isUpdating) return;
-    setIsUpdating(true);
+  // --- TASK DETAIL COMPONENT ---
+  interface TaskDetailProps {
+    task: Task;
+    onUpdate: (id: string, updates: Partial<Task>) => void;
+  }
 
-    const updates = { [field]: value };
+  const TaskDetailComponent: React.FC<TaskDetailProps> = ({ task, onUpdate }) => {
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [localDueDate, setLocalDueDate] = useState(task.dueDate);
+    const truncateDescription = (desc: string, limit: number) => {
+      return desc.length > limit ? desc.substring(0, limit) + "..." : desc;
+    };
+    const { users, loading: usersLoading } = useUsers();
+    const { logTaskHistory } = useTaskHistory(); // hook
 
-    try {
-      await updateTask(Number(task.id), updates);
-      onUpdate(task.id, updates);
+    // Keep track of previous values
+    const prevValuesRef = React.useRef({
+      status: task.status,
+      owner: task.owner,
+      dueDate: task.dueDate,
+    });
+    const handleDropdownChange = async (field: keyof Task, value: string) => {
+      if (task[field] === value || isUpdating) return;
+      setIsUpdating(true);
 
-      let message = "";
-      if (field === "owner") {
-        message = `Task owner changed to ${value}.`;
-      } else if (field === "status") {
-        message = `Task status updated to "${value}".`;
-      } else if (field === "dueDate") {
-        message = `Due date updated to ${value}.`;
+      const updates = { [field]: value };
+
+      try {
+        // Update backend
+        await updateTask(Number(task.id), updates);
+        onUpdate(task.id, updates);
+
+        // Show toast
+        let message = "";
+        if (field === "owner") message = `Task owner changed to ${value}.`;
+        else if (field === "status") message = `Task status updated to "${value}".`;
+        else if (field === "dueDate") message = `Due date updated to ${value}.`;
+        toast.success(message);
+
+        // Prepare single-field updated task for history
+        const updatedTask = { ...task, ...updates };
+
+        // Log history for **only the changed field**
+        await logTaskHistory(
+          Number(task.id),
+          { [field]: prevValuesRef.current[field] }, // old value
+          { [field]: value } // new value
+        );
+
+        // Update previous values
+        prevValuesRef.current[field] = value;
+
+      } catch (error) {
+        console.error("Task update failed:", error);
+        toast.error("Failed to update task. Please try again.");
+      } finally {
+        setIsUpdating(false);
       }
-      toast.success(message);
-    } catch (error) {
-      console.error("Task update failed:", error);
-      toast.error("Failed to update task. Please try again.");
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+    };
 
-  // Handle due date change
-  const handleDueDateChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const newDate = e.target.value;
-    setLocalDueDate(newDate);
-    await handleDropdownChange("dueDate", newDate);
-  };
+    // Due date handler
+    const handleDueDateChange = async (
+      e: React.ChangeEvent<HTMLInputElement>
+    ) => {
+      const newDate = e.target.value;
+      setLocalDueDate(newDate);
+      await handleDropdownChange("dueDate", newDate);
+    };
 
-  return (
-    <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-b-lg border-t border-gray-200 dark:border-gray-700 space-y-3">
-      {/* Title */}
-      <div>      
-        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">
-          {task.title}
-        </p>
-      </div>
-
-      {/* Description */}
-      <div>        
-        <p className="text-xs text-gray-700 dark:text-gray-300">
-          {truncateDescription(task.description, 300)}
-        </p>
-      </div>
-
-      {/* Due Date (now editable) */}
-      <div className="flex items-center space-x-2">
-        <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-        <div className="flex flex-col w-full">          
-          <input
-            type="date"
-            value={localDueDate ? localDueDate.split("T")[0] : ""}
-            onChange={handleDueDateChange}
-            disabled={isUpdating}
-            className="text-xs p-1 rounded border border-gray-300 dark:border-gray-600 bg-transparent"
-          />
+    return (
+      <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-b-lg border-t border-gray-200 dark:border-gray-700 space-y-3">
+        {/* Title */}
+        <div>
+          <p className="font-medium text-sm text-gray-900 dark:text-gray-100">
+            {task.title}
+          </p>
         </div>
-      </div>
 
-      {/* Owner Dropdown */}
-      <div className="flex items-center space-x-2">
+        {/* Description */}
+        <div>
+          <p className="text-xs text-gray-700 dark:text-gray-300">
+            {truncateDescription(task.description, 300)}
+          </p>
+        </div>
+
+        {/* Due Date (now editable) */}
+        <div className="flex items-center space-x-2">
+          <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          <div className="flex flex-col w-full">
+            <input
+              type="date"
+              value={localDueDate ? localDueDate.split("T")[0] : ""}
+              onChange={handleDueDateChange}
+              disabled={isUpdating}
+              className="text-xs p-1 rounded border border-gray-300 dark:border-gray-600 bg-transparent"
+            />
+          </div>
+        </div>
+
+        {/* Owner Dropdown */}
+        <div className="flex items-center space-x-2">
         <User className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
         <Select
           value={task.owner}
           onValueChange={(value) => handleDropdownChange("owner", value)}
-          disabled={isUpdating}
+          disabled={isUpdating || usersLoading}
         >
           <SelectTrigger className="w-full h-8 text-xs">
             <SelectValue placeholder="Select Owner" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={task.owner} className="text-sm">
-              {task.owner}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Status Dropdown */}
-      <div className="flex items-center space-x-2">
-        <CheckCircle className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-        <Select
-          value={task.status}
-          onValueChange={(value) => handleDropdownChange("status", value)}
-          disabled={isUpdating}
-        >
-          <SelectTrigger className="w-full h-8 text-xs">
-            <SelectValue placeholder="Select Status" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.keys(statusColors).map((status) => (
-              <SelectItem
-                key={status}
-                value={status}
-                className={`text-sm ${statusColors[status]}`}
-              >
-                {status}
+            {users.map((user) => (
+              <SelectItem key={user.id} value={user.username} className="text-sm">
+                {user.username}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {isUpdating && (
-        <div className="flex items-center justify-end text-xs text-blue-500 dark:text-blue-400">
-          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-          Saving...
+        {/* Status Dropdown */}
+        <div className="flex items-center space-x-2">
+          <CheckCircle className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          <Select
+            value={task.status}
+            onValueChange={(value) => handleDropdownChange("status", value)}
+            disabled={isUpdating}
+          >
+            <SelectTrigger className="w-full h-8 text-xs">
+              <SelectValue placeholder="Select Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.keys(statusColors).map((status) => (
+                <SelectItem
+                  key={status}
+                  value={status}
+                  className={`text-sm ${statusColors[status]}`}
+                >
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      )}
-    </div>
-  );
-};
 
-// --- MAIN SIDEBAR COMPONENT ---
-export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
-  sidebarOpen,
-}) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const navigate = useNavigate();
-  // 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
-  const { refreshTasks, unreadCounts, markTaskAsRead } = useTaskContext();
-  const username = localStorage.getItem("username");
-
-  const loadTasks = useCallback(async () => {
-    setLoading(true);
-    try {
-      const fetchedTasks = await getTasks();
-      setTasks(
-        fetchedTasks.map((t) => ({
-          ...t,
-          id: t.id.toString(), // ✅ convert number → string
-        }))
-      );
-    } catch (error) {
-      toast.error("Could not fetch tasks.");
-      console.error("Fetch Error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadTasks();
-  }, []);
-
-  useEffect(() => {
-    loadTasks();
-  }, [refreshTasks, loadTasks]);
-
-  const handleTaskUpdate = useCallback((id: string, updates: Partial<Task>) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) => (task.id === id ? { ...task, ...updates } : task))
-    );
-  }, []);
-
-  // 🎯 UPDATED: Mark chat as read when toggling/opening the task
-  const handleToggle = (taskId: string) => {   
-    setExpandedTaskId((prevId) => (prevId === taskId ? null : taskId));    
-  };
-
-  const openChat = (task: Task) => {
-    markTaskAsRead(task.id);    
-    navigate(`/tasks/`);
-    navigate(`/tasks/${task.id}/${task.title}/chat`);
-  };
-
-  if (!sidebarOpen) {
-    return (
-      <div className="p-3">
-        <ListTodo className="h-6 w-6 text-gray-600 dark:text-gray-300" />
-      </div>
-    );
-  }
-
-  const sortedTasks = [...tasks].sort((a, b) => {
-    const order = { "To Do": 1, "In Progress": 2, Done: 3 };
-    return (order[a.status] || 4) - (order[b.status] || 4);
-  });
-
-  // 🔹 Filter tasks where current user is a member
-  const filteredTasks = sortedTasks.filter((task) =>
-    task.members.includes(username)
-  );
-
-  return (
-    <div className="px-2 space-y-2 ">
-
-      <div className="space-y-1">
-        {loading ? (
-          <div className="flex items-center justify-center p-4 text-sm text-gray-500 dark:text-gray-400">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Loading Tasks...
+        {isUpdating && (
+          <div className="flex items-center justify-end text-xs text-blue-500 dark:text-blue-400">
+            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+            Saving...
           </div>
-        ) : filteredTasks.length === 0 ? (
-          <p className="text-center text-xs text-gray-500 dark:text-gray-400 p-4">
-            No tasks found.
-          </p>
-        ) : (
-          filteredTasks.map((task) => {
-            const taskIdStr = task.id;
-            // 🎯 GET UNREAD COUNT
-            const unreadCount = unreadCounts[taskIdStr] || 0;
-
-            return (
-              <div
-                key={task.id}
-                className="rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-              >
-                
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center space-x-2 overflow-hidden">
-                      {expandedTaskId === task.id ? (
-                        <ChevronDown className="h-4 w-4 flex-shrink-0 text-primary" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
-                      )}
-                      <div className="flex items-center max-w-[160px] overflow-hidden">
-                        <Button
-                          variant="ghost"
-                          onClick={() => handleToggle(task.id)}
-                          className={`flex-shrink h-auto px-3 py-2 justify-start transition-colors whitespace-nowrap overflow-hidden text-ellipsis ${
-                            expandedTaskId === task.id
-                              ? 'bg-gray-100 dark:bg-gray-700'
-                              : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                          }`}
-                        >
-                          <span className="text-sm font-medium truncate max-w-[120px]">{task.title}</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => openChat(task)}
-                          className={`flex-shrink-0 ml-1 h-auto p-2 transition-colors ${
-                            expandedTaskId === task.id
-                              ? 'bg-gray-100 dark:bg-gray-700'
-                              : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                          }`}
-                        >
-                          <div className="relative flex items-center">
-                            <MessageCircle className="h-4 w-4" />
-                            {unreadCount > 0 && (
-                              <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center animate-pulse">
-                                {unreadCount > 9 ? '9+' : unreadCount}
-                              </span>
-                            )}
-                          </div>
-                        </Button>
-                      </div>
-                    </div>
-                    <span
-                      className={`text-xs font-semibold rounded-full px-2 py-0.5 ml-2 flex-shrink-0 ${
-                        statusColors[task.status] || statusColors.default
-                      }`}
-                    >
-                      {task.status}
-                    </span>
-                  </div>
-                
-
-                {expandedTaskId === task.id && (
-                  <TaskDetailComponent task={task} onUpdate={handleTaskUpdate} />
-                )}
-              </div>
-            );
-          })
         )}
       </div>
-    </div>
-  );
-};
+    );
+  };
 
-export default TaskListSidebar;
+  // --- MAIN SIDEBAR COMPONENT ---
+  export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
+    sidebarOpen,
+  }) => {
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+    const navigate = useNavigate();
+    // 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
+    const { refreshTasks, unreadCounts, markTaskAsRead } = useTaskContext();
+    const username = localStorage.getItem("username");
+
+    const loadTasks = useCallback(async () => {
+      setLoading(true);
+      try {
+        const fetchedTasks = await getTasks();
+        setTasks(
+          fetchedTasks.map((t) => ({
+            ...t,
+            id: t.id.toString(), // ✅ convert number → string
+          }))
+        );
+      } catch (error) {
+        toast.error("Could not fetch tasks.");
+        console.error("Fetch Error:", error);
+      } finally {
+        setLoading(false);
+      }
+    }, []);
+
+    useEffect(() => {
+      loadTasks();
+    }, []);
+
+    useEffect(() => {
+      loadTasks();
+    }, [refreshTasks, loadTasks]);
+
+    const handleTaskUpdate = useCallback((id: string, updates: Partial<Task>) => {
+      setTasks((prevTasks) =>
+        prevTasks.map((task) => (task.id === id ? { ...task, ...updates } : task))
+      );
+    }, []);
+
+    // 🎯 UPDATED: Mark chat as read when toggling/opening the task
+    const handleToggle = (taskId: string) => {
+      setExpandedTaskId((prevId) => (prevId === taskId ? null : taskId));
+    };
+
+    const openChat = (task: Task) => {
+      markTaskAsRead(task.id);
+      navigate(`/tasks/`);
+      navigate(`/tasks/${task.id}/${task.title}/chat`);
+    };
+
+    if (!sidebarOpen) {
+      return (
+        <div className="p-3">
+          <ListTodo className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+        </div>
+      );
+    }
+
+    const sortedTasks = [...tasks].sort((a, b) => {
+      const order = { "To Do": 1, "In Progress": 2, Done: 3 };
+      return (order[a.status] || 4) - (order[b.status] || 4);
+    });
+
+    // 🔹 Filter tasks where current user is a member
+    const filteredTasks = sortedTasks.filter((task) =>
+      task.members.includes(username)
+    );
+
+    return (
+      <div className="px-2 space-y-2 ">
+
+        <div className="space-y-1">
+          {loading ? (
+            <div className="flex items-center justify-center p-4 text-sm text-gray-500 dark:text-gray-400">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading Tasks...
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <p className="text-center text-xs text-gray-500 dark:text-gray-400 p-4">
+              No tasks found.
+            </p>
+          ) : (
+            filteredTasks.map((task) => {
+              const taskIdStr = task.id;
+              // 🎯 GET UNREAD COUNT
+              const unreadCount = unreadCounts[taskIdStr] || 0;
+
+              return (
+                <div
+                  key={task.id}
+                  className="rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+                >
+
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-2 overflow-hidden">
+                        {expandedTaskId === task.id ? (
+                          <ChevronDown className="h-4 w-4 flex-shrink-0 text-primary" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
+                        )}
+                        <div className="flex items-center max-w-[160px] overflow-hidden">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleToggle(task.id)}
+                            className={`flex-shrink h-auto px-3 py-2 justify-start transition-colors whitespace-nowrap overflow-hidden text-ellipsis ${
+                              expandedTaskId === task.id
+                                ? 'bg-gray-100 dark:bg-gray-700'
+                                : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                            }`}
+                          >
+                            <span className="text-sm font-medium truncate max-w-[120px]">{task.title}</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            onClick={() => openChat(task)}
+                            className={`flex-shrink-0 ml-1 h-auto p-2 transition-colors ${
+                              expandedTaskId === task.id
+                                ? 'bg-gray-100 dark:bg-gray-700'
+                                : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                            }`}
+                          >
+                            <div className="relative flex items-center">
+                              <MessageCircle className="h-4 w-4" />
+                              {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center animate-pulse">
+                                  {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                              )}
+                            </div>
+                          </Button>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-xs font-semibold rounded-full px-2 py-0.5 ml-2 flex-shrink-0 ${
+                          statusColors[task.status] || statusColors.default
+                        }`}
+                      >
+                        {task.status}
+                      </span>
+                    </div>
+
+
+                  {expandedTaskId === task.id && (
+                    <TaskDetailComponent task={task} onUpdate={handleTaskUpdate} />
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  export default TaskListSidebar;
