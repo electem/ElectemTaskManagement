@@ -64,6 +64,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       const res = await api.post("/tasks", task);
       setTasks((prev) => [res.data, ...prev]);
       triggerTaskRefresh();
+      return res.data;
     } catch (err) {
       console.error("Error adding task:", err);
     }
@@ -75,6 +76,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       const res = await api.put(`/tasks/${id}`, task);
       setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
       triggerTaskRefresh();
+       
     } catch (err) {
       console.error("Error updating task:", err);
     }

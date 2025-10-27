@@ -18,23 +18,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Edit2, X, MessageCircle } from "lucide-react";
+import { Plus, Edit2, MessageCircle,Copy  } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { TaskDTO, getTasks, deleteTask } from "@/services/taskService";
 import { useProjectContext } from "@/context/ProjectContext";
 import { TaskHistoryModal } from "./TaskHistoryModal";
 // Ensure this matches your TaskDTO or Task interface structure
-interface Task {
-  id: string;
-  project: string;
-  owner: string;
+export interface Task {
+  id: number;
+  projectId: number;
+  project?: string;
+  owner?: string;
   members: string[];
   title: string;
   description: string;
   dueDate: string;
   status: string;
+  url?: string;
+  dependentTaskId?: number[]; // ✅ here
 }
+
 
 const statusOptions = [
   "Pending",
@@ -89,6 +93,7 @@ const TaskManagement = () => {
   // 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
   const {
     tasks: contextTasks,
+    addTask,
     closeTask,
     unreadCounts,
     markTaskAsRead,
@@ -102,25 +107,12 @@ const TaskManagement = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [fetchedTasks, setFetchedTasks] = useState<TaskDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copyingTaskId, setCopyingTaskId] = useState<string | null>(null);
+
   const { projects, fetchProjects } = useProjectContext();
   const username = localStorage.getItem("username");
-  // FIX: handleCloseTask now explicitly accepts a string (task.id)
-  const handleCloseTask = async (taskId: string) => {
-    try {
-      // Convert the string ID back to number for the deleteTask API call
-      const idAsNumber = Number(taskId);
-      if (isNaN(idAsNumber)) {
-        throw new Error("Invalid Task ID");
-      }
-      // Note: If your deleteTask service truly needs a number, this conversion is necessary.
-      await deleteTask(idAsNumber);
-      setFetchedTasks(fetchedTasks.filter((t) => t.id.toString() !== taskId));
-      toast.success("Task closed successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to close task");
-    }
-  };
+  
+ 
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -188,6 +180,42 @@ const TaskManagement = () => {
   const handleTitleClick = (taskId: string) => {
     navigate(`/tasks/${taskId}/edit`);
   };
+
+  // 🧩 Copy task function using context
+const handleCopyTask = async (task: Task) => {
+  try {
+    setCopyingTaskId(task.id.toString());
+
+    const copiedTaskData = {
+      projectId: task.projectId,
+      project: task.project || "",
+      owner: task.owner || "",
+      members: task.members || [],
+      title: `${task.title} (Copy)`,
+      description: task.description || "",
+      dueDate: task.dueDate
+        ? task.dueDate.split("T")[0]
+        : new Date().toISOString().split("T")[0],
+      status: "Pending",
+      url: task.url || "",
+      dependentTaskId: task.dependentTaskId || [], // ✅ works now
+    };
+
+    const newTask = await addTask(copiedTaskData);
+
+    if (newTask?.id) {
+      toast.success("Task copied successfully!");
+      navigate(`/tasks/${newTask.id}/edit`);
+    }
+  } catch (err) {
+    console.error("Error copying task:", err);
+    toast.error("Failed to copy task");
+  } finally {
+    setCopyingTaskId(null);
+  }
+};
+
+
 
   return (
     <>
@@ -281,13 +309,31 @@ const TaskManagement = () => {
                     return (
                       <TableRow key={task.id}>
                         {/* Title cell - now clickable for edit */}
-                        <TableCell
-                          className="font-medium cursor-pointer hover:underline text-primary"
-                          onClick={() => handleTitleClick(task.id.toString())}
-                          title="Click to Edit Task"
-                        >
-                          {task.title}
-                        </TableCell>
+  <TableCell className="font-medium text-primary flex items-center gap-2">
+  <span
+    className="cursor-pointer hover:underline"
+    onClick={() => handleTitleClick(task.id.toString())}
+    title="Click to Edit Task"
+  >
+    {task.title}
+  </span>
+
+  {/* ✅ Copy icon wrapped in span to support title */}
+  <span
+    title="Copy Task"
+    onClick={() => handleCopyTask(task)}
+    className="inline-flex items-center cursor-pointer"
+  >
+    <Copy
+      className={`h-4 w-4 text-gray-500 hover:text-primary ${
+        copyingTaskId === task.id.toString() ? "animate-spin" : ""
+      }`}
+    />
+  </span>
+</TableCell>
+
+
+
                         {/* Description cell - truncated to 20 characters */}
                         <TableCell title={task.description}>
                           {truncateText(task.description, 20)}
