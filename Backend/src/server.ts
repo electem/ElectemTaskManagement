@@ -49,7 +49,7 @@ app.get("/health", (req, res) => res.json({ status: "OK", message: "Server runni
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
+console.log("✅ Server started")
 const wss = new WebSocketServer({ port: 8089 });
 
 const taskConnections = new Map();

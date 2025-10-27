@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import api from "@/lib/api";
+import { Upload } from "lucide-react"; // 👈 add this at the top
 import {
   Message,
   useConversationContext,
@@ -562,7 +563,7 @@ export default function MsChatCommentsEditor({
               }`}
             title="Attach file"
           >
-            📎
+            <Upload size={18} /> {/* 👈 Lucide Upload icon */}
             <input
               type="file"
               className="hidden"
