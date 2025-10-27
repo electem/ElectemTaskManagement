@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import api from "@/lib/api"; // Axios instance  with interceptor
 import { useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+
 export interface Task {
   id: number;
   projectId: number;
@@ -9,7 +10,7 @@ export interface Task {
   members: string[];
   title: string;
   description: string;
-  dueDate?: string; 
+  dueDate?: string;
   status: string;
   url?: string;                // new field
   dependentTaskId?: number[];
@@ -43,6 +44,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [refreshTasks, setRefreshTasks] = useState(false);
   // 🎯 ADDED: State for unread message counts
   const [unreadCounts, setUnreadCounts] = useState<TaskUnreadCounts>({});
+  const countedTaskIdsRef = useRef<Set<string>>(new Set());
 
   const triggerTaskRefresh = () => {
     setRefreshTasks((prev) => !prev);
@@ -57,6 +59,11 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     console.error("Error fetching tasks:", err);
   }
 }, []);
+
+useEffect(() => {
+  countedTaskIdsRef.current.clear();
+}, [refreshTasks]);
+
 
   // Add new task
   const addTask = async (task: Omit<Task, "id">) => {
@@ -76,7 +83,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       const res = await api.put(`/tasks/${id}`, task);
       setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
       triggerTaskRefresh();
-       
+
     } catch (err) {
       console.error("Error updating task:", err);
     }
@@ -117,11 +124,21 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
 
   // 🎯 ADDED: Function to increment unread count
   const incrementUnreadCount = (taskId: string) => {
+    // ✅ Only increment if the task exists
+    const taskExists = tasks.some((t) => t.id.toString() === taskId);
+    if (!taskExists) return;
+
+    // ✅ Prevent duplicate counting (caused by websocket reconnects)
+    if (countedTaskIdsRef.current.has(taskId)) return;
+
+    countedTaskIdsRef.current.add(taskId);
+
     setUnreadCounts((prev) => ({
       ...prev,
       [taskId]: (prev[taskId] || 0) + 1,
     }));
   };
+
 
   // Load tasks initially (only if token exists)
   useEffect(() => {

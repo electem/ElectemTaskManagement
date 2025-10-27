@@ -9,10 +9,16 @@ import messageRoute from "./routes/message.routes"
 import authRoutes from "./routes/authRoutes"
 import projectRoutes from "./routes/projects";
 import fileRoutes from "./routes/fileRoutes";
-import { WebSocketServer } from "ws";
 import path from "path";
 import taskHistoryRoutes from "./routes/taskHistory.routes"; // ✅ NEW
 import prisma from "./prisma/client";
+import { WebSocketServer, WebSocket } from "ws";
+
+// ✅ Extend WebSocket type to include custom fields
+interface ExtendedWebSocket extends WebSocket {
+  username?: string;
+  taskId?: number;
+}
 
 dotenv.config();
 const app = express();
@@ -50,69 +56,95 @@ app.get("/health", (req, res) => res.json({ status: "OK", message: "Server runni
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 console.log("✅ Server started")
+// ==========================
+// ✅ FIXED WebSocket Handling
+// ==========================
+
 const wss = new WebSocketServer({ port: 8089 });
 
-const taskConnections = new Map();
+// Store clients per taskId
+// Structure: { taskId: [ { username, ws } ] }
+const taskConnections: Record<string, { username: string; ws: any }[]> = {};
 
-wss.on('connection', (ws) => {
+wss.on("connection", (ws: ExtendedWebSocket) => {
 
-  console.log('New client connected');
+  console.log("✅ New WebSocket client connected");
 
-  ws.on('message',async function incoming(message:string) {
+  ws.on("message", async (message: string) => {
     try {
-        const data = JSON.parse(message);
+      const data = JSON.parse(message);
 
-        if (data.type === 'INIT') {
-          const username = data.currentUser;
-          const taskId = data.taskId;
-          console.log("username",username);
-          console.log("taskId",taskId);
+      if (data.type === "INIT") {
+        const { currentUser, taskId } = data;
+        if (!taskId || !currentUser) return;
 
-          if (username) {
+        // Initialize array if not present
+        if (!taskConnections[taskId]) taskConnections[taskId] = [];
 
-              taskConnections.set(username, ws);
-              ws.username = username; 
-              const messages = await prisma.message.findUnique({
-                where: { taskId },
-              });
-              //call DB based on TaskId
-              broadcastUpdate(messages?.conversation, taskId, username);
+        // Prevent duplicate connections for the same user-task combo
+        const alreadyExists = taskConnections[taskId].some(
+          (conn) => conn.username === currentUser
+        );
+        if (!alreadyExists) {
+          taskConnections[taskId].push({ username: currentUser, ws });
+        }
 
-              console.log(`Task ID: ${username} registered. Clients now: ${taskConnections.size}.`);
-        } else {
-            // Handle regular messages here
-            console.log(`Received regular message: ${data}`);
+        ws.username = currentUser;
+        ws.taskId = taskId;
+
+        console.log(
+          `🔗 Registered ${currentUser} for task ${taskId}. Total clients for this task: ${taskConnections[taskId].length}`
+        );
+
+        // Optional: send recent messages when connecting
+        const messages = await prisma.message.findUnique({ where: { taskId } });
+        if (messages?.conversation) {
+          ws.send(
+            JSON.stringify({
+              payload: messages.conversation,
+              taskId,
+              currentUser,
+              type: "INIT_RESPONSE",
+            })
+          );
         }
       }
-      }
-      catch (e) {
-          console.error('Received non-JSON or invalid message:', message);
-      }
+    } catch (e) {
+      console.error("❌ Invalid WS message:", e);
+    }
   });
 
-  ws.on('close', () => {
-    if (ws.username) {
-      const username = ws.username;
-      console.log(`Connection for Task ID ${username} closed. Clients remaining: ${taskConnections.size}.`);
-      taskConnections.delete(username);
+  ws.on("close", () => {
+    // Remove user from the map when they disconnect
+    if (ws.taskId && ws.username && taskConnections[ws.taskId]) {
+      taskConnections[ws.taskId] = taskConnections[ws.taskId].filter(
+        (conn) => conn.username !== ws.username
+      );
+      console.log(
+        `❌ Disconnected ${ws.username} from task ${ws.taskId}. Remaining clients: ${taskConnections[ws.taskId].length}`
+      );
     }
   });
 });
 
-export function broadcastUpdate(payload: any, taskId: string, currentUser: string) {
-  const message = JSON.stringify(payload);
+// ✅ Broadcast update only to users connected to that taskId (excluding sender)
+export function broadcastUpdate(payload: any, taskId: number, currentUser: string): void {
 
-  for (const [key, client] of taskConnections) {
-    if (key === currentUser) continue; // Skip this key
-    console.log(`Value for ${key}:`, client.readyState);
+  const clients = taskConnections[taskId];
+  if (!clients) return;
 
-    if (client.readyState === 1) {
-      const data = {
-        "payload":payload,
-        "taskId":taskId,
-        "currentUser":currentUser
-      }
-      client.send(JSON.stringify(data));
+  const data = JSON.stringify({
+    payload,
+    taskId,
+    currentUser,
+    type: "TASK_UPDATE",
+  });
+
+  clients.forEach(({ username, ws }) => {
+    if (username !== currentUser && ws.readyState === 1) {
+      ws.send(data);
     }
-  }
+  });
+
+  console.log(`📢 Broadcasted update for task ${taskId} to ${clients.length} clients`);
 }
