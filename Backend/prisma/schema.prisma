@@ -39,9 +39,7 @@ model Task {
 
   url             String?   // 👈 NEW: optional URL field
 
-  dependentTaskId Int?      // 👈 NEW: self-referencing relation (depends on another task)
-  dependentTask   Task?     @relation("TaskDependencies", fields: [dependentTaskId], references: [id])
-  dependentTasks  Task[]    @relation("TaskDependencies") // 👈 reverse relation
+  dependentTaskId Int[]    @default([])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

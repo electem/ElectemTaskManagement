@@ -109,6 +109,14 @@ All colors MUST be HSL.
     --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.5);
   }
 }
+@layer utilities {
+  .bg-card { background-color: hsl(var(--card)); }
+  .text-card-foreground { color: hsl(var(--card-foreground)); }
+  .bg-popover { background-color: hsl(var(--popover)); }
+  
+}
+
+
 
 @layer base {
   * {

@@ -28,17 +28,19 @@ interface TeamMember {
 }
 
 interface Task {
-  id: string;
+  id: number;
+  projectId: number;
   project: string;
   owner: string;
   members: string[];
   title: string;
-  description: string;
-  dueDate: string;
+  description?: string;
+  dueDate?: string;
   status: string;
- url?: string;
-  dependentTaskId?: string;
+  url?: string;
+  dependentTaskId: number[]; // ✅ array, matches Prisma
 }
+
 
 const statusOptions = [
   "Pending",
@@ -68,6 +70,18 @@ const statusOptions = [
 const TaskForm = () => {
   const navigate = useNavigate();
   const { taskId } = useParams();
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      Completed: "bg-green-500",
+      "In Progress": "bg-primary",
+      Pending: "bg-yellow-500",
+      "On Hold": "bg-orange-500",
+      Cancelled: "bg-red-500",
+      Approved: "bg-green-600",
+      Rejected: "bg-red-600",
+    };
+    return colors[status] || "bg-muted";
+  };
   const numericTaskId = taskId ? Number(taskId) : null;
   const isEditMode = !!taskId;
   const { projects,} = useProjectContext();
@@ -75,18 +89,20 @@ const TaskForm = () => {
   const { users, loading: usersLoading } = useUsers();
   const { logTaskHistory } = useTaskHistory();
 
-  const [formData, setFormData] = useState({
-    project: "",
-    projectId: "",
-    owner: "",
-    members: [] as string[],
-    title: "",
-    description: "",
-    dueDate: "",
-    status: "Pending",
-     url: "",
-     dependentTaskId: "",
-  });
+ const [formData, setFormData] = useState({
+  project: "",
+  projectId: "",
+  owner: "",
+  members: ["Vin"],
+  title: "",
+  description: "",
+  dueDate: new Date().toISOString().split("T")[0],
+  status: "Pending",
+  url: "",
+  dependentTaskId: [] as string[],
+});
+
+
 
   useEffect(() => {
     if (isEditMode && taskId) {
@@ -103,11 +119,17 @@ const TaskForm = () => {
           dueDate: task.dueDate,
           status: task.status,
            url: task.url || "",                     // ✅ added
-        dependentTaskId: task.dependentTaskId?.toString() || "", // ✅ added
+       dependentTaskId: Array.isArray(task.dependentTaskId)
+  ? task.dependentTaskId.map((id) => id.toString())
+  : [],
+ 
         });
       }
     }
   }, [isEditMode, taskId, tasks]);
+
+
+  
 
   const handleSubmit = async () => {
     if (!formData.project || !formData.title || !formData.owner) {
@@ -125,9 +147,10 @@ const TaskForm = () => {
       dueDate: formData.dueDate,
       status: formData.status,
       url: formData.url,
-      dependentTaskId: formData.dependentTaskId
-        ? Number(formData.dependentTaskId)
-        : null,
+      dependentTaskId: Array.isArray(formData.dependentTaskId)
+  ? formData.dependentTaskId.map((id) => Number(id))
+  : [],
+
     };
 
     if (isEditMode && numericTaskId) {
@@ -268,27 +291,29 @@ const TaskForm = () => {
           {formData.members.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {formData.members.map((member, index) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="cursor-pointer"
-                >
-                  {member}
-                  <button
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        members: formData.members.filter(
-                          (m) => m !== member
-                        ),
-                      })
-                    }
-                    className="ml-2"
-                  >
-                    &times;
-                  </button>
-                </Badge>
-              ))}
+  <Badge
+    key={index}
+    variant="secondary"
+    className="cursor-pointer"
+  >
+    {member}
+    
+    {member.toLowerCase() !== "vin" && (
+      <button
+        onClick={() =>
+          setFormData({
+            ...formData,
+            members: formData.members.filter((m) => m !== member),
+          })
+        }
+        className="ml-2"
+      >
+        &times;
+      </button>
+    )}
+  </Badge>
+))}
+
             </div>
           )}
         </div>
@@ -360,30 +385,68 @@ const TaskForm = () => {
 
       {/* New Row 6: Dependant Task (Full Width) */}
      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-  <Label>Dependent Task</Label>
-  <Select
-    value={formData.dependentTaskId}
-    onValueChange={(value) =>
-      setFormData({ ...formData, dependentTaskId: value })
-    }
-  >
-    <SelectTrigger>
-      <SelectValue placeholder="Select a dependent task" />
-    </SelectTrigger>
-    <SelectContent>
-  {tasks
-    .filter((t) => t.id !== (taskId ? Number(taskId) : null)) // inline conversion
-    .map((task) => (
-      <SelectItem key={task.id} value={task.id.toString()}>
-        {task.title}
-      </SelectItem>
-    ))}
-</SelectContent>
+      <div className="space-y-2">
+                <Label>Dependent Task</Label>
+                <Select
+                  value="" // keep empty for selecting new dependent task
+                  onValueChange={(value) => {
+                    if (!formData.dependentTaskId.includes(value)) {
+                      setFormData({
+                        ...formData,
+                        dependentTaskId: [...formData.dependentTaskId, value],
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select dependent tasks" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tasks
+                      .filter((t) => t.id !== (taskId ? Number(taskId) : null))
+                      .map((task) => (
+                        <SelectItem key={task.id} value={task.id.toString()}>
+                          {task.title}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
 
-  </Select>
-</div>
-
+                {/* Show selected dependent tasks */}
+                {formData.dependentTaskId.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.dependentTaskId.map((depId, index) => {
+                      const depTask = tasks.find((t) => t.id === Number(depId));
+                      return (
+                        <Badge
+                          key={index}
+                          className={`cursor-pointer ${
+                            depTask
+                              ? getStatusColor(depTask.status)
+                              : "bg-muted"
+                          }`}
+                        >
+                          {depTask?.title || depId}
+                          <button
+                            onClick={() =>
+                              setFormData({
+                                ...formData,
+                                dependentTaskId:
+                                  formData.dependentTaskId.filter(
+                                    (id) => id !== depId
+                                  ),
+                              })
+                            }
+                            className="ml-2"
+                          >
+                            &times;
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
       </div>
 
 

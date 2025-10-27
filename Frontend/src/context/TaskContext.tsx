@@ -12,7 +12,8 @@ export interface Task {
   dueDate: string;
   status: string;
   url?: string;                // new field
-  dependentTaskId?: number;
+  dependentTaskId?: number[];
+
 }
 
 // 🎯 ADDED: Interface for unread counts
