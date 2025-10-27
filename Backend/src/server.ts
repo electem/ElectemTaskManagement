@@ -90,7 +90,8 @@ wss.on('connection', (ws) => {
       }
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code, reason) => {
+    console.log(`Client closed: code=${code} reason=${reason?.toString()}`);
     if (ws.username) {
       const username = ws.username;
       console.log(`Connection for Task ID ${username} closed. Clients remaining: ${taskConnections.size}.`);

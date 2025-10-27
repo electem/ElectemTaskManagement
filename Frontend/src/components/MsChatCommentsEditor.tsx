@@ -107,8 +107,8 @@ export default function MsChatCommentsEditor({
       }
     };
 
-    ws.onclose = () => {
-      console.warn("WebSocket disconnected. Retrying...");
+    ws.onclose = (ev) => {
+      console.warn("WebSocket disconnected. Retrying...", ev.code, ev.reason);
       setIsConnected(false);
       setTimeout(() => {
         setRetryCount((prev) => prev + 1);

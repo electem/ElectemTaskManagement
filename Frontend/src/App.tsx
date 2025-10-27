@@ -23,7 +23,7 @@ const queryClient = new QueryClient();
 // Layout component
 const AppLayout = () => {
   const location = useLocation();
-  const showSidebar = location.pathname !== "/";
+  const showSidebar = location.pathname !== "/login";
 
   return (
     <div className="flex min-h-screen w-full overflow-x-hidden">
