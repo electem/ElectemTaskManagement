@@ -1,36 +1,18 @@
 import {
   LayoutDashboard,
-  FolderKanban,
   ListTodo,
-  UserPlus,
   LogOut,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
   Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import TaskListSidebar from "./TaskListSidebar";
+import { SidebarContentSection } from "./SidebarContentSection"; // ✅ Import the new component
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -40,25 +22,21 @@ const menuItems = [
 export function AppSidebar() {
   const { open } = useSidebar();
   const navigate = useNavigate();
-  const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
-  const [newMember, setNewMember] = useState({
-    name: "",
-    email: "",
-    role: "", // new field
-  });
 
   const handleLogout = () => {
-    localStorage.clear(); // removes all items from localStorage
+    localStorage.clear();
     navigate("/login");
     toast.success("Logged out successfully!");
   };
-  
 
   return (
     <Sidebar collapsible="icon">
+      {/* Header / Top section */}
       <div className="flex items-center justify-between p-1 border-b border-sidebar-border">
-        {open && menuItems.map((item) => (          
+        {open &&
+          menuItems.map((item) => (
             <NavLink
+              key={item.title}
               to={item.url}
               end
               className={({ isActive }) =>
@@ -70,12 +48,10 @@ export function AppSidebar() {
               }
             >
               <item.icon className="h-5 w-5 flex-shrink-0 text-black" />
-              
             </NavLink>
-           
-          ))
-        }
-         {open && (
+          ))}
+
+        {open && (
           <div className="px-4 py-2 border-t border-sidebar-border mt-auto space-y-2">
             <Button
               onClick={handleLogout}
@@ -85,51 +61,16 @@ export function AppSidebar() {
             </Button>
           </div>
         )}
+
         <SidebarTrigger className={!open ? "mx-auto" : ""} />
       </div>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-             {!open && menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-smooth ${
-                          isActive
-                            ? "bg-primary text-primary-foreground shadow-md"
-                            : "hover:bg-sidebar-accent text-black"
-                        }`
-                      }
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0 text-black" />
-                    
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <TaskListSidebar sidebarOpen={open} />
-        {!open && (
-          <div className="flex justify-center mt-2">
-            <button
-              onClick={handleLogout}
-              className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-sidebar-accent transition"
-            >
-              <LogOut className="h-5 w-5 text-black" />
-            </button>
-          </div>
-        )}
-
-       
-      </SidebarContent>
+      {/* ✅ Extracted Sidebar Content */}
+      <SidebarContentSection
+        open={open}
+        menuItems={menuItems}
+        handleLogout={handleLogout}
+      />
     </Sidebar>
   );
 }
