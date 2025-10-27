@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { useProjectContext } from "@/context/ProjectContext";
 import { useUsers } from "@/hooks/useUsers";
+import { useTaskHistory } from "@/context/TaskHistoryContext";
 
 interface TeamMember {
   id: string;
@@ -35,8 +36,8 @@ interface Task {
   description: string;
   dueDate: string;
   status: string;
- url?: string;                
-  dependentTaskId?: string; 
+ url?: string;
+  dependentTaskId?: string;
 }
 
 const statusOptions = [
@@ -72,6 +73,7 @@ const TaskForm = () => {
   const { projects,} = useProjectContext();
   const { tasks, addTask, updateTask } = useTaskContext();
   const { users, loading: usersLoading } = useUsers();
+  const { logTaskHistory } = useTaskHistory();
 
   const [formData, setFormData] = useState({
     project: "",
@@ -107,29 +109,36 @@ const TaskForm = () => {
     }
   }, [isEditMode, taskId, tasks]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.project || !formData.title || !formData.owner) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-     const taskData = {
-    projectId: Number(formData.projectId),
-    project: formData.project,
-    owner: formData.owner,
-    members: formData.members,
-    title: formData.title,
-    description: formData.description,
-    dueDate: formData.dueDate,
-    status: formData.status,
-    url: formData.url,
-    dependentTaskId: formData.dependentTaskId
-      ? Number(formData.dependentTaskId)
-      : null,
-  };
+    const taskData = {
+      projectId: Number(formData.projectId),
+      project: formData.project,
+      owner: formData.owner,
+      members: formData.members,
+      title: formData.title,
+      description: formData.description,
+      dueDate: formData.dueDate,
+      status: formData.status,
+      url: formData.url,
+      dependentTaskId: formData.dependentTaskId
+        ? Number(formData.dependentTaskId)
+        : null,
+    };
+
     if (isEditMode && numericTaskId) {
+      const oldTask = tasks.find((t) => t.id === numericTaskId);
       updateTask(numericTaskId, taskData);
       toast.success("Task updated successfully!");
+
+      // ✅ Log history only if status, dueDate, or owner changed
+      if (oldTask) {
+        await logTaskHistory(numericTaskId, oldTask, taskData);
+      }
     } else {
       addTask(taskData);
       toast.success("Task created successfully!");
@@ -137,6 +146,7 @@ const TaskForm = () => {
 
     navigate("/tasks");
   };
+
 
   return (
     <div className="p-8">
@@ -155,7 +165,7 @@ const TaskForm = () => {
   </CardHeader>
   <CardContent>
     <div className="space-y-4">
-      
+
       {/* New Row 1: Project and URL */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -283,8 +293,8 @@ const TaskForm = () => {
           )}
         </div>
       </div>
-      
-    
+
+
 
       {/* New Row 4: Status and Due Date (Same as old Row 3) */}
       <div className="grid grid-cols-2 gap-4">
@@ -347,7 +357,7 @@ const TaskForm = () => {
           rows={1} // Changed from rows={4} to rows={1} for "single line"
         />
       </div>
-      
+
       {/* New Row 6: Dependant Task (Full Width) */}
      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

@@ -11,6 +11,8 @@ import projectRoutes from "./routes/projects";
 import fileRoutes from "./routes/fileRoutes";
 import { WebSocketServer } from "ws";
 import path from "path";
+import taskHistoryRoutes from "./routes/taskHistory.routes"; // ✅ NEW
+
 dotenv.config();
 const app = express();
 app.use(cors({
@@ -20,7 +22,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use((req, res, next) => {
-  res.set("Cache-Control", "no-store");  
+  res.set("Cache-Control", "no-store");
   next();
 });
 
@@ -31,6 +33,8 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 app.use("/messages",messageRoute)
 app.use("/tasks", taskRoutes);
 app.use("/projects", projectRoutes);
+// ✅ Register Task History route
+app.use("/task-history", taskHistoryRoutes);
 
 app.use("/api/users", userRoutes);
 
@@ -59,12 +63,12 @@ wss.on('connection', (ws) => {
         if (data.type === 'INIT') {
           const username = data.currentUser;
 
-          if (username) {              
-              
+          if (username) {
+
               taskConnections.set(username, ws);
 
               // Optional: Attach the taskId to the ws object itself for easy lookup on disconnect
-              ws.username = username; 
+              ws.username = username;
 
               console.log(`Task ID: ${username} registered. Clients now: ${taskConnections.size}.`);
         } else {
@@ -72,7 +76,7 @@ wss.on('connection', (ws) => {
             console.log(`Received regular message: ${data}`);
         }
       }
-      } 
+      }
       catch (e) {
           console.error('Received non-JSON or invalid message:', message);
       }
@@ -82,7 +86,7 @@ wss.on('connection', (ws) => {
     if (ws.username) {
       const username = ws.username;
       console.log(`Connection for Task ID ${username} closed. Clients remaining: ${taskConnections.size}.`);
-      taskConnections.delete(username);       
+      taskConnections.delete(username);
     }
   });
 });

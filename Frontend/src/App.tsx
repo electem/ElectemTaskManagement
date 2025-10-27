@@ -14,16 +14,15 @@ import TaskFormPage from "./pages/TaskFormPage";
 import Login from "./pages/Login";
 
 import { TaskProvider } from "@/context/TaskContext";
-import { ProjectProvider } from './context/ProjectContext';
+import { ProjectProvider } from "./context/ProjectContext";
 import { ConversationProvider } from "./context/ConversationProvider";
+import { TaskHistoryProvider } from "./context/TaskHistoryContext"; // ✅ new import
 
 const queryClient = new QueryClient();
 
-// Main layout component
+// Layout component
 const AppLayout = () => {
   const location = useLocation();
-
-  // Only show sidebar if we are NOT on the login page
   const showSidebar = location.pathname !== "/";
 
   return (
@@ -52,13 +51,16 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <TaskProvider>
-            <ConversationProvider>
-              <ProjectProvider>
+          <ConversationProvider>
+            <ProjectProvider>
+              {/* ✅ Added TaskHistoryProvider here */}
+              <TaskHistoryProvider>
                 <SidebarProvider defaultOpen={false}>
                   <AppLayout />
                 </SidebarProvider>
-              </ProjectProvider>
-            </ConversationProvider>
+              </TaskHistoryProvider>
+            </ProjectProvider>
+          </ConversationProvider>
         </TaskProvider>
       </BrowserRouter>
     </TooltipProvider>

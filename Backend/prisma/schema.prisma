@@ -30,7 +30,7 @@ model Task {
   description String?
   dueDate     DateTime?
   status      String    @default("Pending")
-  
+
   projectId   Int
   project     String    // Project name
 
@@ -50,6 +50,10 @@ model Task {
 
   // 👇 Relation to messages
   messages    Message[]
+
+  // Task TaskHistory
+  histories   TaskChangeHistory[]   // 👈 relation to TaskHistory
+
 }
 
 model Message {
@@ -75,6 +79,19 @@ model UploadedFile {
   taskId        Int?     // Associated task ID
   messageId     String?  // Associated message ID
   uploadDate    DateTime @default(now())
-  
+
   @@map("uploaded_files")
 }
+
+model TaskChangeHistory {
+  id             Int      @id @default(autoincrement())
+  taskId         Int
+  fieldChanged   String   // "status" or "owner"
+  oldValue       String?
+  newValue       String?
+  changedAt      DateTime @default(now())
+  changeGroupId  String   @default(uuid()) // 👈 unique per update operation
+
+  task           Task     @relation(fields: [taskId], references: [id])
+}
+
