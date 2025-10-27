@@ -9,7 +9,7 @@ export interface Task {
   members: string[];
   title: string;
   description: string;
-  dueDate: string;
+  dueDate?: string; 
   status: string;
   url?: string;                // new field
   dependentTaskId?: number[];

@@ -158,18 +158,35 @@ const TaskManagement = () => {
       </div>
     );
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      Completed: "bg-green-500",
-      "In Progress": "bg-primary",
-      Pending: "bg-yellow-500",
-      "On Hold": "bg-orange-500",
-      Cancelled: "bg-red-500",
-      Approved: "bg-green-600",
-      Rejected: "bg-red-600",
-    };
-    return colors[status] || "bg-muted";
+const getStatusColor = (status: string) => {
+  const colors: Record<string, string> = {
+    Pending: "bg-yellow-500",
+    "In Progress": "bg-blue-500",
+    Closed: "bg-gray-600",
+    Completed: "bg-green-500",
+    "On Hold": "bg-orange-500",
+    Cancelled: "bg-red-500",
+    Draft: "bg-gray-400",
+    Submitted: "bg-cyan-500",
+    Reviewed: "bg-indigo-500",
+    Approved: "bg-green-600",
+    Rejected: "bg-red-600",
+    "Needs Revision": "bg-orange-400",
+    "Reviewed by Client": "bg-purple-500",
+    "Reviewed by Vinod": "bg-teal-500",
+    "Waiting for Client Approval": "bg-yellow-600",
+    "Approved by Client": "bg-green-700",
+    "Changes Requested": "bg-amber-500",
+    Open: "bg-sky-500",
+    Assigned: "bg-lime-500",
+    "In Review": "bg-indigo-400",
+    "QA Testing": "bg-blue-600",
+    Resolved: "bg-emerald-600",
   };
+
+  return colors[status] || "bg-muted";
+};
+
 
   // 🎯 ADDED: Function to mark as read before navigation
   const handleChatClick = (taskId: string, title: string) => {
@@ -180,7 +197,7 @@ const TaskManagement = () => {
   const handleTitleClick = (taskId: string) => {
     navigate(`/tasks/${taskId}/edit`);
   };
-
+ 
   // 🧩 Copy task function using context
 const handleCopyTask = async (task: Task) => {
   try {
