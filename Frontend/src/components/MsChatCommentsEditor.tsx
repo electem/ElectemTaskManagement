@@ -48,10 +48,19 @@ export default function MsChatCommentsEditor({
         content: `${msg.sender}(${msg.time}): ${msg.text}`, // format like SHI(25/10 10:49): wwww
         replies: [], // no nested replies yet
       }));
+
       setThreads(mappedThreads);
       currentTaskID.current = taskId;
     }
   }, [messages]);
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // Scroll smoothly to bottom when threads change
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [threads]);
+
 
   useEffect(() => {
     if (editorRef.current && !editorRef.current.innerHTML) {
@@ -67,12 +76,14 @@ export default function MsChatCommentsEditor({
   // WebSocket Connection with Auto-Reconnect + Status Indicator
   // =========================
   const connectWebSocket = () => {
-    const ws = new WebSocket("wss://iot.electems.com/task/ws");
+    const ws = new WebSocket(import.meta.env.VITE_WS_API_BASE);
+    console.log("ENV", import.meta.env.VITE_WS_API_BASE);
+
 
     ws.onopen = () => {
       console.log("Connected to WebSocket server");
       // Send a JSON object immediately after connection opens
-      const initMessage = JSON.stringify({ type: "INIT", currentUser });
+      const initMessage = JSON.stringify({ type: "INIT", currentUser, taskId });
       ws.send(initMessage);
 
       setRetryCount(0);
@@ -83,16 +94,16 @@ export default function MsChatCommentsEditor({
     // In MsChatCommentsEditor.tsx - Update the WebSocket message handler
     ws.onmessage = (event) => {
       const response = JSON.parse(event.data);
-      console.log("Received update:", response, currentTaskID.current);      
+      console.log("Received update:", response, currentTaskID.current);
 
-      if(response.taskId == currentTaskID.current) {
+      if (response.taskId == currentTaskID.current) {
         setThreads(response.payload);
       }
-      console.log("Received update:", taskId, currentUser);   
-      if(response.taskId !== currentTaskID.current && response.currentUser !== currentUser) {
-        console.log("incrementUnreadCount update:");   
+      console.log("Received update:", taskId, currentUser);
+      if (response.taskId !== currentTaskID.current && response.currentUser !== currentUser) {
+        console.log("incrementUnreadCount update:");
         incrementUnreadCount(response.taskId);
-      }  
+      }
     };
 
     ws.onclose = () => {
@@ -111,7 +122,7 @@ export default function MsChatCommentsEditor({
   };
 
   useEffect(() => {
-    connectWebSocket();  
+    connectWebSocket();
   }, []);
 
   function highlightCodeBlocks() {
@@ -220,19 +231,19 @@ export default function MsChatCommentsEditor({
   async function handleFileUpload(e, taskId) {
     const file = e.target.files[0];
     if (!file) return;
-  
+
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("taskId", taskId);
-      
+
       const res = await api.post("/uploads", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-  
+
       const data = res.data;
       if (data && data.url) {
         // Get username and timestamp (same logic as handleSend)
@@ -244,7 +255,7 @@ export default function MsChatCommentsEditor({
         const minute = String(now.getMinutes()).padStart(2, "0");
         const second = String(now.getSeconds()).padStart(2, "0");
         const dateTimeString = `${day}/${month} ${minute}:${second}`;
-  
+
         // Create file embed HTML based on file type
         let fileEmbedHtml = "";
         if (file.type.startsWith("image/")) {
@@ -254,19 +265,19 @@ export default function MsChatCommentsEditor({
         } else {
           fileEmbedHtml = `<a href='${data.url}' target='_blank' class='text-blue-600 underline'>${file.name}</a>`;
         }
-  
+
         // Create the complete message content with user info and file (same format as handleSend)
         const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${fileEmbedHtml}`;
-  
+
         // Use the SAME LOGIC as handleSend for updating threads
         const updatedThreads = [...threads];
         const newThread = { content: finalInnerHTML, replies: [] };
-  
+
         // For file uploads, always create as top-level message (parentIndex = null)
         // If you want file uploads to be replies, you can pass parentIndex and replyIndex as parameters
         const parentIndex = null; // Top-level message
         const replyIndex = null;
-  
+
         if (parentIndex === null) {
           updatedThreads.push(newThread);
         } else {
@@ -275,11 +286,11 @@ export default function MsChatCommentsEditor({
           parent.replies = [...(parent.replies || []), newThread];
         }
         setThreads(updatedThreads);
-        
+
         // Use the SAME LOGIC as handleSend for backend upload
         // For new file messages, send only the new message object (same as handleSend)
         await uploadThreadsToBackend(updatedThreads, false);
-  
+
         // Clear the file input
         e.target.value = '';
       }
@@ -313,7 +324,7 @@ export default function MsChatCommentsEditor({
 
   async function uploadThreadsToBackend(messageData: any, isEdit = false) {
     try {
-    
+
       await api.post("/messages/upsert", {
         taskId,
         newMessage: messageData,
@@ -328,33 +339,33 @@ export default function MsChatCommentsEditor({
 
   async function handleSend(parentIndex = null, replyIndex = null) {
     const innerHTML = editorRef.current?.innerHTML?.trim() || "";
-  
+
     // 1. Get username from local storage (assuming it's stored under the key 'username')
     const fullUsername = localStorage.getItem("username") || "---";
     // Extract the first three characters or use '---' as a fallback
     const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
-  
+
     // 2. Format the current Date and Time
     const now = new Date();
-  
+
     // Get day, month, minute, and second
     const day = String(now.getDate()).padStart(2, "0");
     const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
     const minute = String(now.getMinutes()).padStart(2, "0");
     const second = String(now.getSeconds()).padStart(2, "0");
-  
+
     // Create the date/time string: DD/MM MI:SS
     const dateTimeString = `${day}/${month} ${minute}:${second}`;
-  
+
     // 3. Prepend the prefix and date/time to innerHTML
     const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${innerHTML}`;
-  
+
     // Example output: JON(25/10 48:31): <div>Hello world!</div>
     if (!finalInnerHTML.trim()) return;
-  
+
     const updatedThreads = [...threads];
     // const newMessageObj = { content: finalInnerHTML, replies: [] };
-  
+
     if (editing) {
       const { path } = editing;
       const target = path.length
@@ -363,12 +374,12 @@ export default function MsChatCommentsEditor({
       if (target) target.content = finalInnerHTML;
       setThreads(updatedThreads);
       setEditing(null);
-      
+
       // For editing, send the updated threads array
       await uploadThreadsToBackend(updatedThreads, true);
     } else {
       const newThread = { content: finalInnerHTML, replies: [] };
-  
+
       if (parentIndex === null) {
         updatedThreads.push(newThread);
       } else {
@@ -377,11 +388,11 @@ export default function MsChatCommentsEditor({
         parent.replies = [...(parent.replies || []), newThread];
       }
       setThreads(updatedThreads);
-      
+
       // For new messages, send only the new message object
       await uploadThreadsToBackend(updatedThreads, false);
     }
-  
+
     editorRef.current.innerHTML = "";
     setHtml("");
   }
@@ -404,7 +415,7 @@ export default function MsChatCommentsEditor({
     const handleImageClick = (url: string) => {
       window.open(url, "_blank");
     };
-  
+
     return (
       <div
         className="message-content"
@@ -419,7 +430,7 @@ export default function MsChatCommentsEditor({
       />
     );
   };
-  
+
 
   const renderReplies = (replies, path, level = 1, parentId = "") => {
     return replies.map((reply, i) => {
@@ -433,7 +444,7 @@ export default function MsChatCommentsEditor({
           className={`ml-${level * 4} mt-2 border-l-2 pl-2 border-gray-300`}
         >
           <div className="flex justify-between items-center">
-           <MessageContent htmlContent={reply.content} />
+            <MessageContent htmlContent={reply.content} />
             <div className="flex gap-2 text-sm">
               <button
                 className="hover:text-blue-600"
@@ -481,7 +492,7 @@ export default function MsChatCommentsEditor({
               return (
                 <div key={threadId} className="mb-2">
                   <div className="flex justify-between items-center">
-                  <MessageContent htmlContent={thread.content} />
+                    <MessageContent htmlContent={thread.content} />
                     <div className="flex gap-2 text-sm">
                       <button
                         className="hover:text-blue-600"
@@ -520,10 +531,12 @@ export default function MsChatCommentsEditor({
               No content yet — start typing or paste formatted text.
             </div>
           )}
+          <div ref={bottomRef} />
         </div>
       </div>
 
-      <div className="relative flex items-center border rounded-2xl shadow-sm overflow-hidden bg-white">
+      {/* Message Input Area */}
+      <div className="flex items-end border rounded-2xl shadow-sm bg-white p-2 w-full max-w-full overflow-hidden">
         <div
           ref={editorRef}
           onPaste={handlePaste}
@@ -533,30 +546,34 @@ export default function MsChatCommentsEditor({
           onKeyDown={handleKeyDown}
           contentEditable
           suppressContentEditableWarning
-          className={`min-h-[120px] flex-1 p-4 outline-none break-words whitespace-pre-wrap prose prose-slate list-disc pl-5 ${
-            isFocused ? "ring-2 ring-slate-200" : ""
-          }`}
+          className={`flex-1 min-h-[130px] max-h-[350px] overflow-y-auto p-3 outline-none break-words whitespace-pre-wrap w-full ${isFocused ? "ring-2 ring-slate-200" : ""
+            }`}
           aria-label="Rich text comment editor"
-          style={{ whiteSpace: "pre-wrap" }}
+          style={{
+            whiteSpace: "pre-wrap",
+            wordWrap: "break-word",
+            overflowWrap: "break-word",
+          }}
         />
 
-        <div className="absolute right-3 bottom-3 flex items-center gap-2">
+        <div className="flex items-center gap-1 ml-2 shrink-0 pb-2">
           <label
-            className={`cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded ${
-              uploading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
+            className={`cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 p-1 rounded-md text-sm ${uploading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            title="Attach file"
           >
             📎
             <input
               type="file"
               className="hidden"
-              onChange={(e) => handleFileUpload(e, taskId)} 
+              onChange={(e) => handleFileUpload(e, taskId)}
               disabled={uploading}
             />
           </label>
+
           <button
             onClick={() => handleSend()}
-            className="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition"
+            className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 transition text-sm"
             title="Send"
           >
             ➤

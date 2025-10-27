@@ -12,6 +12,7 @@ import fileRoutes from "./routes/fileRoutes";
 import { WebSocketServer } from "ws";
 import path from "path";
 import taskHistoryRoutes from "./routes/taskHistory.routes"; // ✅ NEW
+import prisma from "./prisma/client";
 
 dotenv.config();
 const app = express();
@@ -20,7 +21,8 @@ app.use(cors({
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"], // <-- include Authorization
 }));
-app.use(express.json());
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use((req, res, next) => {
   res.set("Cache-Control", "no-store");
   next();
@@ -56,19 +58,25 @@ wss.on('connection', (ws) => {
 
   console.log('New client connected');
 
-  ws.on('message', function incoming(message:string) {
+  ws.on('message',async function incoming(message:string) {
     try {
         const data = JSON.parse(message);
 
         if (data.type === 'INIT') {
           const username = data.currentUser;
+          const taskId = data.taskId;
+          console.log("username",username);
+          console.log("taskId",taskId);
 
           if (username) {
 
               taskConnections.set(username, ws);
-
-              // Optional: Attach the taskId to the ws object itself for easy lookup on disconnect
-              ws.username = username;
+              ws.username = username; 
+              const messages = await prisma.message.findUnique({
+                where: { taskId },
+              });
+              //call DB based on TaskId
+              broadcastUpdate(messages?.conversation, taskId, username);
 
               console.log(`Task ID: ${username} registered. Clients now: ${taskConnections.size}.`);
         } else {
