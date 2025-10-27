@@ -21,22 +21,35 @@ export const getMessages = async (req: Request, res: Response) => {
 
 export const upsertMessage = async (req: Request, res: Response) => {
   try {
-    const { taskId, newMessage, currentUser } = req.body;
+    const { taskId, newMessage, currentUser, isEdit } = req.body;
 
     if (!taskId || !newMessage) {
       return res.status(400).json({ error: "taskId and newMessage are required" });
     }
 
+    // Find existing conversation
+    const existing = await prisma.message.findUnique({
+      where: { taskId },
+    });
+
+
+    // Upsert the message record
     const result = await prisma.message.upsert({
       where: { taskId },
       update: { conversation: newMessage },
-      create: { taskId, conversation: newMessage },
+      create: {
+        taskId,
+        conversation: newMessage,
+      },
     });
 
+    // Broadcast the updated conversation to all connected clients
     broadcastUpdate(newMessage, taskId, currentUser);
+
     res.json(result);
+
   } catch (error) {
-    console.error("Error upserting message:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error(error);
+    res.status(500).json({ error: "Failed to upsert message" });
   }
 };
