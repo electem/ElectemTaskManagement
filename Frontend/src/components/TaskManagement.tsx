@@ -166,7 +166,7 @@ const TaskManagement = () => {
     //  Show task if user is either the owner OR a member
     const isOwner = task.owner === username;
     const isMember = task.members.includes(username);
-    if (!isOwner && !isMember) return false;
+    if (!isOwner && !isMember) return false;  
     return true;
   });
   console.log("filteredTasks", filteredTasks);

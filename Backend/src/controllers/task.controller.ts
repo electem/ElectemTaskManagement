@@ -142,7 +142,7 @@ export const searchTasks = async (req: Request, res: Response) => {
     const lowerQ = query.toLowerCase();
 
     // ✅ Step 1: Fetch all tasks with messages
-    const tasks = await prisma.task.findMany({
+    const tasks = await prisma.task.findMany({ 
       include: { messages: true },
       orderBy: { createdAt: "desc" },
     });

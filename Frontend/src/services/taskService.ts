@@ -18,7 +18,7 @@ export const getTasks = async (): Promise<TaskDTO[]> => {
     const res = await api.get("/tasks");
     return res.data;
   } catch (err) {
-    throw new Error("Failed to fetch tasks");
+    throw new Error("Failed to fetch tasks"); 
   }
 };
 
