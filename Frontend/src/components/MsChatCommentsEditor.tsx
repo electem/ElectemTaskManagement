@@ -105,6 +105,29 @@ export default function MsChatCommentsEditor({
         console.log("incrementUnreadCount update:");
         incrementUnreadCount(response.taskId);
       }
+      const username = localStorage.getItem("username") || "";
+      const payload = response.payload;
+
+      // ✅ Check if payload is an array and not empty
+      let messageText = "";
+      
+      if (Array.isArray(payload) && payload.length > 0) {
+        // Get the last message object
+        const lastMessage = payload[payload.length - 1];
+        
+        // Extract its "content" property
+        messageText = lastMessage.content || "";
+      }
+      
+      console.log("payload:", payload);
+      console.log("messageText:", messageText);
+      
+      const lastPart = messageText.split(";").pop()?.trim() || "";
+      console.log("lastPart",lastPart);
+      
+      const hasMention = lastPart.includes(`@${username}`);
+      console.log("hasMention",hasMention);
+      incrementUnreadCount(response.taskId, hasMention);
     };
 
     ws.onclose = (ev) => {

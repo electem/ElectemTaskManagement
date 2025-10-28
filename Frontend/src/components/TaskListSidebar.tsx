@@ -342,13 +342,28 @@ import { useUsers } from "@/hooks/useUsers";
                             }`}
                           >
                             <div className="relative flex items-center">
-                              <MessageCircle className="h-4 w-4" />
-                              {unreadCount > 0 && (
-                                <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center animate-pulse">
-                                  {unreadCount > 9 ? '9+' : unreadCount}
-                                </span>
-                              )}
-                            </div>
+  <MessageCircle
+    className={`h-4 w-4 ${
+      unreadCounts[taskIdStr]?.mention
+        ? "text-green-500" // 🟢 mention
+        : unreadCounts[taskIdStr]?.count > 0
+        ? "text-red-500" // 🔴 unread
+        : "text-gray-500 dark:text-gray-400" // ⚪ default
+    }`}
+  />
+
+  {/* 🔢 Badge count */}
+  {unreadCounts[taskIdStr]?.count > 0 && (
+    <span
+      className={`absolute -top-1 -right-2 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center animate-pulse ${
+        unreadCounts[taskIdStr]?.mention ? "bg-green-500" : "bg-red-500"
+      }`}
+    >
+      {unreadCounts[taskIdStr].count > 9 ? "9+" : unreadCounts[taskIdStr].count}
+    </span>
+  )}
+</div>
+
                           </Button>
                         </div>
                       </div>
