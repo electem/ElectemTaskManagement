@@ -14,11 +14,11 @@ export interface TaskDTO {
 }
 
 export const getTasks = async (): Promise<TaskDTO[]> => {
-  try {
+  try { 
     const res = await api.get("/tasks");
     return res.data;
   } catch (err) {
-    throw new Error("Failed to fetch tasks"); 
+    throw new Error("Failed to fetch tasks");  
   }
 };
 

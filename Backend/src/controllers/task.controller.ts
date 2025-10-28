@@ -199,7 +199,7 @@ export const searchTasks = async (req: Request, res: Response) => {
               snippet = convo.substring(Math.max(0, idx - 30), idx + query.length + 30);
               snippet = snippet.replace(/[\[\]\{\}"]/g, ""); // clean snippet
               break;
-            }
+            } 
           } catch {
             continue;
           }
