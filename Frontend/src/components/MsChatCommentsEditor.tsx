@@ -8,6 +8,7 @@ import {
   useConversationContext,
 } from "@/context/ConversationProvider";
 import { useTaskContext } from "@/context/TaskContext";
+import { useUsers } from "@/hooks/useUsers";
 
 interface Props {
   placeholder?: string;
@@ -41,6 +42,12 @@ export default function MsChatCommentsEditor({
   const messages: Message[] = conversations[taskId] || [];
   const currentTaskID = useRef(0);
   const { incrementUnreadCount } = useTaskContext();
+  const [mentionList, setMentionList] = useState<string[]>([]);
+  const [filteredMentions, setFilteredMentions] = useState<string[]>([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionPosition, setMentionPosition] = useState({ x: 0, y: 0 });
+  const [mentionSearch, setMentionSearch] = useState("");
+  const { users } = useUsers();
 
   // --- HERE: map messages to threads ---
   useEffect(() => {
@@ -62,7 +69,18 @@ export default function MsChatCommentsEditor({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [threads]);
 
-
+  useEffect(() => {
+    if (Array.isArray(users) && users.length > 0) {
+      const currentUser = localStorage.getItem("username");
+      const usernames = users
+        .map((user) => user.username)
+        .filter((username) => (Boolean(username)) && username !== currentUser); // remove undefined/null if any
+        const username = localStorage.getItem("username")
+    
+      setMentionList(usernames); 
+    }
+  }, [users]);
+  
   useEffect(() => {
     if (editorRef.current && !editorRef.current.innerHTML) {
       editorRef.current.innerHTML = "";
@@ -106,6 +124,7 @@ export default function MsChatCommentsEditor({
         incrementUnreadCount(response.taskId);
       }
       const username = localStorage.getItem("username") || "";
+      const filteredUsername = username.substring(0,3).toLowerCase();
       const payload = response.payload;
 
       // ✅ Check if payload is an array and not empty
@@ -125,7 +144,7 @@ export default function MsChatCommentsEditor({
       const lastPart = messageText.split(";").pop()?.trim() || "";
       console.log("lastPart",lastPart);
       
-      const hasMention = lastPart.includes(`@${username}`);
+      const hasMention = lastPart.toLowerCase().includes(`@${filteredUsername}`);
       console.log("hasMention",hasMention);
       incrementUnreadCount(response.taskId, hasMention);
     };
@@ -325,9 +344,77 @@ export default function MsChatCommentsEditor({
     }
   }
 
-  function handleInput() {
+  function getCaretCoordinates() {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return { x: 0, y: 0 };
+    const range = selection.getRangeAt(0).cloneRange();
+    range.collapse(false);
+    const rects = range.getClientRects();
+    if (rects.length > 0) {
+      const rect = rects[0];
+      return { x: rect.left, y: rect.bottom + window.scrollY };
+    }
+    const span = document.createElement("span");
+    range.insertNode(span);
+    const rect = span.getBoundingClientRect();
+    const coords = { x: rect.left, y: rect.bottom + window.scrollY };
+    span.parentNode?.removeChild(span);
+    return coords;
+  }
+  
+
+  function handleInput(e) {
+    syncHtml();
+  
+    const sel = window.getSelection();
+    const range = sel?.getRangeAt(0);
+    if (!range) return;
+  
+    // Get text before cursor
+    const textBeforeCursor = range.startContainer.textContent?.substring(0, range.startOffset) || "";
+  
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/); // detect @ + partial name
+    if (mentionMatch) {
+      const partial = mentionMatch[1].toLowerCase();
+      const filtered = mentionList.filter((name) =>
+        name.toLowerCase().startsWith(partial)
+      );
+      setFilteredMentions(filtered);
+      setMentionSearch(partial);
+      setShowMentions(true);
+  
+      // Get cursor position for dropdown
+      const coords = getCaretCoordinates();
+      setMentionPosition(coords);
+      
+    } else {
+      setShowMentions(false);
+    }
+  }
+
+  function insertMention(username: string) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+  
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+  
+    // Replace partial mention
+    const text = node.textContent || "";
+    const newText = text.replace(/@\w*$/, `@${username} `);
+    node.textContent = newText;
+  
+    // Move cursor to end
+    range.setStart(node, newText.length);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  
+    setShowMentions(false);
     syncHtml();
   }
+  
+  
 
   function syncHtml() {
     const inner = editorRef.current ? editorRef.current.innerHTML : "";
@@ -434,6 +521,24 @@ export default function MsChatCommentsEditor({
   function toggleCollapse(id) {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
   }
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        showMentions &&
+        editorRef.current &&
+        !(editorRef.current as HTMLElement).contains(e.target as Node)
+      ) {
+        setShowMentions(false);
+      }
+    };
+  
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [showMentions]);
+  
 
   const MessageContent = ({ htmlContent }: { htmlContent: string }) => {
     const handleImageClick = (url: string) => {
@@ -604,6 +709,30 @@ export default function MsChatCommentsEditor({
           </button>
         </div>
       </div>
+      {showMentions && filteredMentions.length > 0 && (
+        <div
+          className="absolute bg-white border rounded-md shadow-md z-50"
+          style={{
+            top: mentionPosition.y ,
+            left: mentionPosition.x,
+            minWidth: "120px",
+          }}
+        >
+          {filteredMentions.map((name) => (
+            <div
+              key={name}
+              className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
+              onMouseDown={(e) => {
+                e.preventDefault(); // prevent editor blur
+                insertMention(name);
+              }}
+            >
+              @{name}
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   );
 }
