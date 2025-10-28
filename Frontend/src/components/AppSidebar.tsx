@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
+  FileText,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -17,6 +18,7 @@ import { SidebarContentSection } from "./SidebarContentSection"; // ✅ Import t
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Task Management", url: "/tasks", icon: ListTodo },
+   { title: "Files", url: "/files", icon: FileText }, 
 ];
 
 export function AppSidebar() {

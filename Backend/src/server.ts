@@ -15,6 +15,7 @@ import { WebSocketServer } from "ws";
 import path from "path";
 import taskHistoryRoutes from "./routes/taskHistory.routes"; // ✅ NEW
 import prisma from "./prisma/client";
+import fileUploadRoutes from "./routes/fileUploadRoutes";
 
 dotenv.config();
 const app = express();
@@ -48,6 +49,10 @@ app.use("/api/members", memberRoutes);
 app.use("/uploads", fileRoutes);
 app.use('/metrics', metricsRoutes);
 app.use('/metrics/scheduler', metricsSchedulerRoutes);
+
+
+app.use("/", fileUploadRoutes);
+
 
 app.get("/health", (req, res) => res.json({ status: "OK", message: "Server running" }));
 
