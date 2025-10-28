@@ -8,6 +8,7 @@ import {
   useConversationContext,
 } from "@/context/ConversationProvider";
 import { useTaskContext } from "@/context/TaskContext";
+import { useParams } from "react-router-dom";
 
 interface Props {
   placeholder?: string;
@@ -41,7 +42,6 @@ export default function MsChatCommentsEditor({
   const messages: Message[] = conversations[taskId] || [];
   const currentTaskID = useRef(0);
   const { incrementUnreadCount } = useTaskContext();
-
   // --- HERE: map messages to threads ---
   useEffect(() => {
     if (messages.length > 0) {
@@ -132,22 +132,30 @@ export default function MsChatCommentsEditor({
 
           // Compare latest message from both
           const isSameMessage = lastPayload?.content === lastExistingContent;
+          // ✅ Always recalculate from URL for latest tab/task
+          const currentPathParts = window.location.pathname.split("/");
+          const currentTaskIdFromUrl = currentPathParts[2]
+            ? Number(currentPathParts[2])
+            : null;
 
-          console.log("==================isSameMessage================");
-          console.log(isSameMessage);
+          console.log(
+            "Current URL Task ID:",
+            currentTaskIdFromUrl,
+            "Response Task ID:",
+            response.taskId
+          );
 
-          if (!isSameMessage) {
+          if (!isSameMessage && currentTaskIdFromUrl !== response.taskId) {
             console.log("🟢 New message detected → incrementUnreadCount");
             incrementUnreadCount(response.taskId, hasMention);
           } else {
             console.log(
-              "🔵 Skipping incrementUnreadCount — latest message matches"
+              "🔵 Skipping incrementUnreadCount — latest message matches or same task"
             );
           }
         }
       }
     };
-
 
     ws.onclose = (ev) => {
       console.warn("WebSocket disconnected. Retrying...", ev.code, ev.reason);
