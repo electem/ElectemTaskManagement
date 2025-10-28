@@ -48,3 +48,7 @@ export const deleteTask = async (id: number) => {
     throw new Error("Failed to delete task");
   }
 };
+export const searchTasks = async (q: string) => {
+  const res = await api.get("/tasks/search", { params: { q } });
+  return res.data.results;
+};
