@@ -128,3 +128,22 @@ If you want to implement backend functionality within Lovable, you should use **
 - All without requiring external setup
 
 To use Lovable Cloud, you would need to enable it through the Lovable interface and adapt your code to use Supabase client libraries instead of this Express API.
+
+
+## Scheduler Notes: 
+GET /metrics/scheduler/run/daily
+{
+  "message": "✅ Metrics computation completed for daily"
+}
+
+GET /metrics/scheduler/run-all
+{
+  "message": "✅ Metrics computation completed for all periods."
+}
+
+📊 Example Stored Data
+id	developerId	periodType	startDate	endDate	cycleEfficiency	deliveryRatePerDay	reworkRatio	completedTaskCount	totalReopened	computedAt
+1	101	daily	2025-10-27	2025-10-27	65.23	0.71	12.5	5	1	2025-10-28 00:05:00
+2	101	weekly	2025-10-20	2025-10-27	67.80	0.65	8.33	23	2	2025-10-28 00:05:00
+3	101	monthly	2025-10-01	2025-10-31	70.14	0.68	5.0	88
+

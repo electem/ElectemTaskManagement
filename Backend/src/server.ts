@@ -5,7 +5,9 @@ import taskRoutes from "./routes/task.routes";
 
 import userRoutes from "./routes/userRoutes";
 import memberRoutes from "./routes/member.routes";
+import metricsRoutes from "./routes/metrics.routes";
 import messageRoute from "./routes/message.routes"
+import metricsSchedulerRoutes from "./scheduler/metrics.scheduler.route"
 import authRoutes from "./routes/authRoutes"
 import projectRoutes from "./routes/projects";
 import fileRoutes from "./routes/fileRoutes";
@@ -44,6 +46,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
 // Serve static files from uploads directory
 app.use("/uploads", fileRoutes);
+app.use('/metrics', metricsRoutes);
+app.use('/metrics/scheduler', metricsSchedulerRoutes);
 
 app.get("/health", (req, res) => res.json({ status: "OK", message: "Server running" }));
 

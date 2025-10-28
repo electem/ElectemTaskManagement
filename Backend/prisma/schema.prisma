@@ -93,3 +93,34 @@ model TaskChangeHistory {
   task           Task     @relation(fields: [taskId], references: [id])
 }
 
+model DeveloperPerformanceMetric {
+  id                 Int       @id @default(autoincrement())
+  developerId        Int
+  periodType         PeriodType
+  startDate          DateTime
+  endDate            DateTime
+
+  cycleEfficiency    Float?
+  totalLeadHours     Float?
+  totalActiveHours   Float?
+  completedTaskCount Int?
+
+  deliveryRatePerDay Float?
+  completedCount     Int?
+
+  reworkRatio        Float?
+  totalReopened      Int?
+
+  computedAt         DateTime   @default(now())
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@unique([developerId, periodType, startDate, endDate])
+}
+
+enum PeriodType {
+  daily
+  weekly
+  monthly
+}
+
