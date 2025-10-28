@@ -38,7 +38,7 @@ export default function MsChatCommentsEditor({
   const [socket, setSocket] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
-  const { conversations } = useConversationContext();
+  const { conversations,updateConversation } = useConversationContext();
   const messages: Message[] = conversations[taskId] || [];
   const currentTaskID = useRef(0);
   const { incrementUnreadCount } = useTaskContext();
@@ -120,38 +120,32 @@ export default function MsChatCommentsEditor({
         const hasMention =
           lastMessage?.content?.includes(`@${currentUser}`) || false;
 
-        if (response.payload && response.payload.length > 0) {
+        if (sender !== currentUser) {
           const existingMessages = conversations?.[response.taskId] || [];
+          const newPayload = response.payload || [];
 
-          const lastExisting = existingMessages[existingMessages.length - 1];
-          const lastPayload = response.payload[response.payload.length - 1];
+          // Normalize both message arrays to same comparable structure
+          const existingNormalized = existingMessages.map(
+            (m) => `${m.sender}(${m.time}): ${m.text}`
+          );
+          const payloadNormalized = newPayload.map((p) => p.content);
 
-          const lastExistingContent = lastExisting
-            ? `${lastExisting.sender}(${lastExisting.time}): ${lastExisting.text}`
-            : "";
+          const isDifferent =
+            JSON.stringify(existingNormalized) !==
+            JSON.stringify(payloadNormalized);
 
-          // Compare latest message from both
-          const isSameMessage = lastPayload?.content === lastExistingContent;
-          // ✅ Always recalculate from URL for latest tab/task
           const currentPathParts = window.location.pathname.split("/");
           const currentTaskIdFromUrl = currentPathParts[2]
             ? Number(currentPathParts[2])
             : null;
 
-          console.log(
-            "Current URL Task ID:",
-            currentTaskIdFromUrl,
-            "Response Task ID:",
-            response.taskId
-          );
-
-          if (!isSameMessage && currentTaskIdFromUrl !== response.taskId) {
-            console.log("🟢 New message detected → incrementUnreadCount");
+          if (isDifferent && currentTaskIdFromUrl !== response.taskId) {
+            console.log(
+              "🟢 New or updated message detected → incrementUnreadCount"
+            );
             incrementUnreadCount(response.taskId, hasMention);
           } else {
-            console.log(
-              "🔵 Skipping incrementUnreadCount — latest message matches or same task"
-            );
+            console.log("🔵 Skipping increment — no new message or same task");
           }
         }
       }
