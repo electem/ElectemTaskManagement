@@ -114,7 +114,7 @@ export default function MsChatCommentsEditor({
     ws.onmessage = (event) => {
       const response = JSON.parse(event.data);
       console.log("Received update:", response, currentTaskID.current);
-
+      const { currentUser: senderName } = response;
       if (response.taskId == currentTaskID.current) {
         setThreads(response.payload);
       }
@@ -125,8 +125,13 @@ export default function MsChatCommentsEditor({
       }
       const username = localStorage.getItem("username") || "";
       const filteredUsername = username.substring(0,3).toLowerCase();
+      const isSender = senderName?.toLowerCase() === username;
       const payload = response.payload;
 
+      if (isSender) {
+        console.log("🟡 Message from self — no unread increment");
+        return;
+      }
       // ✅ Check if payload is an array and not empty
       let messageText = "";
       
@@ -146,7 +151,7 @@ export default function MsChatCommentsEditor({
       
       const hasMention = lastPart.toLowerCase().includes(`@${filteredUsername}`);
       console.log("hasMention",hasMention);
-      incrementUnreadCount(response.taskId, hasMention);
+      incrementUnreadCount(response.taskId, hasMention, hasMention ? filteredUsername : null, senderName) // sender name);
     };
 
     ws.onclose = (ev) => {
