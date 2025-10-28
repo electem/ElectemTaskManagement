@@ -122,7 +122,7 @@ useEffect(() => {
   const markTaskAsRead = (taskId: string) => {
     setUnreadCounts((prev) => {
       const prevData = prev[taskId];
-  
+
       // ✅ Only reset if it exists
       if (prevData && (prevData.count > 0 || prevData.mention)) {
         return {
@@ -130,64 +130,57 @@ useEffect(() => {
           [taskId]: { count: 0, mention: false },
         };
       }
-  
+
       return prev;
     });
   };
-  
+
 
   // 🎯 ADDED: Function to increment unread count
   // 🎯 UPDATED: Support mention flag
   const incrementUnreadCount = (taskId: string, hasMention = false) => {
     console.log("🟡 incrementUnreadCount called", { taskId, hasMention });
-  
+
     // ✅ Ensure task exists
     console.log("🔢 Checking taskId:", taskId, "typeof:", typeof taskId);
 
     tasks.forEach((t) => {
       console.log(`➡️ Comparing task.id: ${t.id} (type: ${typeof t.id}) with taskId: ${taskId}`);
     });
-    
+
     const taskExists = tasks.some((t) => t.id.toString() === taskId.toString());
     console.log("🔍 Task exists?", taskExists);
-    
+
     if (!taskExists) {
       console.log("⛔ No task found for ID:", taskId);
       return;
     }
-    
-  
-    // ✅ Prevent duplicate counting
-    // if (countedTaskIdsRef.current.has(taskId)) {
-    //   console.log("⚠️ Task ID already counted:", taskId);
-    //   return;
-    // }
-  
+
     countedTaskIdsRef.current.add(taskId);
     console.log("✅ Added task ID to countedTaskIdsRef:", countedTaskIdsRef.current);
-  
+
     setUnreadCounts((prev) => {
       const prevData = prev[taskId] || { count: 0, mention: false };
-  
+
       const newData = {
         count: prevData.count + 1,
         // Keep mention true if already true, or set to true if current message has mention
         mention: prevData.mention || hasMention,
       };
-  
+
       console.log("📊 Updating unread count:", {
         taskId,
         previous: prevData,
         newData,
       });
-  
+
       return {
         ...prev,
         [taskId]: newData,
       };
     });
   };
-  
+
 
 
 

@@ -45,15 +45,23 @@ export default function MsChatCommentsEditor({
   // --- HERE: map messages to threads ---
   useEffect(() => {
     if (messages.length > 0) {
+      console.log("Messages:");
+
       const mappedThreads = messages.map((msg) => ({
-        content: `${msg.sender}(${msg.time}): ${msg.text}`, // format like SHI(25/10 10:49): wwww
-        replies: [], // no nested replies yet
+        content: `${msg.sender}(${msg.time}): ${msg.text}`,
+        replies: [],
       }));
 
       setThreads(mappedThreads);
       currentTaskID.current = taskId;
     }
-  }, [messages]);
+
+    // ✅ Reset currentTaskID when task changes or component unmounts
+    return () => {
+      console.log("Resetting currentTaskID on unmount or task change");
+      currentTaskID.current = 0;
+    };
+  }, [messages, taskId]);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -61,7 +69,6 @@ export default function MsChatCommentsEditor({
     // Scroll smoothly to bottom when threads change
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [threads]);
-
 
   useEffect(() => {
     if (editorRef.current && !editorRef.current.innerHTML) {
@@ -80,7 +87,6 @@ export default function MsChatCommentsEditor({
     const ws = new WebSocket(import.meta.env.VITE_WS_API_BASE);
     console.log("ENV", import.meta.env.VITE_WS_API_BASE);
 
-
     ws.onopen = () => {
       console.log("Connected to WebSocket server");
       // Send a JSON object immediately after connection opens
@@ -97,38 +103,51 @@ export default function MsChatCommentsEditor({
       const response = JSON.parse(event.data);
       console.log("Received update:", response, currentTaskID.current);
 
-      if (response.taskId == currentTaskID.current) {
+      const sender = response.sender || response.currentUser; // adjust field as per your backend
+
+      // ✅ Update thread messages if it's the active task
+      if (response.taskId === currentTaskID.current) {
         setThreads(response.payload);
       }
-      console.log("Received update:", taskId, currentUser);
-      if (response.taskId !== currentTaskID.current && response.currentUser !== currentUser) {
-        console.log("incrementUnreadCount update:");
-        incrementUnreadCount(response.taskId);
-      }
-      const username = localStorage.getItem("username") || "";
-      const payload = response.payload;
 
-      // ✅ Check if payload is an array and not empty
-      let messageText = "";
-      
-      if (Array.isArray(payload) && payload.length > 0) {
-        // Get the last message object
-        const lastMessage = payload[payload.length - 1];
-        
-        // Extract its "content" property
-        messageText = lastMessage.content || "";
+      // ✅ Increment unread only if the sender is NOT the current user
+      if (sender !== currentUser) {
+        const lastMessage =
+          Array.isArray(response.payload) && response.payload.length
+            ? response.payload[response.payload.length - 1]
+            : null;
+
+        const hasMention =
+          lastMessage?.content?.includes(`@${currentUser}`) || false;
+
+        if (response.payload && response.payload.length > 0) {
+          const existingMessages = conversations?.[response.taskId] || [];
+
+          const lastExisting = existingMessages[existingMessages.length - 1];
+          const lastPayload = response.payload[response.payload.length - 1];
+
+          const lastExistingContent = lastExisting
+            ? `${lastExisting.sender}(${lastExisting.time}): ${lastExisting.text}`
+            : "";
+
+          // Compare latest message from both
+          const isSameMessage = lastPayload?.content === lastExistingContent;
+
+          console.log("==================isSameMessage================");
+          console.log(isSameMessage);
+
+          if (!isSameMessage) {
+            console.log("🟢 New message detected → incrementUnreadCount");
+            incrementUnreadCount(response.taskId, hasMention);
+          } else {
+            console.log(
+              "🔵 Skipping incrementUnreadCount — latest message matches"
+            );
+          }
+        }
       }
-      
-      console.log("payload:", payload);
-      console.log("messageText:", messageText);
-      
-      const lastPart = messageText.split(";").pop()?.trim() || "";
-      console.log("lastPart",lastPart);
-      
-      const hasMention = lastPart.includes(`@${username}`);
-      console.log("hasMention",hasMention);
-      incrementUnreadCount(response.taskId, hasMention);
     };
+
 
     ws.onclose = (ev) => {
       console.warn("WebSocket disconnected. Retrying...", ev.code, ev.reason);
@@ -316,7 +335,7 @@ export default function MsChatCommentsEditor({
         await uploadThreadsToBackend(updatedThreads, false);
 
         // Clear the file input
-        e.target.value = '';
+        e.target.value = "";
       }
     } catch (err) {
       console.error("Upload failed:", err);
@@ -348,14 +367,12 @@ export default function MsChatCommentsEditor({
 
   async function uploadThreadsToBackend(messageData: any, isEdit = false) {
     try {
-
       await api.post("/messages/upsert", {
         taskId,
         newMessage: messageData,
         currentUser,
         isEdit,
       });
-
     } catch (err) {
       console.error("Failed to upload conversation", err);
     }
@@ -454,7 +471,6 @@ export default function MsChatCommentsEditor({
       />
     );
   };
-
 
   const renderReplies = (replies, path, level = 1, parentId = "") => {
     return replies.map((reply, i) => {
@@ -570,8 +586,9 @@ export default function MsChatCommentsEditor({
           onKeyDown={handleKeyDown}
           contentEditable
           suppressContentEditableWarning
-          className={`flex-1 min-h-[130px] max-h-[350px] overflow-y-auto p-3 outline-none break-words whitespace-pre-wrap w-full ${isFocused ? "ring-2 ring-slate-200" : ""
-            }`}
+          className={`flex-1 min-h-[130px] max-h-[350px] overflow-y-auto p-3 outline-none break-words whitespace-pre-wrap w-full ${
+            isFocused ? "ring-2 ring-slate-200" : ""
+          }`}
           aria-label="Rich text comment editor"
           style={{
             whiteSpace: "pre-wrap",
@@ -582,8 +599,9 @@ export default function MsChatCommentsEditor({
 
         <div className="flex items-center gap-1 ml-2 shrink-0 pb-2">
           <label
-            className={`cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 p-1 rounded-md text-sm ${uploading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+            className={`cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 p-1 rounded-md text-sm ${
+              uploading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
             title="Attach file"
           >
             <Upload size={18} /> {/* 👈 Lucide Upload icon */}
