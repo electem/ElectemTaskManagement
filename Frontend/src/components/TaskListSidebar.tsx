@@ -43,22 +43,34 @@ interface TaskListSidebarProps {
 
 // --- STATUS COLORS ---
 const statusColors: Record<string, string> = {
-  "To Do":
+  Pending:
     "text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900",
   "In Progress":
     "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900",
-  Done: "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900",
-  Pending:
-    "text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900",
+  "Partially Clear":
+    "text-gray-700 bg-gray-300 dark:text-gray-400 dark:bg-gray-800",
   Completed:
     "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900",
   "On Hold":
     "text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900",
-  Cancelled: "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900",
-  Approved: "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900",
-  Rejected: "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900",
-  default: "text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-800",
+  Cancelled:
+    "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900",
+  Draft:
+    "text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-800",
+  Reviewed:
+    "text-indigo-600 bg-indigo-100 dark:text-indigo-400 dark:bg-indigo-900",
+  Tested:
+    "text-green-700 bg-green-100 dark:text-green-500 dark:bg-green-900",
+  "Needs Validation":
+    "text-orange-500 bg-orange-100 dark:text-orange-400 dark:bg-orange-900",
+  "Reviewed by Vinod":
+    "text-teal-600 bg-teal-100 dark:text-teal-400 dark:bg-teal-900",
+  "Changes Requested":
+    "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900",
+  default:
+    "text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-800",
 };
+
 
 // --- TASK DETAIL COMPONENT ---
 interface TaskDetailProps {
