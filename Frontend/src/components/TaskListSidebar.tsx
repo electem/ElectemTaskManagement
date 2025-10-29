@@ -42,7 +42,7 @@ interface TaskListSidebarProps {
 }
 
 // --- STATUS COLORS ---
-const statusColors: Record<string, string> = {
+const statusColors: Record<string, string> = { 
   Pending:
     "text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900",
   "In Progress":
