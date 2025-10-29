@@ -120,25 +120,27 @@ const TaskForm = () => {
     dependentTaskId: [] as string[],
   });
 
-useEffect(() => {
-  const loadTask = async () => {
-    if (!isEditMode || !taskId) return;
-
-    //  If no tasks are loaded yet, fetch them first
-    if (tasks.length === 0) {
-      await fetchTasks();
-      return; 
-
+  useEffect(() => {
+    const loadTask = async () => {
+      if (!isEditMode || !taskId) return;
+   
+      //  If no tasks are loaded yet, fetch them first
+      if (tasks.length === 0) {
+        await fetchTasks();
+        return;
+      }
+   
+      //  Once tasks are loaded, find the matching one
       const task = tasks.find((t) => t.id === Number(taskId));
-
+   
       if (task) {
         setFormData({
-          project: task.project || "", //  fallback if optional
+          project: task.project || "",
           projectId: task.projectId?.toString() || "",
           owner: task.owner || "",
           members: task.members || [],
           title: task.title,
-          description: task.description,
+          description: task.description || "",
           dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
           status: task.status,
           url: task.url || "",
@@ -147,9 +149,10 @@ useEffect(() => {
             : [],
         });
       }
-    }
-  loadTask();
-}, [isEditMode, taskId, tasks, fetchTasks]);
+    };
+   
+    loadTask();
+  }, [isEditMode, taskId, tasks, fetchTasks]);
 
  if (isEditMode && tasks.length === 0) {
       return <div className="p-8">Loading task details...</div>;
