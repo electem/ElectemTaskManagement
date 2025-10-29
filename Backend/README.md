@@ -147,3 +147,25 @@ id	developerId	periodType	startDate	endDate	cycleEfficiency	deliveryRatePerDay	r
 2	101	weekly	2025-10-20	2025-10-27	67.80	0.65	8.33	23	2	2025-10-28 00:05:00
 3	101	monthly	2025-10-01	2025-10-31	70.14	0.68	5.0	88
 
+
+Notes of Auto Messager
+
+	Scenario for Owner change: 
+		[{"content": "Unknown(): RAV(28/10 41:07): Now the Bubble notifications are coming only when te chat component is openeed beacuse the the on message even will be triggerd only in the chatbox as a result that when we are in dahboard or listingpage then the on messag even will not be trigger and message count is also not happening \n\n1.Need to move this on message even to globally \n2.Further even when we are in chat as well the count is happening to avoid that just need to add a simple condition to avoid counting for active task", "replies": []}, {"content": "VIN(28/10 23:18): First take care of issue when we are inside the chat. moving it globally I will explain how to do", "replies": []}, {"content": "SUR(28/10 41:07), @Surya assigned this task to @Shiva.", "replies": []}]
+
+
+		AutoMessageTemplate: 
+		null    null owner     {"content": "@oldvalue assigned this task to @newvalue. Please update the status appropriately (if not done)", "replies": []}
+		
+	Scenario for Status change: 
+		[{"content": "Unknown(): RAV(28/10 41:07): Now the Bubble notifications are coming only when te chat component is openeed beacuse the the on message even will be triggerd only in the chatbox as a result that when we are in dahboard or listingpage then the on messag even will not be trigger and message count is also not happening \n\n1.Need to move this on message even to globally \n2.Further even when we are in chat as well the count is happening to avoid that just need to add a simple condition to avoid counting for active task", "replies": []}, {"content": "VIN(28/10 23:18): First take care of issue when we are inside the chat. moving it globally I will explain how to do", "replies": []}, {"content": "SUR(28/10 41:07), @Shi You are assinged this task", "replies": []}]
+
+
+		AutoMessageTemplate: 
+		Pending ->  In Progress status     {"content": "@oldowner, @newowner, Please confirm if the requirements are explained to the Developer?", "replies": []},
+																			 {"content": "@oldowner, @newowner, Please confirm if you the detail steps are listed?", "replies": []},
+																			 {"content": "@oldowner, @newowner, Please confirm if you the testing scenarios are listed?", "replies": []},
+																		 
+	
+
+

@@ -44,27 +44,28 @@ interface Task {
 
 const statusOptions = [
   "Pending",
-  "Closed",
+  "Partially Clear",
   "In Progress",
   "Completed",
   "On Hold",
   "Cancelled",
   "Draft",
-  "Submitted",
+  // "Submitted",
   "Reviewed",
-  "Approved",
-  "Rejected",
-  "Needs Revision",
-  "Reviewed by Client",
+  "Tested",
+  // "Approved",
+  //"Rejected",
+  "Needs Validation",
+  // "Reviewed by Client",
   "Reviewed by Vinod",
-  "Waiting for Client Approval",
-  "Approved by Client",
+  // "Waiting for Client Approval",
+  // "Approved by Client",
   "Changes Requested",
-  "Open",
-  "Assigned",
-  "In Review",
-  "QA Testing",
-  "Resolved",
+  //  "Open",
+  // "Assigned",
+  // "In Review",
+  // "QA Testing",
+  // "Resolved",
 ];
 
 const TaskForm = () => {
@@ -75,26 +76,26 @@ const TaskForm = () => {
     const colors: Record<string, string> = {
       Pending: "bg-yellow-500",
       "In Progress": "bg-blue-500",
-      Closed: "bg-gray-600",
+      "Partially Clear": "bg-gray-600",
       Completed: "bg-green-500",
       "On Hold": "bg-orange-500",
       Cancelled: "bg-red-500",
       Draft: "bg-gray-400",
-      Submitted: "bg-cyan-500",
+      // Submitted: "bg-cyan-500",
       Reviewed: "bg-indigo-500",
-      Approved: "bg-green-600",
-      Rejected: "bg-red-600",
-      "Needs Revision": "bg-orange-400",
-      "Reviewed by Client": "bg-purple-500",
+      Tested: "bg-green-600",
+      // Rejected: "bg-red-600",
+      "Needs Validation": "bg-orange-400",
+      // "Reviewed by Client": "bg-purple-500",
       "Reviewed by Vinod": "bg-teal-500",
-      "Waiting for Client Approval": "bg-yellow-600",
-      "Approved by Client": "bg-green-700",
+      // "Waiting for Client Approval": "bg-yellow-600",
+      // "Approved by Client": "bg-green-700",
       "Changes Requested": "bg-amber-500",
-      Open: "bg-sky-500",
-      Assigned: "bg-lime-500",
-      "In Review": "bg-indigo-400",
-      "QA Testing": "bg-blue-600",
-      Resolved: "bg-emerald-600",
+      // Open: "bg-sky-500",
+      // Assigned: "bg-lime-500",
+      // "In Review": "bg-indigo-400",
+      // "QA Testing": "bg-blue-600",
+      // Resolved: "bg-emerald-600",
     };
 
     return colors[status] || "bg-muted";
@@ -127,35 +128,33 @@ useEffect(() => {
     if (tasks.length === 0) {
       await fetchTasks();
       return; 
+
+      const task = tasks.find((t) => t.id === Number(taskId));
+
+      if (task) {
+        setFormData({
+          project: task.project || "", //  fallback if optional
+          projectId: task.projectId?.toString() || "",
+          owner: task.owner || "",
+          members: task.members || [],
+          title: task.title,
+          description: task.description,
+          dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
+          status: task.status,
+          url: task.url || "",
+          dependentTaskId: Array.isArray(task.dependentTaskId)
+            ? task.dependentTaskId.map((id) => id.toString())
+            : [],
+        });
+      }
     }
-
-    //  Once tasks are loaded, find the matching one
-    const task = tasks.find((t) => t.id === Number(taskId));
-
-    if (task) {
-      setFormData({
-        project: task.project || "",
-        projectId: task.projectId?.toString() || "",
-        owner: task.owner || "",
-        members: task.members || [],
-        title: task.title,
-        description: task.description || "",
-        dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
-        status: task.status,
-        url: task.url || "",
-        dependentTaskId: Array.isArray(task.dependentTaskId)
-          ? task.dependentTaskId.map((id) => id.toString())
-          : [],
-      });
-    }
-  };
-
   loadTask();
 }, [isEditMode, taskId, tasks, fetchTasks]);
 
  if (isEditMode && tasks.length === 0) {
       return <div className="p-8">Loading task details...</div>;
     }
+
   const handleSubmit = async () => {
     if (!formData.project || !formData.title || !formData.owner) {
       toast.error("Please fill in all required fields");
@@ -176,7 +175,6 @@ useEffect(() => {
         ? formData.dependentTaskId.map((id) => Number(id))
         : [],
     };
-   
 
     if (isEditMode && numericTaskId) {
       const oldTask = tasks.find((t) => t.id === numericTaskId);

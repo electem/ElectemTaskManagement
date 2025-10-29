@@ -8,6 +8,7 @@ import {
   useConversationContext,
 } from "@/context/ConversationProvider";
 import { useTaskContext } from "@/context/TaskContext";
+import { useUsers } from "@/hooks/useUsers";
 
 interface Props {
   placeholder?: string;
@@ -41,6 +42,12 @@ export default function MsChatCommentsEditor({
   const messages: Message[] = conversations[taskId] || [];
   const currentTaskID = useRef(0);
   const { incrementUnreadCount } = useTaskContext();
+  const [mentionList, setMentionList] = useState<string[]>([]);
+  const [filteredMentions, setFilteredMentions] = useState<string[]>([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionPosition, setMentionPosition] = useState({ x: 0, y: 0 });
+  const [mentionSearch, setMentionSearch] = useState("");
+  const { users } = useUsers();
 
   // --- HERE: map messages to threads ---
   useEffect(() => {
@@ -62,6 +69,17 @@ export default function MsChatCommentsEditor({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [threads]);
 
+  useEffect(() => {
+    if (Array.isArray(users) && users.length > 0) {
+      const currentUser = localStorage.getItem("username");
+      const usernames = users
+        .map((user) => user.username)
+        .filter((username) => (Boolean(username)) && username !== currentUser); // remove undefined/null if any
+        const username = localStorage.getItem("username")
+
+      setMentionList(usernames);
+    }
+  }, [users]);
 
   useEffect(() => {
     if (editorRef.current && !editorRef.current.innerHTML) {
@@ -96,38 +114,60 @@ export default function MsChatCommentsEditor({
     ws.onmessage = (event) => {
       const response = JSON.parse(event.data);
       console.log("Received update:", response, currentTaskID.current);
-
+      const { currentUser: senderName } = response;
       if (response.taskId == currentTaskID.current) {
         setThreads(response.payload);
       }
       console.log("Received update:", taskId, currentUser);
-      if (response.taskId !== currentTaskID.current && response.currentUser !== currentUser) {
-        console.log("incrementUnreadCount update:");
-        incrementUnreadCount(response.taskId);
-      }
       const username = localStorage.getItem("username") || "";
+      const filteredUsername = username.substring(0,3).toLowerCase();
+      const isSender = senderName?.toLowerCase() === username;
       const payload = response.payload;
 
+      if (isSender) {
+        console.log("🟡 Message from self — no unread increment");
+        return;
+      }
       // ✅ Check if payload is an array and not empty
       let messageText = "";
-      
+
       if (Array.isArray(payload) && payload.length > 0) {
         // Get the last message object
         const lastMessage = payload[payload.length - 1];
-        
+
         // Extract its "content" property
         messageText = lastMessage.content || "";
       }
-      
+
       console.log("payload:", payload);
       console.log("messageText:", messageText);
-      
+
       const lastPart = messageText.split(";").pop()?.trim() || "";
       console.log("lastPart",lastPart);
-      
-      const hasMention = lastPart.includes(`@${username}`);
+
+      const hasMention = lastPart.toLowerCase().includes(`@${filteredUsername}`);
       console.log("hasMention",hasMention);
-      incrementUnreadCount(response.taskId, hasMention);
+      const existingMessages = conversations?.[response.taskId] || [];
+      const newPayload = response.payload || [];
+
+      // Normalize both message arrays to same comparable structure
+      const existingNormalized = existingMessages.map(
+        (m) => `${m.sender}(${m.time}): ${m.text}`
+      );
+      const payloadNormalized = newPayload.map((p) => p.content);
+
+      const isDifferent =
+        JSON.stringify(existingNormalized) !==
+        JSON.stringify(payloadNormalized);
+
+      const currentPathParts = window.location.pathname.split("/");
+      const currentTaskIdFromUrl = currentPathParts[2]
+        ? Number(currentPathParts[2])
+        : null;
+      if (response.taskId !== currentTaskIdFromUrl && response.currentUser !== currentUser && isDifferent ) {
+        console.log("incrementUnreadCount update:");
+        incrementUnreadCount(response.taskId, hasMention, hasMention ? filteredUsername : null, senderName) // sender name);
+      }
     };
 
     ws.onclose = (ev) => {
@@ -273,13 +313,14 @@ export default function MsChatCommentsEditor({
         // Get username and timestamp (same logic as handleSend)
         const fullUsername = localStorage.getItem("username") || "---";
         const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
+
         const now = new Date();
         const day = String(now.getDate()).padStart(2, "0");
         const month = String(now.getMonth() + 1).padStart(2, "0");
-        const minute = String(now.getMinutes()).padStart(2, "0");
-        const second = String(now.getSeconds()).padStart(2, "0");
-        const dateTimeString = `${day}/${month} ${minute}:${second}`;
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
 
+        const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
         // Create file embed HTML based on file type
         let fileEmbedHtml = "";
         if (file.type.startsWith("image/")) {
@@ -325,9 +366,77 @@ export default function MsChatCommentsEditor({
     }
   }
 
-  function handleInput() {
+  function getCaretCoordinates() {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return { x: 0, y: 0 };
+    const range = selection.getRangeAt(0).cloneRange();
+    range.collapse(false);
+    const rects = range.getClientRects();
+    if (rects.length > 0) {
+      const rect = rects[0];
+      return { x: rect.left, y: rect.bottom + window.scrollY };
+    }
+    const span = document.createElement("span");
+    range.insertNode(span);
+    const rect = span.getBoundingClientRect();
+    const coords = { x: rect.left, y: rect.bottom + window.scrollY };
+    span.parentNode?.removeChild(span);
+    return coords;
+  }
+
+
+  function handleInput(e) {
+    syncHtml();
+
+    const sel = window.getSelection();
+    const range = sel?.getRangeAt(0);
+    if (!range) return;
+
+    // Get text before cursor
+    const textBeforeCursor = range.startContainer.textContent?.substring(0, range.startOffset) || "";
+
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/); // detect @ + partial name
+    if (mentionMatch) {
+      const partial = mentionMatch[1].toLowerCase();
+      const filtered = mentionList.filter((name) =>
+        name.toLowerCase().startsWith(partial)
+      );
+      setFilteredMentions(filtered);
+      setMentionSearch(partial);
+      setShowMentions(true);
+
+      // Get cursor position for dropdown
+      const coords = getCaretCoordinates();
+      setMentionPosition(coords);
+
+    } else {
+      setShowMentions(false);
+    }
+  }
+
+  function insertMention(username: string) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+
+    // Replace partial mention
+    const text = node.textContent || "";
+    const newText = text.replace(/@\w*$/, `@${username} `);
+    node.textContent = newText;
+
+    // Move cursor to end
+    range.setStart(node, newText.length);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    setShowMentions(false);
     syncHtml();
   }
+
+
 
   function syncHtml() {
     const inner = editorRef.current ? editorRef.current.innerHTML : "";
@@ -371,15 +480,12 @@ export default function MsChatCommentsEditor({
 
     // 2. Format the current Date and Time
     const now = new Date();
-
-    // Get day, month, minute, and second
     const day = String(now.getDate()).padStart(2, "0");
-    const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
-    const minute = String(now.getMinutes()).padStart(2, "0");
-    const second = String(now.getSeconds()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
 
-    // Create the date/time string: DD/MM MI:SS
-    const dateTimeString = `${day}/${month} ${minute}:${second}`;
+    const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
 
     // 3. Prepend the prefix and date/time to innerHTML
     const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${innerHTML}`;
@@ -424,16 +530,44 @@ export default function MsChatCommentsEditor({
   function handleEdit(path) {
     let target = threads[path[0]];
     if (path.length > 1) target = getReplyByPath(target, path.slice(1));
+  
     if (target) {
-      editorRef.current.innerHTML = target.content;
-      setHtml(target.content);
+      // Extract only the message part (remove the prefix like ABC(29/10 11:12): )
+      const contentWithoutPrefix = target.content.replace(
+        /^[A-Z]{2,3}\(\d{2}\/\d{2}\s\d{2}:\d{2}\):\s*/,
+        ""
+      );
+  
+      if (editorRef.current) {
+        editorRef.current.innerHTML = contentWithoutPrefix;
+      }
+      setHtml(contentWithoutPrefix);
       setEditing({ path });
     }
   }
+  
 
   function toggleCollapse(id) {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
   }
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        showMentions &&
+        editorRef.current &&
+        !(editorRef.current as HTMLElement).contains(e.target as Node)
+      ) {
+        setShowMentions(false);
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [showMentions]);
+
 
   const MessageContent = ({ htmlContent }: { htmlContent: string }) => {
     const handleImageClick = (url: string) => {
@@ -604,6 +738,30 @@ export default function MsChatCommentsEditor({
           </button>
         </div>
       </div>
+      {showMentions && filteredMentions.length > 0 && (
+        <div
+          className="absolute bg-white border rounded-md shadow-md z-50"
+          style={{
+            top: mentionPosition.y ,
+            left: mentionPosition.x,
+            minWidth: "120px",
+          }}
+        >
+          {filteredMentions.map((name) => (
+            <div
+              key={name}
+              className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
+              onMouseDown={(e) => {
+                e.preventDefault(); // prevent editor blur
+                insertMention(name);
+              }}
+            >
+              @{name}
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   );
 }
