@@ -42,129 +42,165 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
     oldTask: any,
     updatedTask: any
   ) => {
+    console.log("▶️ logTaskHistory triggered", { taskId, oldTask, updatedTask });
+
     try {
       const fieldsToCheck = ["status", "dueDate", "owner"];
       const changes: TaskChange[] = [];
-      let fieldChnagedvalue=``;
+
       fieldsToCheck.forEach((field) => {
         if (oldTask?.[field] !== updatedTask?.[field]) {
+          console.log(`✅ Field changed → ${field}`, {
+            oldValue: oldTask?.[field],
+            newValue: updatedTask?.[field],
+          });
+
           changes.push({
             fieldChanged: field,
             oldValue: oldTask?.[field] || "",
             newValue: updatedTask?.[field] || "",
           });
-          fieldChnagedvalue =field;
         }
       });
 
-      if (changes.length > 0) {
-        await api.post("/task-history", {
-          taskId,
-          changes,
-          changedAt: new Date().toISOString(),
-        });
+      if (changes.length === 0) {
+        console.log("ℹ️ No changes detected. Exiting logTaskHistory.");
+        return;
+      }
 
-        toast.success("Task changes logged successfully!");
+      console.log("📦 Final Changes:", changes);
 
-        try {
-          let res;
-          if(fieldChnagedvalue == "owner"){
-             res = await api.post("/auto-message-template/bulk", {
-              changes: changes.map((c) => ({
-                type: c.fieldChanged,
-                from: ``,
-                to: ``,
-              })),
-            });
-          }else{
-            res = await api.post("/auto-message-template/bulk", {
-              changes: changes.map((c) => ({
-                type: c.fieldChanged,
-                from: c.oldValue,
-                to: c.newValue,
-              })),
-            });
+      await api.post("/task-history", {
+        taskId,
+        changes,
+        changedAt: new Date().toISOString(),
+      });
+
+      toast.success("Task changes logged successfully!");
+      console.log("✅ Task history logged.");
+
+      let payload = changes.map((c) => ({
+        type: c.fieldChanged,
+        from: c.fieldChanged === "owner" ? "" : c.oldValue,
+        to: c.fieldChanged === "owner" ? "" : c.newValue,
+      }));
+
+      console.log("📨 Sending payload to /auto-message-template/bulk", payload);
+
+      const templatesRes = await api.post("/auto-message-template/bulk", {
+        changes: payload,
+      });
+
+      console.log("📩 AutoMessageTemplates fetched:", templatesRes.data);
+
+      const templates = templatesRes.data;
+      if (!templates || templates.length === 0) {
+        console.log("ℹ️ No templates returned.");
+        return;
+      }
+
+      const username = localStorage.getItem("username") || "Unknown";
+      const currentTime = new Date();
+      const formattedTime = `${currentTime.getDate()}/${
+        currentTime.getMonth() + 1
+      } ${currentTime.getHours()}:${currentTime.getMinutes()}`;
+
+      // ✅ Build all messages
+      let contentsToAppend: any[] = await Promise.all(
+        changes.map(async (change) => {
+          const template = templates.find(
+            (t: any) => t.type === change.fieldChanged
+          );
+
+          if (!template) {
+            console.warn(
+              `⚠️ No template found for type → ${change.fieldChanged}`
+            );
+            return null;
           }
 
+          console.log("✅ Template selected:", template);
 
-          console.log("📩 AutoMessageTemplates fetched:", res.data);
+          let messages = JSON.parse(template.content);
 
-          if (res.data && res.data.length > 0) {
-            const firstTemplate = res.data[0];
-            let contents: any[] = JSON.parse(firstTemplate.content);
-            let replacingOldOwnerValue =
-              `@${localStorage.getItem("username")}` || "Unknown";
-            let replacingNewOwnerValue =
-              `@${localStorage.getItem("username")}` || "Unknown";
+          let replacingOldValue = change.oldValue;
+          let replacingNewValue = change.newValue;
+
+          if (change.fieldChanged === "owner") {
             try {
-              const res = await api.get(`/task-history/latest/${taskId}/owner`);
+              const ownerRes = await api.get(
+                `/task-history/latest/${taskId}/owner`
+              );
 
               if (
-                res.data &&
-                res.data.oldValue != `` &&
-                res.data.newValue != `` && res.data.oldValue != null && res.data.newValue != null
+                ownerRes.data?.oldValue &&
+                ownerRes.data?.newValue
               ) {
-                replacingOldOwnerValue = `@${res.data.oldValue}`;
-                replacingNewOwnerValue = `@${res.data.newValue}`;
+                replacingOldValue = `@${ownerRes.data.oldValue}`;
+                replacingNewValue = `@${ownerRes.data.newValue}`;
+              } else {
+                replacingOldValue = `@${username}`;
+                replacingNewValue = `@${username}`;
               }
             } catch (err) {
               console.warn(
-                "⚠️ Failed to fetch latest oldValue, using username instead",
+                "⚠️ Failed to fetch latest owner values, using username",
                 err
               );
+              replacingOldValue = `@${username}`;
+              replacingNewValue = `@${username}`;
+            }
+          }
+
+          console.log("🔄 Replacement:", {
+            replacingOldValue,
+            replacingNewValue,
+          });
+
+          return messages.map((msg: any) => {
+            let updatedContent = msg.content;
+
+            if (replacingOldValue === replacingNewValue) {
+              updatedContent = updatedContent.replace(
+                /@oldowner/g,
+                replacingOldValue
+              );
+              updatedContent = updatedContent.replace(/@newowner/g, "");
+            } else {
+              updatedContent = updatedContent
+                .replace(/@oldowner/g, replacingOldValue)
+                .replace(/@newowner/g, replacingNewValue);
             }
 
-            const username = localStorage.getItem("username") || "Unknown";
-            const currentTime = new Date();
-            const formattedTime = `${currentTime.getDate()}/${
-              currentTime.getMonth() + 1
-            } ${currentTime.getHours()}:${currentTime.getMinutes()}`;
+            return {
+              ...msg,
+              content: `${username}(${formattedTime}): ${updatedContent}`,
+            };
+          });
+        })
+      );
 
-            contents = contents.map((msg) => {
-              let updatedContent = msg.content;
+      contentsToAppend = contentsToAppend.flat().filter(Boolean);
 
-              if (replacingOldOwnerValue === replacingNewOwnerValue) {
-                // Replace only @oldowner
-                updatedContent = updatedContent.replace(
-                  /@oldowner/g,
-                  replacingOldOwnerValue
-                );
+      if (contentsToAppend.length > 0) {
+        console.log("📝 Final Message Content:", contentsToAppend);
 
-                // Remove @newowner entirely
-                updatedContent = updatedContent.replace(/@newowner/g, "");
-              } else {
-                // Normal replacement
-                updatedContent = updatedContent
-                  .replace(/@oldowner/g, replacingOldOwnerValue)
-                  .replace(/@newowner/g, replacingNewOwnerValue);
-              }
+        await api.post("/messages/append", {
+          taskId,
+          currentUser: username,
+          contents: contentsToAppend,
+        });
 
-              return {
-                ...msg,
-                content: `${username}(${formattedTime}): ${updatedContent}`,
-              };
-            });
-
-            await api.post("/messages/append", {
-              taskId,
-              currentUser: username,
-              contents,
-            });
-
-            console.log(
-              "✅ Messages appended with dynamic old/new values and timestamp"
-            );
-            fetchConversation(taskId);
-          }
-        } catch (fetchErr) {
-          console.warn("⚠️ Error fetching AutoMessageTemplates:", fetchErr);
-        }
+        console.log("✅ Messages appended successfully.");
+        fetchConversation(taskId);
       }
     } catch (error) {
-      console.error("Failed to log task history:", error);
+      console.error("❌ Failed to log task history:", error);
       toast.error("Failed to log task history");
     }
   };
+
+
 
   const fetchTaskHistory = async (taskId: number) => {
     try {
@@ -196,4 +232,3 @@ function onMessagesUpdated() {
 function fetchConversation(taskId: number) {
   throw new Error("Function not implemented.");
 }
-
