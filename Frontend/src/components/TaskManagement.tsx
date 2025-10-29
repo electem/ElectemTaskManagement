@@ -158,7 +158,7 @@ const TaskManagement = () => {
   const filteredTasks = fetchedTasks.filter((task) => {
     // Note: The logic below seems to be designed to exclude 'Completed' tasks unless the filter is explicitly set to 'Completed'
   if (
-    (statusFilter !== "Completed" && task.status === "Completed") ||
+    (statusFilter !== "Completed" && task.status === "Completed") || 
     (statusFilter !== "Cancelled" && task.status === "Cancelled")
   ) {
     return false;
