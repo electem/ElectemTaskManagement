@@ -22,6 +22,14 @@ export interface Task {
 //   [taskId: string]: number; // Maps taskId (string) to unread count (number)
 // }
 
+// ✅ Unified unread structure
+interface UnreadData {
+  count: number;
+  mention: boolean;
+  mentionedUser: string | null;
+  senderUser: string | null;
+}
+
 interface TaskContextType {
   tasks: Task[];
   fetchTasks: () => Promise<void>;
@@ -32,9 +40,14 @@ interface TaskContextType {
   refreshTasks: boolean;
   triggerTaskRefresh: () => void;
   // 🎯 ADDED: Unread message state and functions
-  unreadCounts: Record<string, { count: number; mention: boolean }>;
+  unreadCounts: Record<string, UnreadData>;
   markTaskAsRead: (taskId: string) => void;
-  incrementUnreadCount: (taskId: string, hasMention?: boolean) => void;
+  incrementUnreadCount: (
+    taskId: string,
+    hasMention?: boolean,
+    mentionedUser?: string | null,
+    senderUser?: string | null
+  ) => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -43,11 +56,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [refreshTasks, setRefreshTasks] = useState(false);
   // 🎯 ADDED: State for unread message counts
-  const [unreadCounts, setUnreadCounts] = useState<Record<
-  string,
-  { count: number; mention: boolean }
->>({});
-
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, UnreadData>>({});
 console.log("tasks",tasks);
 
 
@@ -127,7 +136,8 @@ useEffect(() => {
       if (prevData && (prevData.count > 0 || prevData.mention)) {
         return {
           ...prev,
-          [taskId]: { count: 0, mention: false },
+          [taskId]: { count: 0, mention: false,mentionedUser: null,
+            senderUser: null, },
         };
       }
   
@@ -138,7 +148,8 @@ useEffect(() => {
 
   // 🎯 ADDED: Function to increment unread count
   // 🎯 UPDATED: Support mention flag
-  const incrementUnreadCount = (taskId: string, hasMention = false) => {
+  const incrementUnreadCount = (taskId: string, hasMention = false,  mentionedUser: string | null = null,
+    senderUser: string | null = null) => {
     console.log("🟡 incrementUnreadCount called", { taskId, hasMention });
   
     // ✅ Ensure task exists
@@ -167,12 +178,16 @@ useEffect(() => {
     console.log("✅ Added task ID to countedTaskIdsRef:", countedTaskIdsRef.current);
   
     setUnreadCounts((prev) => {
-      const prevData = prev[taskId] || { count: 0, mention: false };
+      const prevData = prev[taskId] || { count: 0, mention: false,
+        mentionedUser: null,
+        senderUser: null, };
   
       const newData = {
         count: prevData.count + 1,
         // Keep mention true if already true, or set to true if current message has mention
         mention: prevData.mention || hasMention,
+        mentionedUser: mentionedUser || prevData.mentionedUser,
+        senderUser: senderUser || prevData.senderUser,
       };
   
       console.log("📊 Updating unread count:", {
