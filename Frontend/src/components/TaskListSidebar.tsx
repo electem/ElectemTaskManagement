@@ -284,9 +284,12 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
   });
 
   // 🔹 Filter tasks where current user is a member
-  const filteredTasks = sortedTasks.filter((task) =>
-    task.members.includes(username)
+  const filteredTasks = sortedTasks.filter(
+    (task) =>
+      task.members.includes(username) &&
+      !["Cancelled", "Completed"].includes(task.status)
   );
+
 
   return (
     <div className="px-2 space-y-2 ">
