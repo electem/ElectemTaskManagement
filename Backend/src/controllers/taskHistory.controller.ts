@@ -83,3 +83,34 @@ export const getTaskChangeHistory = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to fetch task change history" });
   }
 };
+
+// controllers/taskHistory.controller.ts
+
+export const getLatestByField = async (req: Request, res: Response) => {
+  try {
+    const { taskId, fieldChanged } = req.params;
+
+    if (!taskId || isNaN(Number(taskId)) || !fieldChanged) {
+      return res.status(400).json({ error: "Invalid taskId or missing fieldChanged" });
+    }
+
+    // Fetch latest record for that taskId and fieldChanged
+    const latestRecord = await prisma.taskChangeHistory.findFirst({
+      where: { taskId: Number(taskId), fieldChanged },
+      orderBy: { changedAt: "desc" },
+    });
+
+    if (!latestRecord) {
+      return res.status(200).json({ oldValue: null, newValue: null });
+    }
+
+    return res.status(200).json({
+      oldValue: latestRecord.oldValue || null,
+      newValue: latestRecord.newValue || null,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching latest record by field:", error);
+    return res.status(500).json({ error: "Failed to fetch latest record" });
+  }
+};
+

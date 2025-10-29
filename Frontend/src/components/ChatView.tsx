@@ -4,6 +4,7 @@ import { useConversationContext } from "@/context/ConversationProvider.tsx";
 import { useParams, useNavigate } from "react-router-dom"; // import useNavigate
 
 import { useTaskContext } from '@/context/TaskContext';
+import { useTaskHistory } from "@/context/TaskHistoryContext.tsx";
 interface Message {
   id: number;
   sender: string;
@@ -29,7 +30,7 @@ export default function ChatView() {
 
   const { conversations, fetchConversation, addMessage } = useConversationContext();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  
+
   useEffect(() => {
     fetchConversation(taskIdNumber);
   }, [taskIdNumber]);

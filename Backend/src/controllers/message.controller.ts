@@ -53,3 +53,44 @@ export const upsertMessage = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to upsert message" });
   }
 };
+
+export const appendMessages = async (req: Request, res: Response) => {
+  try {
+    const { taskId, currentUser, contents } = req.body;
+
+    if (!taskId || !contents || !Array.isArray(contents)) {
+      return res.status(400).json({ error: "taskId and contents (array) are required" });
+    }
+
+    // Fetch existing conversation
+    const existing = await prisma.message.findUnique({
+      where: { taskId },
+    });
+
+    // Ensure existing conversation is an array
+    const existingConversation: any[] = Array.isArray(existing?.conversation)
+      ? existing.conversation
+      : [];
+
+    // Append new contents
+    const updatedConversation = [...existingConversation, ...contents];
+
+    // Upsert conversation
+    const result = await prisma.message.upsert({
+      where: { taskId },
+      update: { conversation: updatedConversation },
+      create: {
+        taskId,
+        conversation: updatedConversation,
+      },
+    });
+
+    // Broadcast the update
+    broadcastUpdate(updatedConversation, taskId, currentUser);
+
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to append messages" });
+  }
+};
