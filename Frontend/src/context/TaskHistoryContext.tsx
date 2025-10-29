@@ -123,8 +123,8 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
 
           let messages = JSON.parse(template.content);
 
-          let replacingOldValue = change.oldValue;
-          let replacingNewValue = change.newValue;
+          let replacingOldValue = `@${username}`;
+          let replacingNewValue = `@${username}`;
 
           if (change.fieldChanged === "owner") {
             try {
