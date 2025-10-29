@@ -297,13 +297,14 @@ export default function MsChatCommentsEditor({
         // Get username and timestamp (same logic as handleSend)
         const fullUsername = localStorage.getItem("username") || "---";
         const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
+        
         const now = new Date();
         const day = String(now.getDate()).padStart(2, "0");
         const month = String(now.getMonth() + 1).padStart(2, "0");
-        const minute = String(now.getMinutes()).padStart(2, "0");
-        const second = String(now.getSeconds()).padStart(2, "0");
-        const dateTimeString = `${day}/${month} ${minute}:${second}`;
-
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        
+        const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
         // Create file embed HTML based on file type
         let fileEmbedHtml = "";
         if (file.type.startsWith("image/")) {
@@ -463,15 +464,12 @@ export default function MsChatCommentsEditor({
 
     // 2. Format the current Date and Time
     const now = new Date();
-
-    // Get day, month, minute, and second
     const day = String(now.getDate()).padStart(2, "0");
-    const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
-    const minute = String(now.getMinutes()).padStart(2, "0");
-    const second = String(now.getSeconds()).padStart(2, "0");
-
-    // Create the date/time string: DD/MM MI:SS
-    const dateTimeString = `${day}/${month} ${minute}:${second}`;
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    
+    const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
 
     // 3. Prepend the prefix and date/time to innerHTML
     const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${innerHTML}`;
