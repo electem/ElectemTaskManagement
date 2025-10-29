@@ -62,6 +62,7 @@ console.log("tasks",tasks);
   try {
     const res = await api.get("/tasks");
     setTasks(res.data);
+    return res.data;
   } catch (err) {
     console.error("Error fetching tasks:", err);
   }
