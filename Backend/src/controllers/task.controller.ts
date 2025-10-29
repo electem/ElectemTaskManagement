@@ -141,26 +141,40 @@ export const searchTasks = async (req: Request, res: Response) => {
 
     const lowerQ = query.toLowerCase();
 
-    // ✅ Step 1: Fetch all tasks with messages
-    const tasks = await prisma.task.findMany({ 
-      include: { messages: true },
+    // ✅ Step 1: Filter by title or description in DB (fast)
+    const tasks = await prisma.task.findMany({
+      where: {
+        OR: [
+          { title: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
+        ],
+      },
+      include: {
+        messages: {
+          select: { id: true, conversation: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
+    
 
-    // ✅ Step 2: Filter manually (title, description, messages)
-    const matchedTasks = tasks.filter((task) => {
-      // Check title and description
-      if (task.title?.toLowerCase().includes(lowerQ)) return true;
-      if (task.description?.toLowerCase().includes(lowerQ)) return true;
+    // ✅ Step 2: Now add extra filtering for messages.conversation manually (JSON-safe)
+    const filteredTasks = tasks.filter((task) => {
+      // If already matched via title/description, keep it
+      if (
+        task.title?.toLowerCase().includes(lowerQ) ||
+        task.description?.toLowerCase().includes(lowerQ)
+      ) {
+        return true;
+      }
 
-      // Check inside JSON conversation content
+      // Otherwise, check inside message.conversation JSON
       return task.messages?.some((msg) => {
         try {
-          // conversation could be JSON or string
-          const convo = typeof msg.conversation === "string"
-            ? msg.conversation
-            : JSON.stringify(msg.conversation);
-
+          const convo =
+            typeof msg.conversation === "string"
+              ? msg.conversation
+              : JSON.stringify(msg.conversation);
           return convo.toLowerCase().includes(lowerQ);
         } catch {
           return false;
@@ -168,23 +182,24 @@ export const searchTasks = async (req: Request, res: Response) => {
       });
     });
 
-    // ✅ Step 3: Add snippet from messages
-    const results = matchedTasks.map((task) => {
+    // ✅ Step 3: Generate a snippet preview from messages (lightweight)
+    const results = filteredTasks.map((task) => {
       let snippet: string | null = null;
 
       if (task.messages?.length) {
         for (const msg of task.messages) {
           try {
-            const convo = typeof msg.conversation === "string"
-              ? msg.conversation
-              : JSON.stringify(msg.conversation);
+            const convo =
+              typeof msg.conversation === "string"
+                ? msg.conversation
+                : JSON.stringify(msg.conversation);
 
             const idx = convo.toLowerCase().indexOf(lowerQ);
             if (idx !== -1) {
               snippet = convo.substring(Math.max(0, idx - 30), idx + query.length + 30);
               snippet = snippet.replace(/[\[\]\{\}"]/g, ""); // clean snippet
               break;
-            }
+            } 
           } catch {
             continue;
           }
@@ -194,10 +209,12 @@ export const searchTasks = async (req: Request, res: Response) => {
       return { ...task, snippet };
     });
 
-    res.json({ count: results.length, results });
+    return res.json({ count: results.length, results });
   } catch (error) {
     console.error("Error searching tasks:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
 

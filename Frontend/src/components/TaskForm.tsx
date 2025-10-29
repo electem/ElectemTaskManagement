@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTaskContext } from "@/context/TaskContext";
+import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,7 +103,7 @@ const TaskForm = () => {
   const numericTaskId = taskId ? Number(taskId) : null;
   const isEditMode = !!taskId;
   const { projects } = useProjectContext();
-  const { tasks, addTask, updateTask } = useTaskContext();
+  const { tasks, addTask, updateTask, fetchTasks } = useTaskContext();
   const { users, loading: usersLoading } = useUsers();
   const { logTaskHistory } = useTaskHistory();
 
@@ -119,8 +120,15 @@ const TaskForm = () => {
     dependentTaskId: [] as string[],
   });
 
-  useEffect(() => {
-    if (isEditMode && taskId && tasks.length > 0) {
+useEffect(() => {
+  const loadTask = async () => {
+    if (!isEditMode || !taskId) return;
+
+    //  If no tasks are loaded yet, fetch them first
+    if (tasks.length === 0) {
+      await fetchTasks();
+      return; 
+
       const task = tasks.find((t) => t.id === Number(taskId));
 
       if (task) {
@@ -140,7 +148,12 @@ const TaskForm = () => {
         });
       }
     }
-  }, [isEditMode, taskId, tasks]);
+  loadTask();
+}, [isEditMode, taskId, tasks, fetchTasks]);
+
+ if (isEditMode && tasks.length === 0) {
+      return <div className="p-8">Loading task details...</div>;
+    }
 
   const handleSubmit = async () => {
     if (!formData.project || !formData.title || !formData.owner) {
@@ -162,9 +175,6 @@ const TaskForm = () => {
         ? formData.dependentTaskId.map((id) => Number(id))
         : [],
     };
-    if (isEditMode && tasks.length === 0) {
-      return <div className="p-8">Loading task details...</div>;
-    }
 
     if (isEditMode && numericTaskId) {
       const oldTask = tasks.find((t) => t.id === numericTaskId);

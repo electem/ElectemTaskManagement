@@ -51,6 +51,7 @@ model Task {
 
   // Task TaskHistory
   histories   TaskChangeHistory[]   // 👈 relation to TaskHistory
+  uploadedFiles UploadedFile[]
 
 }
 
@@ -77,6 +78,7 @@ model UploadedFile {
   taskId        Int?     // Associated task ID
   messageId     String?  // Associated message ID
   uploadDate    DateTime @default(now())
+  task          Task?    @relation(fields: [taskId], references: [id])
 
   @@map("uploaded_files")
 }

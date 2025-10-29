@@ -17,6 +17,7 @@ import { TaskProvider } from "@/context/TaskContext";
 import { ProjectProvider } from "./context/ProjectContext";
 import { ConversationProvider } from "./context/ConversationProvider";
 import { TaskHistoryProvider } from "./context/TaskHistoryContext"; // ✅ new import
+import FilesPage from "./pages/FilesPage";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const AppLayout = () => {
           <Route path="/dashboard" element={<Index />} />
           <Route path="/task" element={<Index />} />
           <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/files" element={<FilesPage />} />
           <Route path="/tasks/new" element={<TaskFormPage />} />
           <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
           <Route path="/tasks/:taskId/:title/chat" element={<ChatView />} />
