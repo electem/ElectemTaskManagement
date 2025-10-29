@@ -76,11 +76,11 @@ export default function MsChatCommentsEditor({
         .map((user) => user.username)
         .filter((username) => (Boolean(username)) && username !== currentUser); // remove undefined/null if any
         const username = localStorage.getItem("username")
-    
-      setMentionList(usernames); 
+
+      setMentionList(usernames);
     }
   }, [users]);
-  
+
   useEffect(() => {
     if (editorRef.current && !editorRef.current.innerHTML) {
       editorRef.current.innerHTML = "";
@@ -119,10 +119,6 @@ export default function MsChatCommentsEditor({
         setThreads(response.payload);
       }
       console.log("Received update:", taskId, currentUser);
-      if (response.taskId !== currentTaskID.current && response.currentUser !== currentUser) {
-        console.log("incrementUnreadCount update:");
-        incrementUnreadCount(response.taskId);
-      }
       const username = localStorage.getItem("username") || "";
       const filteredUsername = username.substring(0,3).toLowerCase();
       const isSender = senderName?.toLowerCase() === username;
@@ -134,24 +130,44 @@ export default function MsChatCommentsEditor({
       }
       // ✅ Check if payload is an array and not empty
       let messageText = "";
-      
+
       if (Array.isArray(payload) && payload.length > 0) {
         // Get the last message object
         const lastMessage = payload[payload.length - 1];
-        
+
         // Extract its "content" property
         messageText = lastMessage.content || "";
       }
-      
+
       console.log("payload:", payload);
       console.log("messageText:", messageText);
-      
+
       const lastPart = messageText.split(";").pop()?.trim() || "";
       console.log("lastPart",lastPart);
-      
+
       const hasMention = lastPart.toLowerCase().includes(`@${filteredUsername}`);
       console.log("hasMention",hasMention);
-      incrementUnreadCount(response.taskId, hasMention, hasMention ? filteredUsername : null, senderName) // sender name);
+      const existingMessages = conversations?.[response.taskId] || [];
+      const newPayload = response.payload || [];
+
+      // Normalize both message arrays to same comparable structure
+      const existingNormalized = existingMessages.map(
+        (m) => `${m.sender}(${m.time}): ${m.text}`
+      );
+      const payloadNormalized = newPayload.map((p) => p.content);
+
+      const isDifferent =
+        JSON.stringify(existingNormalized) !==
+        JSON.stringify(payloadNormalized);
+
+      const currentPathParts = window.location.pathname.split("/");
+      const currentTaskIdFromUrl = currentPathParts[2]
+        ? Number(currentPathParts[2])
+        : null;
+      if (response.taskId !== currentTaskIdFromUrl && response.currentUser !== currentUser && isDifferent ) {
+        console.log("incrementUnreadCount update:");
+        incrementUnreadCount(response.taskId, hasMention, hasMention ? filteredUsername : null, senderName) // sender name);
+      }
     };
 
     ws.onclose = (ev) => {
@@ -297,13 +313,13 @@ export default function MsChatCommentsEditor({
         // Get username and timestamp (same logic as handleSend)
         const fullUsername = localStorage.getItem("username") || "---";
         const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
-        
+
         const now = new Date();
         const day = String(now.getDate()).padStart(2, "0");
         const month = String(now.getMonth() + 1).padStart(2, "0");
         const hours = String(now.getHours()).padStart(2, "0");
         const minutes = String(now.getMinutes()).padStart(2, "0");
-        
+
         const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
         // Create file embed HTML based on file type
         let fileEmbedHtml = "";
@@ -367,18 +383,18 @@ export default function MsChatCommentsEditor({
     span.parentNode?.removeChild(span);
     return coords;
   }
-  
+
 
   function handleInput(e) {
     syncHtml();
-  
+
     const sel = window.getSelection();
     const range = sel?.getRangeAt(0);
     if (!range) return;
-  
+
     // Get text before cursor
     const textBeforeCursor = range.startContainer.textContent?.substring(0, range.startOffset) || "";
-  
+
     const mentionMatch = textBeforeCursor.match(/@(\w*)$/); // detect @ + partial name
     if (mentionMatch) {
       const partial = mentionMatch[1].toLowerCase();
@@ -388,11 +404,11 @@ export default function MsChatCommentsEditor({
       setFilteredMentions(filtered);
       setMentionSearch(partial);
       setShowMentions(true);
-  
+
       // Get cursor position for dropdown
       const coords = getCaretCoordinates();
       setMentionPosition(coords);
-      
+
     } else {
       setShowMentions(false);
     }
@@ -401,26 +417,26 @@ export default function MsChatCommentsEditor({
   function insertMention(username: string) {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
-  
+
     const range = sel.getRangeAt(0);
     const node = range.startContainer;
-  
+
     // Replace partial mention
     const text = node.textContent || "";
     const newText = text.replace(/@\w*$/, `@${username} `);
     node.textContent = newText;
-  
+
     // Move cursor to end
     range.setStart(node, newText.length);
     range.collapse(true);
     sel.removeAllRanges();
     sel.addRange(range);
-  
+
     setShowMentions(false);
     syncHtml();
   }
-  
-  
+
+
 
   function syncHtml() {
     const inner = editorRef.current ? editorRef.current.innerHTML : "";
@@ -468,7 +484,7 @@ export default function MsChatCommentsEditor({
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const hours = String(now.getHours()).padStart(2, "0");
     const minutes = String(now.getMinutes()).padStart(2, "0");
-    
+
     const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
 
     // 3. Prepend the prefix and date/time to innerHTML
@@ -535,13 +551,13 @@ export default function MsChatCommentsEditor({
         setShowMentions(false);
       }
     };
-  
+
     document.addEventListener("click", handleClickOutside);
     return () => {
       document.removeEventListener("click", handleClickOutside);
     };
   }, [showMentions]);
-  
+
 
   const MessageContent = ({ htmlContent }: { htmlContent: string }) => {
     const handleImageClick = (url: string) => {
