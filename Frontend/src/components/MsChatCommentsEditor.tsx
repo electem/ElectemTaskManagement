@@ -89,7 +89,7 @@ export default function MsChatCommentsEditor({
 
   useEffect(() => {
     highlightCodeBlocks();
-  }, [html, threads]);
+  }, [threads]);
 
   // =========================
   // WebSocket Connection with Auto-Reconnect + Status Indicator
@@ -386,7 +386,7 @@ export default function MsChatCommentsEditor({
 
 
   function handleInput(e) {
-    syncHtml();
+
 
     const sel = window.getSelection();
     const range = sel?.getRangeAt(0);
@@ -582,18 +582,16 @@ export default function MsChatCommentsEditor({
     };
   }, [showMentions]);
 
-
-  const MessageContent = ({ htmlContent }: { htmlContent: string }) => {
+  const MessageContent = React.memo(({ htmlContent }: { htmlContent: string }) => {
     const handleImageClick = (url: string) => {
       window.open(url, "_blank");
     };
-
+  
     return (
       <div
         className="message-content"
         onClick={(e) => {
           const target = e.target as HTMLElement;
-          // If clicked element is an <img>, open in new tab
           if (target.tagName === "IMG") {
             handleImageClick((target as HTMLImageElement).src);
           }
@@ -601,7 +599,8 @@ export default function MsChatCommentsEditor({
         dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
     );
-  };
+  });
+  
 
 
   const renderReplies = (replies, path, level = 1, parentId = "") => {
