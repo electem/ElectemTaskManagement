@@ -155,7 +155,7 @@ export const searchTasks = async (req: Request, res: Response) => {
       ORDER BY t."createdAt" DESC;
     `, lowerQuery);
 
-    console.log("tasks", tasks);
+    console.log("tasks", tasks); 
 
     return res.json({ count: tasks.length, results: tasks });
   } catch (error) {

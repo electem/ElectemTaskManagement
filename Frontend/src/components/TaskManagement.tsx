@@ -434,7 +434,7 @@ const handleCopyTask = async (task: Task) => {
                           ) : (
                             <span className="text-muted-foreground text-sm">
                               Chat
-                            </span>
+                            </span> 
                           )}
                         </TableCell>
                       </TableRow>
