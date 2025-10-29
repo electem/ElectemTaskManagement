@@ -81,8 +81,8 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
 
       let payload = changes.map((c) => ({
         type: c.fieldChanged,
-        from: c.fieldChanged === "owner" ? "" : c.oldValue,
-        to: c.fieldChanged === "owner" ? "" : c.newValue,
+        from: c.fieldChanged === "owner" ? null : c.oldValue,
+        to: c.fieldChanged === "owner" ? null : c.newValue,
       }));
 
       console.log("📨 Sending payload to /auto-message-template/bulk", payload);
