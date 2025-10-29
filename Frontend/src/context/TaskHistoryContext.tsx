@@ -124,19 +124,19 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
               let updatedContent = msg.content;
 
               if (replacingOldOwnerValue === replacingNewOwnerValue) {
-                // Replace only @oldvalue
+                // Replace only @oldowner
                 updatedContent = updatedContent.replace(
-                  /@oldvalue/g,
+                  /@oldowner/g,
                   replacingOldOwnerValue
                 );
 
-                // Remove @newvalue entirely
-                updatedContent = updatedContent.replace(/@newvalue/g, "");
+                // Remove @newowner entirely
+                updatedContent = updatedContent.replace(/@newowner/g, "");
               } else {
                 // Normal replacement
                 updatedContent = updatedContent
-                  .replace(/@oldvalue/g, replacingOldOwnerValue)
-                  .replace(/@newvalue/g, replacingNewOwnerValue);
+                  .replace(/@oldowner/g, replacingOldOwnerValue)
+                  .replace(/@newowner/g, replacingNewOwnerValue);
               }
 
               return {
