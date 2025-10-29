@@ -60,6 +60,19 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
           changedAt: new Date().toISOString(),
         });
         toast.success("Task changes logged successfully!");
+        // 🔹 Fetch all matching AutoMessageTemplates in a single call
+        try {
+          const res = await api.post("/auto-message-template/bulk", {
+            changes: changes.map((c) => ({
+              type: c.fieldChanged,
+              from: c.oldValue,
+              to: c.newValue,
+            })),
+          });
+          console.log("📩 AutoMessageTemplates fetched:", res.data);
+        } catch (fetchErr) {
+          console.warn("⚠️ Error fetching AutoMessageTemplates:", fetchErr);
+        }
       }
     } catch (error) {
       console.error("Failed to log task history:", error);
@@ -88,8 +101,6 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
 export const useTaskHistory = () => {
   const context = useContext(TaskHistoryContext);
   if (!context)
-    throw new Error(
-      "useTaskHistory must be used within a TaskHistoryProvider"
-    );
+    throw new Error("useTaskHistory must be used within a TaskHistoryProvider");
   return context;
 };

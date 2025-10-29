@@ -118,6 +118,15 @@ model DeveloperPerformanceMetric {
   @@unique([developerId, periodType, startDate, endDate])
 }
 
+model AutoMessageTemplate {
+  id      Int    @id @default(autoincrement())
+  from    String
+  to      String
+  type    String
+  content String
+}
+
+
 enum PeriodType {
   daily
   weekly

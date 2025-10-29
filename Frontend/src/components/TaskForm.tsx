@@ -41,7 +41,6 @@ interface Task {
   dependentTaskId: number[]; // ✅ array, matches Prisma
 }
 
-
 const statusOptions = [
   "Pending",
   "Partially Clear",
@@ -50,77 +49,75 @@ const statusOptions = [
   "On Hold",
   "Cancelled",
   "Draft",
- // "Submitted",
+  // "Submitted",
   "Reviewed",
   "Tested",
- // "Approved",
+  // "Approved",
   //"Rejected",
   "Needs Validation",
- // "Reviewed by Client",
+  // "Reviewed by Client",
   "Reviewed by Vinod",
- // "Waiting for Client Approval",
- // "Approved by Client",
+  // "Waiting for Client Approval",
+  // "Approved by Client",
   "Changes Requested",
-//  "Open",
- // "Assigned",
- // "In Review",
- // "QA Testing",
- // "Resolved",
+  //  "Open",
+  // "Assigned",
+  // "In Review",
+  // "QA Testing",
+  // "Resolved",
 ];
 
 const TaskForm = () => {
   const navigate = useNavigate();
   const { taskId } = useParams();
 
- const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    Pending: "bg-yellow-500",
-    "In Progress": "bg-blue-500",
-    "Partially Clear": "bg-gray-600",
-    Completed: "bg-green-500",
-    "On Hold": "bg-orange-500",
-    Cancelled: "bg-red-500",
-    Draft: "bg-gray-400",
-   // Submitted: "bg-cyan-500",
-    Reviewed: "bg-indigo-500",
-    Tested: "bg-green-600",
-   // Rejected: "bg-red-600",
-   "Needs Validation": "bg-orange-400",
-   // "Reviewed by Client": "bg-purple-500",
-    "Reviewed by Vinod": "bg-teal-500",
-   // "Waiting for Client Approval": "bg-yellow-600",
-   // "Approved by Client": "bg-green-700",
-    "Changes Requested": "bg-amber-500",
-   // Open: "bg-sky-500",
-   // Assigned: "bg-lime-500",
-   // "In Review": "bg-indigo-400",
-   // "QA Testing": "bg-blue-600",
-   // Resolved: "bg-emerald-600",
-  };
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      Pending: "bg-yellow-500",
+      "In Progress": "bg-blue-500",
+      "Partially Clear": "bg-gray-600",
+      Completed: "bg-green-500",
+      "On Hold": "bg-orange-500",
+      Cancelled: "bg-red-500",
+      Draft: "bg-gray-400",
+      // Submitted: "bg-cyan-500",
+      Reviewed: "bg-indigo-500",
+      Tested: "bg-green-600",
+      // Rejected: "bg-red-600",
+      "Needs Validation": "bg-orange-400",
+      // "Reviewed by Client": "bg-purple-500",
+      "Reviewed by Vinod": "bg-teal-500",
+      // "Waiting for Client Approval": "bg-yellow-600",
+      // "Approved by Client": "bg-green-700",
+      "Changes Requested": "bg-amber-500",
+      // Open: "bg-sky-500",
+      // Assigned: "bg-lime-500",
+      // "In Review": "bg-indigo-400",
+      // "QA Testing": "bg-blue-600",
+      // Resolved: "bg-emerald-600",
+    };
 
-  return colors[status] || "bg-muted";
-};
+    return colors[status] || "bg-muted";
+  };
   const numericTaskId = taskId ? Number(taskId) : null;
   const isEditMode = !!taskId;
-  const { projects,} = useProjectContext();
+  const { projects } = useProjectContext();
   const { tasks, addTask, updateTask } = useTaskContext();
   const { users, loading: usersLoading } = useUsers();
   const { logTaskHistory } = useTaskHistory();
 
- const [formData, setFormData] = useState({
-  project: "",
-  projectId: "", 
-  owner: "",
-  members: ["Vin"],
-  title: "",
-  description: "",
-  dueDate: new Date().toISOString().split("T")[0],
-  status: "Pending",
-  url: "",
-  dependentTaskId: [] as string[],
-});
-
-
+  const [formData, setFormData] = useState({
+    project: "",
+    projectId: "",
+    owner: "",
+    members: ["Vin"],
+    title: "",
+    description: "",
+    dueDate: new Date().toISOString().split("T")[0],
+    status: "Pending",
+    url: "",
+    dependentTaskId: [] as string[],
+  });
 
   useEffect(() => {
     if (isEditMode && taskId && tasks.length > 0) {
@@ -136,7 +133,7 @@ const TaskForm = () => {
           description: task.description,
           dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
           status: task.status,
-          url: task.url || "", 
+          url: task.url || "",
           dependentTaskId: Array.isArray(task.dependentTaskId)
             ? task.dependentTaskId.map((id) => id.toString())
             : [],
@@ -144,9 +141,6 @@ const TaskForm = () => {
       }
     }
   }, [isEditMode, taskId, tasks]);
-
-
-  
 
   const handleSubmit = async () => {
     if (!formData.project || !formData.title || !formData.owner) {
@@ -165,14 +159,12 @@ const TaskForm = () => {
       status: formData.status,
       url: formData.url,
       dependentTaskId: Array.isArray(formData.dependentTaskId)
-  ? formData.dependentTaskId.map((id) => Number(id))
-  : [],
-
+        ? formData.dependentTaskId.map((id) => Number(id))
+        : [],
     };
     if (isEditMode && tasks.length === 0) {
-  return <div className="p-8">Loading task details...</div>;
-}
-
+      return <div className="p-8">Loading task details...</div>;
+    }
 
     if (isEditMode && numericTaskId) {
       const oldTask = tasks.find((t) => t.id === numericTaskId);
@@ -191,7 +183,6 @@ const TaskForm = () => {
     navigate("/tasks");
   };
 
-
   return (
     <div className="p-8">
       <Button
@@ -204,209 +195,206 @@ const TaskForm = () => {
       </Button>
 
       <Card className="shadow-md max-w-3xl">
-  <CardHeader>
-    <CardTitle>{isEditMode ? "Edit Task" : "Create New Task"}</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <div className="space-y-4">
-
-      {/* New Row 1: Project and URL */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Select Project *</Label>
-          <Select
-            value={formData.projectId} // store id here
-            onValueChange={(value) => {
-              const selectedProject = projects.find(
-                (p) => p.id === Number(value)
-              );
-              if (selectedProject) {
-                setFormData({
-                  ...formData,
-                  projectId: selectedProject.id.toString(),
-                  project: selectedProject.name,
-                });
-              }
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Choose a project" />
-            </SelectTrigger>
-            <SelectContent>
-              {projects.map((project) => (
-                <SelectItem
-                  key={project.id}
-                  value={project.id.toString()}
+        <CardHeader>
+          <CardTitle>{isEditMode ? "Edit Task" : "Create New Task"}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* New Row 1: Project and URL */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Select Project *</Label>
+                <Select
+                  value={formData.projectId} // store id here
+                  onValueChange={(value) => {
+                    const selectedProject = projects.find(
+                      (p) => p.id === Number(value)
+                    );
+                    if (selectedProject) {
+                      setFormData({
+                        ...formData,
+                        projectId: selectedProject.id.toString(),
+                        project: selectedProject.name,
+                      });
+                    }
+                  }}
                 >
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem
+                        key={project.id}
+                        value={project.id.toString()}
+                      >
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-        {/* New URL Input Field */}
-       <div className="space-y-2">
-  <Label htmlFor="url">Enter URL</Label>
-  <Input
-    id="url"
-    placeholder="Enter URL"
-    value={formData.url}
-    onChange={(e) =>
-      setFormData({ ...formData, url: e.target.value })
-    }
-  />
-</div>
-
-      </div>
-
-      {/* New Row 2: Owner and Members */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Select Owner *</Label>
-          <Select
-            value={formData.owner}
-            onValueChange={(value) =>
-              setFormData({ ...formData, owner: value })
-            }
-            disabled={usersLoading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Choose an owner" />
-            </SelectTrigger>
-            <SelectContent>
-              {(users || []).map((user) => (
-                <SelectItem key={user.id} value={user.username}>
-                  {user.username}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Select Members</Label>
-          <Select
-            value="" // Keep value empty for selecting new member
-            onValueChange={(value) => {
-              if (!formData.members.includes(value)) {
-                setFormData({
-                  ...formData,
-                  members: [...formData.members, value],
-                });
-              }
-            }}
-            disabled={usersLoading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Choose team members" />
-            </SelectTrigger>
-            <SelectContent>
-              {(users || []).map((user) => (
-                <SelectItem key={user.id} value={user.username}>
-                  {user.username}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {formData.members.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formData.members.map((member, index) => (
-  <Badge
-    key={index}
-    variant="secondary"
-    className="cursor-pointer"
-  >
-    {member}
-    
-    {member.toLowerCase() !== "vin" && (
-      <button
-        onClick={() =>
-          setFormData({
-            ...formData,
-            members: formData.members.filter((m) => m !== member),
-          })
-        }
-        className="ml-2"
-      >
-        &times;
-      </button>
-    )}
-  </Badge>
-))}
-
+              {/* New URL Input Field */}
+              <div className="space-y-2">
+                <Label htmlFor="url">Enter URL</Label>
+                <Input
+                  id="url"
+                  placeholder="Enter URL"
+                  value={formData.url}
+                  onChange={(e) =>
+                    setFormData({ ...formData, url: e.target.value })
+                  }
+                />
+              </div>
             </div>
-          )}
-        </div>
-      </div>
 
+            {/* New Row 2: Owner and Members */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Select Owner *</Label>
+                <Select
+                  value={formData.owner}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, owner: value })
+                  }
+                  disabled={usersLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose an owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(users || []).map((user) => (
+                      <SelectItem key={user.id} value={user.username}>
+                        {user.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
+              <div className="space-y-2">
+                <Label>Select Members</Label>
+                <Select
+                  value="" // Keep value empty for selecting new member
+                  onValueChange={(value) => {
+                    if (!formData.members.includes(value)) {
+                      setFormData({
+                        ...formData,
+                        members: [...formData.members, value],
+                      });
+                    }
+                  }}
+                  disabled={usersLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose team members" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(users || []).map((user) => (
+                      <SelectItem key={user.id} value={user.username}>
+                        {user.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formData.members.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.members.map((member, index) => (
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="cursor-pointer"
+                      >
+                        {member}
 
-      {/* New Row 4: Status and Due Date (Same as old Row 3) */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <Select
-            value={formData.status}
-            onValueChange={(value) =>
-              setFormData({ ...formData, status: value })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px]">
-              {statusOptions.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+                        {member.toLowerCase() !== "vin" && (
+                          <button
+                            onClick={() =>
+                              setFormData({
+                                ...formData,
+                                members: formData.members.filter(
+                                  (m) => m !== member
+                                ),
+                              })
+                            }
+                            className="ml-2"
+                          >
+                            &times;
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="dueDate">Due Date</Label>
-          <Input
-            id="dueDate"
-            type="date"
-            value={formData.dueDate}
-            onChange={(e) =>
-              setFormData({ ...formData, dueDate: e.target.value })
-            }
-          />
-        </div>
-      </div>
-        {/* New Row 3: Title (Full Width) */}
-      <div className="space-y-2">
-        <Label htmlFor="title">Title *</Label>
-        <Input
-          id="title"
-          value={formData.title}
-          onChange={(e) =>
-            setFormData({ ...formData, title: e.target.value })
-          }
-          placeholder="Enter task title"
-        />
-      </div>
+            {/* New Row 4: Status and Due Date (Same as old Row 3) */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, status: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-      {/* New Row 5: Description (Full Width) - Changed Textarea rows to 1 as requested ("single line") */}
-      <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          value={formData.description}
-          onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value })
-          }
-          placeholder="Enter task description"
-          rows={1} // Changed from rows={4} to rows={1} for "single line"
-        />
-      </div>
+              <div className="space-y-2">
+                <Label htmlFor="dueDate">Due Date</Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, dueDate: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            {/* New Row 3: Title (Full Width) */}
+            <div className="space-y-2">
+              <Label htmlFor="title">Title *</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
+                placeholder="Enter task title"
+              />
+            </div>
 
-      {/* New Row 6: Dependant Task (Full Width) */}
-     <div className="grid grid-cols-2 gap-4">
-      <div className="space-y-2">
+            {/* New Row 5: Description (Full Width) - Changed Textarea rows to 1 as requested ("single line") */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                placeholder="Enter task description"
+                rows={1} // Changed from rows={4} to rows={1} for "single line"
+              />
+            </div>
+
+            {/* New Row 6: Dependant Task (Full Width) */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label>Dependent Task</Label>
                 <Select
                   value="" // keep empty for selecting new dependent task
@@ -468,24 +456,23 @@ const TaskForm = () => {
                   </div>
                 )}
               </div>
-      </div>
+            </div>
 
-
-      <div className="flex gap-3 pt-4">
-        <Button onClick={handleSubmit} className="flex-1">
-          {isEditMode ? "Update Task" : "Create Task"}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => navigate("/tasks")}
-          className="flex-1"
-        >
-          Cancel
-        </Button>
-      </div>
-    </div>
-  </CardContent>
-</Card>
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleSubmit} className="flex-1">
+                {isEditMode ? "Update Task" : "Create Task"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/tasks")}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

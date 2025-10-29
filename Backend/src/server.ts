@@ -15,6 +15,7 @@ import { WebSocketServer } from "ws";
 import path from "path";
 import taskHistoryRoutes from "./routes/taskHistory.routes"; // ✅ NEW
 import prisma from "./prisma/client";
+import autoMessageTemplateRoutes from "./routes/autoMessageTemplateRoutes";
 
 dotenv.config();
 const app = express();
@@ -39,7 +40,7 @@ app.use("/tasks", taskRoutes);
 app.use("/projects", projectRoutes);
 // ✅ Register Task History route
 app.use("/task-history", taskHistoryRoutes);
-
+app.use("/auto-message-template", autoMessageTemplateRoutes);
 app.use("/api/users", userRoutes);
 
 app.use("/api/auth", authRoutes);
