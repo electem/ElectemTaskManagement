@@ -3,7 +3,7 @@ import MsChatCommentsEditor from "./MsChatCommentsEditor.tsx";
 import { useConversationContext } from "@/context/ConversationProvider.tsx";
 import { useParams, useNavigate } from "react-router-dom"; // import useNavigate
 
-import { useTaskContext } from '@/context/TaskContext';
+import { useTaskContext } from "@/context/TaskContext";
 import { useTaskHistory } from "@/context/TaskHistoryContext.tsx";
 interface Message {
   id: number;
@@ -28,7 +28,8 @@ export default function ChatView() {
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [fullViewImage, setFullViewImage] = useState<string | null>(null);
 
-  const { conversations, fetchConversation, addMessage } = useConversationContext();
+  const { conversations, fetchConversation, addMessage } =
+    useConversationContext();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -40,14 +41,18 @@ export default function ChatView() {
   }, [conversations[taskIdNumber]]);
 
   const handleSendMessage = (text: string, mediaFiles?: File[]) => {
-    const mediaUrls = mediaFiles?.map((file) => URL.createObjectURL(file)) || [];
+    const mediaUrls =
+      mediaFiles?.map((file) => URL.createObjectURL(file)) || [];
 
     if (editingMessageId) {
       const updatedMessage: Message = {
         ...conversations[taskIdNumber].find((m) => m.id === editingMessageId)!,
         text,
         media: mediaUrls,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         edited: true,
       };
       addMessage(taskIdNumber, updatedMessage, true);
@@ -58,7 +63,10 @@ export default function ChatView() {
         sender: "Surya",
         text,
         media: mediaUrls,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         fromMe: true,
       };
       addMessage(taskIdNumber, newMessage);
@@ -78,9 +86,8 @@ export default function ChatView() {
   const messages = conversations[taskIdNumber] || [];
 
   return (
-    <div className="flex flex-col h-full bg-[#f5f5f5] dark:bg-[#1e1e1e] rounded-xl shadow-sm font-[Segoe UI,Arial,sans-serif] text-sm">
-
-      {/* Header */}
+<div className="flex flex-col h-full overflow-hidden bg-[#f5f5f5] dark:bg-[#1e1e1e] rounded-xl shadow-sm font-[Segoe UI,Arial,sans-serif] text-sm">
+{/* Header */}
       <div className="sticky top-0 z-50 flex items-center justify-between bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 shadow">
         <button
           onClick={() => navigate(-1)}
@@ -88,13 +95,19 @@ export default function ChatView() {
         >
           ← Back
         </button>
-        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{title}</h2>
+        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+          {title}
+        </h2>
         <div className="w-10" /> {/* Placeholder for alignment */}
       </div>
 
       {/* Sticky editor */}
       <div className="sticky bottom-0 bg-[#f5f5f5] dark:bg-[#1e1e1e] px-2 py-1 border-t border-gray-300 dark:border-gray-700">
-        {editingMessageId && <div className="text-xs text-gray-500 mb-1 px-2">Editing message...</div>}
+        {editingMessageId && (
+          <div className="text-xs text-gray-500 mb-1 px-2">
+            Editing message...
+          </div>
+        )}
         <MsChatCommentsEditor
           placeholder="Write rich comment..."
           className=""
@@ -111,7 +124,10 @@ export default function ChatView() {
           className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50"
           onClick={() => setFullViewImage(null)}
         >
-          <img src={fullViewImage} className="max-h-[85%] max-w-[85%] rounded" />
+          <img
+            src={fullViewImage}
+            className="max-h-[85%] max-w-[85%] rounded"
+          />
         </div>
       )}
     </div>

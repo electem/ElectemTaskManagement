@@ -29,7 +29,7 @@ const AppLayout = () => {
   return (
     <div className="flex min-h-screen w-full">
       {showSidebar && <AppSidebar />}
-      <main className="flex-1 bg-gradient-subtle">
+      <main className="flex-1 bg-gradient-subtle overflow-hidden">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Index />} />
