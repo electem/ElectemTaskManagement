@@ -122,8 +122,8 @@ model DeveloperPerformanceMetric {
 
 model AutoMessageTemplate {
   id      Int    @id @default(autoincrement())
-  from    String
-  to      String
+  from    String?   // nullable
+  to      String?   // nullable
   type    String
   content String
 }
