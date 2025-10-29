@@ -530,12 +530,22 @@ export default function MsChatCommentsEditor({
   function handleEdit(path) {
     let target = threads[path[0]];
     if (path.length > 1) target = getReplyByPath(target, path.slice(1));
+  
     if (target) {
-      editorRef.current.innerHTML = target.content;
-      setHtml(target.content);
+      // Extract only the message part (remove the prefix like ABC(29/10 11:12): )
+      const contentWithoutPrefix = target.content.replace(
+        /^[A-Z]{2,3}\(\d{2}\/\d{2}\s\d{2}:\d{2}\):\s*/,
+        ""
+      );
+  
+      if (editorRef.current) {
+        editorRef.current.innerHTML = contentWithoutPrefix;
+      }
+      setHtml(contentWithoutPrefix);
       setEditing({ path });
     }
   }
+  
 
   function toggleCollapse(id) {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
