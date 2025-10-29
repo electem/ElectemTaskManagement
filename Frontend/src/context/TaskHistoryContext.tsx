@@ -76,7 +76,7 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
         changedAt: new Date().toISOString(),
       });
 
-      toast.success("Task changes logged successfully!");
+      toast.success("Task  changes logged successfully!");
       console.log("✅ Task history logged.");
 
       let payload = changes.map((c) => ({
