@@ -18,7 +18,7 @@ export const getTasks = async (): Promise<TaskDTO[]> => {
     const res = await api.get("/tasks");
     return res.data;
   } catch (err) {
-    throw new Error("Failed to fetch tasks");
+    throw new Error("Failed to fetch tasks"); 
   }
 };
 
@@ -47,4 +47,8 @@ export const deleteTask = async (id: number) => {
   } catch (err) {
     throw new Error("Failed to delete task");
   }
+};
+export const searchTasks = async (q: string) => {
+  const res = await api.get("/tasks/search", { params: { q } });
+  return res.data.results;
 };

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskContext } from "@/context/TaskContext";
 import { Button } from "@/components/ui/button";
+
 import {
   Select,
   SelectContent,
@@ -18,12 +19,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Edit2, MessageCircle,Copy  } from "lucide-react";
+import { Plus, Edit2, MessageCircle,Copy,Search } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { TaskDTO, getTasks, deleteTask } from "@/services/taskService";
+import { TaskDTO, getTasks, deleteTask,searchTasks } from "@/services/taskService";
 import { useProjectContext } from "@/context/ProjectContext";
+import { Input } from "@/components/ui/input"; // make sure it's already imported
 import { TaskHistoryModal } from "./TaskHistoryModal";
+
 // Ensure this matches your TaskDTO or Task interface structure
 export interface Task {
   id: number;
@@ -38,7 +41,6 @@ export interface Task {
   url?: string;
   dependentTaskId?: number[]; // ✅ here
 }
-
 
 const statusOptions = [
   "Pending",
@@ -108,11 +110,10 @@ const TaskManagement = () => {
   const [fetchedTasks, setFetchedTasks] = useState<TaskDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [copyingTaskId, setCopyingTaskId] = useState<string | null>(null);
-
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const { projects, fetchProjects } = useProjectContext();
-  const username = localStorage.getItem("username");
   
- 
+  const username = localStorage.getItem("username");
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -133,6 +134,23 @@ const TaskManagement = () => {
     fetchProjects();
   }, []);
 
+  useEffect(() => {
+  const delayDebounce = setTimeout(async () => {
+    if (!searchQuery.trim()) {
+      // reload all tasks if search cleared
+      const data = await getTasks();
+      setFetchedTasks(data); // ✅ FIXED
+      return;
+    }
+
+    const results = await searchTasks(searchQuery);
+    setFetchedTasks(results); // ✅ FIXED
+  }, 400);
+
+  return () => clearTimeout(delayDebounce);
+}, [searchQuery]);
+
+
   // Get unique owners dynamically from fetched tasks
   const owners = Array.from(new Set(fetchedTasks.map((task) => task.owner)));
 
@@ -145,11 +163,14 @@ const TaskManagement = () => {
     if (ownerFilter !== "all" && task.owner !== ownerFilter) return false;
     if (statusFilter !== "all" && task.status !== statusFilter) return false;
 
-    // 🔹 Only show if username exists in task.members
-    if (!task.members.includes(username)) return false;
-
+    //  Show task if user is either the owner OR a member
+    const isOwner = task.owner === username;
+    const isMember = task.members.includes(username);
+    if (!isOwner && !isMember) return false;  
     return true;
   });
+  console.log("filteredTasks", filteredTasks);
+  
 
   if (loading)
     return (
@@ -183,10 +204,8 @@ const getStatusColor = (status: string) => {
     "QA Testing": "bg-blue-600",
     Resolved: "bg-emerald-600",
   };
-
   return colors[status] || "bg-muted";
 };
-
 
   // 🎯 ADDED: Function to mark as read before navigation
   const handleChatClick = (taskId: string, title: string) => {
@@ -231,9 +250,6 @@ const handleCopyTask = async (task: Task) => {
     setCopyingTaskId(null);
   }
 };
-
-
-
   return (
     <>
       <div className="h-full flex flex-col">
@@ -254,7 +270,17 @@ const handleCopyTask = async (task: Task) => {
                 </Button>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 items-center">
+                <div className="relative w-[300px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                  <Input
+                    type="text"
+                    placeholder="Search tasks..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className=" pl-10 pr-4 w-[300px]"
+                  />
+                </div>
                 <Select value={projectFilter} onValueChange={setProjectFilter}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Projects" />
@@ -326,30 +352,30 @@ const handleCopyTask = async (task: Task) => {
                     return (
                       <TableRow key={task.id}>
                         {/* Title cell - now clickable for edit */}
-  <TableCell className="font-medium text-primary flex items-center gap-2">
-  <span
-    className="cursor-pointer hover:underline"
-    onClick={() => handleTitleClick(task.id.toString())}
-    title="Click to Edit Task"
-  >
-    {task.title}
-  </span>
+                        <TableCell className="font-medium text-primary flex items-center gap-2">
+                          <span
+                            className="cursor-pointer hover:underline"
+                            onClick={() => handleTitleClick(task.id.toString())}
+                            title="Click to Edit Task"
+                          >
+                            {task.title}
+                          </span>
 
-  {/* ✅ Copy icon wrapped in span to support title */}
-  <span
-    title="Copy Task"
-    onClick={() => handleCopyTask(task)}
-    className="inline-flex items-center cursor-pointer"
-  >
-    <Copy
-      className={`h-4 w-4 text-gray-500 hover:text-primary ${
-        copyingTaskId === task.id.toString() ? "animate-spin" : ""
-      }`}
-    />
-  </span>
-</TableCell>
-
-
+                          {/* ✅ Copy icon wrapped in span to support title */}
+                          <span
+                            title="Copy Task"
+                            onClick={() => handleCopyTask(task)}
+                            className="inline-flex items-center cursor-pointer"
+                          >
+                            <Copy
+                              className={`h-4 w-4 text-gray-500 hover:text-primary ${
+                                copyingTaskId === task.id.toString()
+                                  ? "animate-spin"
+                                  : ""
+                              }`}
+                            />
+                          </span>
+                        </TableCell>
 
                         {/* Description cell - truncated to 20 characters */}
                         <TableCell title={task.description}>

@@ -18,8 +18,16 @@ export interface Task {
 }
 
 // 🎯 ADDED: Interface for unread counts
-interface TaskUnreadCounts {
-  [taskId: string]: number; // Maps taskId (string) to unread count (number)
+// interface TaskUnreadCounts {
+//   [taskId: string]: number; // Maps taskId (string) to unread count (number)
+// }
+
+// ✅ Unified unread structure
+interface UnreadData {
+  count: number;
+  mention: boolean;
+  mentionedUser: string | null;
+  senderUser: string | null;
 }
 
 interface TaskContextType {
@@ -32,9 +40,14 @@ interface TaskContextType {
   refreshTasks: boolean;
   triggerTaskRefresh: () => void;
   // 🎯 ADDED: Unread message state and functions
-  unreadCounts: TaskUnreadCounts;
+  unreadCounts: Record<string, UnreadData>;
   markTaskAsRead: (taskId: string) => void;
-  incrementUnreadCount: (taskId: string) => void;
+  incrementUnreadCount: (
+    taskId: string,
+    hasMention?: boolean,
+    mentionedUser?: string | null,
+    senderUser?: string | null
+  ) => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -43,7 +56,10 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [refreshTasks, setRefreshTasks] = useState(false);
   // 🎯 ADDED: State for unread message counts
-  const [unreadCounts, setUnreadCounts] = useState<TaskUnreadCounts>({});
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, UnreadData>>({});
+console.log("tasks",tasks);
+
+
   const countedTaskIdsRef = useRef<Set<string>>(new Set());
 
   const triggerTaskRefresh = () => {
@@ -114,30 +130,80 @@ useEffect(() => {
   // 🎯 ADDED: Function to mark a task's chat as read
   const markTaskAsRead = (taskId: string) => {
     setUnreadCounts((prev) => {
-      if (prev[taskId] > 0) {
-        // In a real app, this would also call a backend API to persist the 'read' state
-        return { ...prev, [taskId]: 0 };
+      const prevData = prev[taskId];
+  
+      // ✅ Only reset if it exists
+      if (prevData && (prevData.count > 0 || prevData.mention)) {
+        return {
+          ...prev,
+          [taskId]: { count: 0, mention: false,mentionedUser: null,
+            senderUser: null, },
+        };
       }
+  
       return prev;
     });
   };
+  
 
   // 🎯 ADDED: Function to increment unread count
-  const incrementUnreadCount = (taskId: string) => {
-    // ✅ Only increment if the task exists
-    const taskExists = tasks.some((t) => t.id.toString() === taskId);
-    if (!taskExists) return;
+  // 🎯 UPDATED: Support mention flag
+  const incrementUnreadCount = (taskId: string, hasMention = false,  mentionedUser: string | null = null,
+    senderUser: string | null = null) => {
+    console.log("🟡 incrementUnreadCount called", { taskId, hasMention });
+  
+    // ✅ Ensure task exists
+    console.log("🔢 Checking taskId:", taskId, "typeof:", typeof taskId);
 
-    // ✅ Prevent duplicate counting (caused by websocket reconnects)
-    if (countedTaskIdsRef.current.has(taskId)) return;
-
+    tasks.forEach((t) => {
+      console.log(`➡️ Comparing task.id: ${t.id} (type: ${typeof t.id}) with taskId: ${taskId}`);
+    });
+    
+    const taskExists = tasks.some((t) => t.id.toString() === taskId.toString());
+    console.log("🔍 Task exists?", taskExists);
+    
+    if (!taskExists) {
+      console.log("⛔ No task found for ID:", taskId);
+      return;
+    }
+    
+  
+    // ✅ Prevent duplicate counting
+    // if (countedTaskIdsRef.current.has(taskId)) {
+    //   console.log("⚠️ Task ID already counted:", taskId);
+    //   return;
+    // }
+  
     countedTaskIdsRef.current.add(taskId);
-
-    setUnreadCounts((prev) => ({
-      ...prev,
-      [taskId]: (prev[taskId] || 0) + 1,
-    }));
+    console.log("✅ Added task ID to countedTaskIdsRef:", countedTaskIdsRef.current);
+  
+    setUnreadCounts((prev) => {
+      const prevData = prev[taskId] || { count: 0, mention: false,
+        mentionedUser: null,
+        senderUser: null, };
+  
+      const newData = {
+        count: prevData.count + 1,
+        // Keep mention true if already true, or set to true if current message has mention
+        mention: prevData.mention || hasMention,
+        mentionedUser: mentionedUser || prevData.mentionedUser,
+        senderUser: senderUser || prevData.senderUser,
+      };
+  
+      console.log("📊 Updating unread count:", {
+        taskId,
+        previous: prevData,
+        newData,
+      });
+  
+      return {
+        ...prev,
+        [taskId]: newData,
+      };
+    });
   };
+  
+
 
 
   // Load tasks initially (only if token exists)
