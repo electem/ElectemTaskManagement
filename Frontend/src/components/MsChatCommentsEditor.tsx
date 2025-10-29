@@ -498,16 +498,30 @@ export default function MsChatCommentsEditor({
 
     if (editing) {
       const { path } = editing;
-      const target = path.length
-        ? getReplyByPath(updatedThreads[path[0]], path.slice(1))
-        : updatedThreads[path[0]];
-      if (target) target.content = finalInnerHTML;
+    
+      // 1️⃣ Remove the old message
+      const removeMessage = (arr, path) => {
+        if (path.length === 1) {
+          arr.splice(path[0], 1);
+        } else {
+          const [first, ...rest] = path;
+          removeMessage(arr[first].replies, rest);
+        }
+      };
+    
+      removeMessage(updatedThreads, path);
+    
+      // 2️⃣ Add the edited message at the bottom (latest)
+      const newThread = { content: finalInnerHTML, replies: [] };
+      updatedThreads.push(newThread);
+    
+      // 3️⃣ Update state & backend
       setThreads(updatedThreads);
       setEditing(null);
-
-      // For editing, send the updated threads array
+    
       await uploadThreadsToBackend(updatedThreads, true);
-    } else {
+    }
+     else {
       const newThread = { content: finalInnerHTML, replies: [] };
 
       if (parentIndex === null) {
