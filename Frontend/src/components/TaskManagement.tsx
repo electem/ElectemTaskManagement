@@ -45,26 +45,18 @@ export interface Task {
 const statusOptions = [
   "Pending",
   "In Progress",
-  "Closed",
+  "Partially Clear",
   "Completed",
+  "Paused",
+  "Bug",
   "On Hold",
   "Cancelled",
   "Draft",
-  "Submitted",
   "Reviewed",
-  "Approved",
-  "Rejected",
-  "Needs Revision",
-  "Reviewed by Client",
+  "Tested",
+  "Needs Validation",
   "Reviewed by Vinod",
-  "Waiting for Client Approval",
-  "Approved by Client",
   "Changes Requested",
-  "Open",
-  "Assigned",
-  "In Review",
-  "QA Testing",
-  "Resolved",
 ];
 
 // Helper function to format the date
@@ -157,16 +149,22 @@ const TaskManagement = () => {
   // Filter tasks
   const filteredTasks = fetchedTasks.filter((task) => {
     // Note: The logic below seems to be designed to exclude 'Completed' tasks unless the filter is explicitly set to 'Completed'
-  if (
-    (statusFilter !== "Completed" && task.status === "Completed") || 
-    (statusFilter !== "Cancelled" && task.status === "Cancelled")
-  ) {
-    return false;
+    const isSearching = searchQuery.trim().length > 0;
+
+   if (!isSearching) {
+    // Exclude completed/cancelled only when not searching
+    if (
+      (statusFilter !== "Completed" && task.status === "Completed") ||
+      (statusFilter !== "Cancelled" && task.status === "Cancelled")
+    ) {
+      return false;
+    }
   }
+   if (( projectFilter !== "INTERNAL" && task.project==="INTERNAL"))return false;
 
 
     
-    if (projectFilter !== "all" && task.project !== projectFilter) return false;
+    if (projectFilter !== "all"  && task.project !== projectFilter) return false;
     if (ownerFilter !== "all" && task.owner !== ownerFilter) return false;
     if (statusFilter !== "all" && task.status !== statusFilter) return false;
 
@@ -194,7 +192,7 @@ const getStatusColor = (status: string) => {
       Completed: "bg-green-500",
       "On Hold": "bg-orange-500",
       Cancelled: "bg-red-500",
-      Draft: "bg-gray-400",
+      Draft: "bg-cyan-500",
       // Submitted: "bg-cyan-500",
       Reviewed: "bg-indigo-500",
       Tested: "bg-green-600",
@@ -205,6 +203,8 @@ const getStatusColor = (status: string) => {
       // "Waiting for Client Approval": "bg-yellow-600",
       // "Approved by Client": "bg-green-700",
       "Changes Requested": "bg-amber-500",
+       Paused: "bg-lime-500",
+       Bug:"bg-emerald-600"
       // Open: "bg-sky-500",
       // Assigned: "bg-lime-500",
       // "In Review": "bg-indigo-400",

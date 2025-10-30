@@ -52,19 +52,15 @@ export default function MsChatCommentsEditor({
   // --- HERE: map messages to threads ---
   useEffect(() => {
     if (messages.length > 0) {
-      const mapMessagesToThreads = (msgs) =>
-        msgs.map((msg) => ({
-          content: `${msg.sender}(${msg.time}): ${msg.text}`,
-          replies: msg.replies ? mapMessagesToThreads(msg.replies) : [],
-        }));
-  
-      const mappedThreads = mapMessagesToThreads(messages);
-  
+      const mappedThreads = messages.map((msg) => ({
+        content: `${msg.sender}(${msg.time}): ${msg.text}`, // format like SHI(25/10 10:49): wwww
+        replies: [], // no nested replies yet
+      }));
+
       setThreads(mappedThreads);
       currentTaskID.current = taskId;
     }
   }, [messages]);
-  
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -217,29 +213,12 @@ export default function MsChatCommentsEditor({
     return doc.body.innerHTML;
   }
 
-  async function handlePaste(e) {
+  function handlePaste(e) {
     e.preventDefault();
     const clipboard = e.clipboardData;
     const htmlData = clipboard.getData("text/html");
     const textData = clipboard.getData("text/plain");
 
-    // --- 1️⃣ Check if user pasted an image ---
-    const items = clipboard?.items;
-    if (items) {
-      for (const item of items) {
-        if (item.type.indexOf("image") !== -1) {
-          const blob = item.getAsFile();
-          if (blob) {
-            // ✅ Convert blob to a File object
-            const file = new File([blob], "pasted-image.png", { type: blob.type });
-
-            // ✅ Reuse your handleFileUpload logic
-            await handleFileUpload({ target: { files: [file] } }, taskId);
-            return; // stop further paste handling
-          }
-        }
-      }
-    }
     let payload = "";
     if (htmlData) {
       payload = sanitizeHtml(htmlData);
@@ -347,7 +326,7 @@ export default function MsChatCommentsEditor({
         if (file.type.startsWith("image/")) {
           fileEmbedHtml = `<img src='${data.url}' alt='${file.name}' class='max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer' />`;
         } else if (file.type.startsWith("video/")) {
-          fileEmbedHtml = `<video src='${data.url}'controls class='w-[300px] h-[200px] rounded-md my-2 object-cover'></video>`;
+          fileEmbedHtml = `<video src='${data.url}' controls class='max-w-[200px] rounded-md my-2'></video>`;
         } else {
           fileEmbedHtml = `<a href='${data.url}' target='_blank' class='text-blue-600 underline'>${file.name}</a>`;
         }
@@ -548,20 +527,9 @@ export default function MsChatCommentsEditor({
       if (parentIndex === null) {
         updatedThreads.push(newThread);
       } else {
-            // Reply case
-      const parentThread = updatedThreads[parentIndex];
-      if (replyIndex !== null) {
-        parentThread.replies[replyIndex].replies = [
-          ...(parentThread.replies[replyIndex].replies || []),
-          newThread,
-        ];
-      } else {
-        parentThread.replies = [...(parentThread.replies || []), newThread];
-      }
-
-      // 🔥 Move parent thread to bottom
-      const movedThread = updatedThreads.splice(parentIndex, 1)[0];
-      updatedThreads.push(movedThread);
+        let parent = updatedThreads[parentIndex];
+        if (replyIndex !== null) parent = parent.replies[replyIndex];
+        parent.replies = [...(parent.replies || []), newThread];
       }
       setThreads(updatedThreads);
 
@@ -618,6 +586,10 @@ export default function MsChatCommentsEditor({
     const handleImageClick = (url: string) => {
       window.open(url, "_blank");
     };
+    const formattedContent = htmlContent.replace(
+    /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
+    `<span class="font-bold text-blue-600">$1</span><span class="text-gray-500">($2)</span>:`
+  );
   
     return (
       <div
@@ -628,7 +600,7 @@ export default function MsChatCommentsEditor({
             handleImageClick((target as HTMLImageElement).src);
           }
         }}
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
+        dangerouslySetInnerHTML={{ __html: formattedContent }}
       />
     );
   });
@@ -644,17 +616,7 @@ export default function MsChatCommentsEditor({
       return (
         <div
           key={replyId}
-          className={`ml-${level * 4} mt-2 border-l-2 pl-2 ${
-            level === 1
-              ? "border-gray-400"
-              : level === 2
-              ? "border-gray-500"
-              : level === 3
-              ? "border-gray-600"
-              : "border-gray-700"
-          }`}
-          
-          
+          className={`ml-${level * 4} mt-2 border-l-2 pl-2 border-gray-300`}
         >
           <div className="flex justify-between items-center">
             <MessageContent htmlContent={reply.content} />

@@ -49,6 +49,8 @@ const statusOptions = [
   "Completed",
   "On Hold",
   "Cancelled",
+   "Paused",
+   "Bug",
   "Draft",
   // "Submitted",
   "Reviewed",
@@ -61,6 +63,7 @@ const statusOptions = [
   // "Waiting for Client Approval",
   // "Approved by Client",
   "Changes Requested",
+ 
   //  "Open",
   // "Assigned",
   // "In Review",
@@ -80,7 +83,7 @@ const TaskForm = () => {
       Completed: "bg-green-500",
       "On Hold": "bg-orange-500",
       Cancelled: "bg-red-500",
-      Draft: "bg-gray-400",
+      Draft: "bg-cyan-500",
       // Submitted: "bg-cyan-500",
       Reviewed: "bg-indigo-500",
       Tested: "bg-green-600",
@@ -91,6 +94,8 @@ const TaskForm = () => {
       // "Waiting for Client Approval": "bg-yellow-600",
       // "Approved by Client": "bg-green-700",
       "Changes Requested": "bg-amber-500",
+       Paused: "bg-lime-500",
+       Bug:"bg-emerald-600"
       // Open: "bg-sky-500",
       // Assigned: "bg-lime-500",
       // "In Review": "bg-indigo-400",
@@ -161,6 +166,14 @@ const TaskForm = () => {
   const handleSubmit = async () => {
     if (!formData.project || !formData.title || !formData.owner) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+      const titleRegex = /^[a-zA-Z0-9\s\-_&()*{}\[\]'"']+$/;
+
+    if (!titleRegex.test(formData.title)) {
+      toast.error(
+        "Title should not include special characters other than - _ & ( ) * { } [ ] ' \""
+      );
       return;
     }
 

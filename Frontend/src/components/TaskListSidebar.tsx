@@ -56,7 +56,7 @@ const statusColors: Record<string, string> = {
   Cancelled:
     "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900",
   Draft:
-    "text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-800",
+    "text-gray-600 bg-cyan-200 dark:text-gray-400 dark:bg-gray-800",
   Reviewed:
     "text-indigo-600 bg-indigo-100 dark:text-indigo-400 dark:bg-indigo-900",
   Tested:
@@ -67,6 +67,10 @@ const statusColors: Record<string, string> = {
     "text-teal-600 bg-teal-100 dark:text-teal-400 dark:bg-teal-900",
   "Changes Requested":
     "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900",
+     Paused:
+    "text-lime-700 bg-lime-100 dark:text-lime-400 dark:bg-lime-900", 
+  Bug:
+    "text-emerald-700 bg-emerald-300 dark:text-emerald-400 dark:bg-emerald-900",
   default:
     "text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-800",
 };

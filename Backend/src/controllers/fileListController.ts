@@ -6,7 +6,7 @@ export const getAllFilesWithTaskTitle = async (req: Request, res: Response) => {
   try {
     // 1️⃣ Parse query params (page & limit)
     const page = parseInt(req.query.page as string) || 1; // default 1
-    const limit = parseInt(req.query.limit as string) || 2; // default 2
+    const limit = parseInt(req.query.limit as string) || 20; // default 20
     const skip = (page - 1) * limit;
 
     // 2️⃣ Fetch files with pagination
