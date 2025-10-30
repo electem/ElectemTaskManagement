@@ -25,6 +25,14 @@ import { useTaskContext } from "@/context/TaskContext";
 import { useTaskHistory } from "@/context/TaskHistoryContext";
 import { useUsers } from "@/hooks/useUsers";
 
+
+interface ProjectRel {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 // --- INTERFACES ---
 interface Task {
   id: string;
@@ -35,6 +43,7 @@ interface Task {
   description: string;
   dueDate: string;
   status: string;
+  projectRel?: ProjectRel;
 }
 
 interface TaskListSidebarProps {
@@ -42,7 +51,7 @@ interface TaskListSidebarProps {
 }
 
 // --- STATUS COLORS ---
-const statusColors: Record<string, string> = { 
+const statusColors: Record<string, string> = {
   Pending:
     "text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900",
   "In Progress":
@@ -68,7 +77,7 @@ const statusColors: Record<string, string> = {
   "Changes Requested":
     "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900",
      Paused:
-    "text-lime-700 bg-lime-100 dark:text-lime-400 dark:bg-lime-900", 
+    "text-lime-700 bg-lime-100 dark:text-lime-400 dark:bg-lime-900",
   Bug:
     "text-emerald-700 bg-emerald-300 dark:text-emerald-400 dark:bg-emerald-900",
   default:
@@ -295,16 +304,29 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
   }
 
   const sortedTasks = [...tasks].sort((a, b) => {
+    // 1️⃣ Priority: tasks owned by current user go first
+    const aIsOwner = a.owner === username ? 1 : 0;
+    const bIsOwner = b.owner === username ? 1 : 0;
+
+    if (aIsOwner !== bIsOwner) {
+      return bIsOwner - aIsOwner; // owner task first
+    }
+
+    // 2️⃣ Existing status order
     const order = { "To Do": 1, "In Progress": 2, Done: 3 };
     return (order[a.status] || 4) - (order[b.status] || 4);
   });
 
+
   // 🔹 Filter tasks where current user is a member
   const filteredTasks = sortedTasks.filter(
     (task) =>
-      (task.members.includes(username) || task.owner.includes(username))&&
-      !["Cancelled", "Completed"].includes(task.status)
+      (task.members.includes(username) || task.owner.includes(username)) &&
+      !["Cancelled", "Completed"].includes(task.status) &&
+      !task.projectRel.name.toLowerCase().startsWith("int") // ✅ use projectRel.name
   );
+
+
 
 
   return (
