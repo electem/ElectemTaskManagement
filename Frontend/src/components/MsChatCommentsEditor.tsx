@@ -213,12 +213,29 @@ export default function MsChatCommentsEditor({
     return doc.body.innerHTML;
   }
 
-  function handlePaste(e) {
+  async function handlePaste(e) {
     e.preventDefault();
     const clipboard = e.clipboardData;
     const htmlData = clipboard.getData("text/html");
     const textData = clipboard.getData("text/plain");
 
+    // --- 1️⃣ Check if user pasted an image ---
+    const items = clipboard?.items;
+    if (items) {
+      for (const item of items) {
+        if (item.type.indexOf("image") !== -1) {
+          const blob = item.getAsFile();
+          if (blob) {
+            // ✅ Convert blob to a File object
+            const file = new File([blob], "pasted-image.png", { type: blob.type });
+
+            // ✅ Reuse your handleFileUpload logic
+            await handleFileUpload({ target: { files: [file] } }, taskId);
+            return; // stop further paste handling
+          }
+        }
+      }
+    }
     let payload = "";
     if (htmlData) {
       payload = sanitizeHtml(htmlData);
@@ -326,7 +343,7 @@ export default function MsChatCommentsEditor({
         if (file.type.startsWith("image/")) {
           fileEmbedHtml = `<img src='${data.url}' alt='${file.name}' class='max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer' />`;
         } else if (file.type.startsWith("video/")) {
-          fileEmbedHtml = `<video src='${data.url}' controls class='max-w-[200px] rounded-md my-2'></video>`;
+          fileEmbedHtml = `<video src='${data.url}'controls class='w-[300px] h-[200px] rounded-md my-2 object-cover'></video>`;
         } else {
           fileEmbedHtml = `<a href='${data.url}' target='_blank' class='text-blue-600 underline'>${file.name}</a>`;
         }
