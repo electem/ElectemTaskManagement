@@ -52,10 +52,13 @@ export default function MsChatCommentsEditor({
   // --- HERE: map messages to threads ---
   useEffect(() => {
     if (messages.length > 0) {
-      const mappedThreads = messages.map((msg) => ({
-        content: `${msg.sender}(${msg.time}): ${msg.text}`, // format like SHI(25/10 10:49): wwww
-        replies: [], // no nested replies yet
-      }));
+      const mapMessagesToThreads = (msgs) =>
+        msgs.map((msg) => ({
+          content: `${msg.sender}(${msg.time}): ${msg.text}`,
+          replies: msg.replies ? mapMessagesToThreads(msg.replies) : [],
+        }));
+
+      const mappedThreads = mapMessagesToThreads(messages);
 
       setThreads(mappedThreads);
       currentTaskID.current = taskId;
@@ -75,7 +78,7 @@ export default function MsChatCommentsEditor({
       const usernames = users
         .map((user) => user.username)
         .filter((username) => (Boolean(username)) && username !== currentUser); // remove undefined/null if any
-        const username = localStorage.getItem("username")
+      const username = localStorage.getItem("username")
 
       setMentionList(usernames);
     }
@@ -120,7 +123,7 @@ export default function MsChatCommentsEditor({
       }
       console.log("Received update:", taskId, currentUser);
       const username = localStorage.getItem("username") || "";
-      const filteredUsername = username.substring(0,3).toLowerCase();
+      const filteredUsername = username.substring(0, 3).toLowerCase();
       const isSender = senderName?.toLowerCase() === username;
       const payload = response.payload;
 
@@ -143,10 +146,10 @@ export default function MsChatCommentsEditor({
       console.log("messageText:", messageText);
 
       const lastPart = messageText.split(";").pop()?.trim() || "";
-      console.log("lastPart",lastPart);
+      console.log("lastPart", lastPart);
 
       const hasMention = lastPart.toLowerCase().includes(`@${filteredUsername}`);
-      console.log("hasMention",hasMention);
+      console.log("hasMention", hasMention);
       const existingMessages = conversations?.[response.taskId] || [];
       const newPayload = response.payload || [];
 
@@ -164,7 +167,7 @@ export default function MsChatCommentsEditor({
       const currentTaskIdFromUrl = currentPathParts[2]
         ? Number(currentPathParts[2])
         : null;
-      if (response.taskId !== currentTaskIdFromUrl && response.currentUser !== currentUser && isDifferent ) {
+      if (response.taskId !== currentTaskIdFromUrl && response.currentUser !== currentUser && isDifferent) {
         console.log("incrementUnreadCount update:");
         incrementUnreadCount(response.taskId, hasMention, hasMention ? filteredUsername : null, senderName) // sender name);
       }
@@ -213,11 +216,29 @@ export default function MsChatCommentsEditor({
     return doc.body.innerHTML;
   }
 
-  function handlePaste(e) {
+  async function handlePaste(e) {
     e.preventDefault();
     const clipboard = e.clipboardData;
     const htmlData = clipboard.getData("text/html");
     const textData = clipboard.getData("text/plain");
+
+    // --- 1️⃣ Check if user pasted an image ---
+    const items = clipboard?.items;
+    if (items) {
+      for (const item of items) {
+        if (item.type.indexOf("image") !== -1) {
+          const blob = item.getAsFile();
+          if (blob) {
+            // ✅ Convert blob to a File object
+            const file = new File([blob], "pasted-image.png", { type: blob.type });
+
+            // ✅ Reuse your handleFileUpload logic
+            await handleFileUpload({ target: { files: [file] } }, taskId);
+            return; // stop further paste handling
+          }
+        }
+      }
+    }
 
     let payload = "";
     if (htmlData) {
@@ -326,7 +347,7 @@ export default function MsChatCommentsEditor({
         if (file.type.startsWith("image/")) {
           fileEmbedHtml = `<img src='${data.url}' alt='${file.name}' class='max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer' />`;
         } else if (file.type.startsWith("video/")) {
-          fileEmbedHtml = `<video src='${data.url}' controls class='max-w-[200px] rounded-md my-2'></video>`;
+          fileEmbedHtml = `<video src='${data.url}'controls class='w-[300px] h-[200px] rounded-md my-2 object-cover'></video>`;
         } else {
           fileEmbedHtml = `<a href='${data.url}' target='_blank' class='text-blue-600 underline'>${file.name}</a>`;
         }
@@ -346,9 +367,20 @@ export default function MsChatCommentsEditor({
         if (parentIndex === null) {
           updatedThreads.push(newThread);
         } else {
-          let parent = updatedThreads[parentIndex];
-          if (replyIndex !== null) parent = parent.replies[replyIndex];
-          parent.replies = [...(parent.replies || []), newThread];
+          // Reply case
+          const parentThread = updatedThreads[parentIndex];
+          if (replyIndex !== null) {
+            parentThread.replies[replyIndex].replies = [
+              ...(parentThread.replies[replyIndex].replies || []),
+              newThread,
+            ];
+          } else {
+            parentThread.replies = [...(parentThread.replies || []), newThread];
+          }
+
+          // 🔥 Move parent thread to bottom
+          const movedThread = updatedThreads.splice(parentIndex, 1)[0];
+          updatedThreads.push(movedThread);
         }
         setThreads(updatedThreads);
 
@@ -390,7 +422,7 @@ export default function MsChatCommentsEditor({
 
     const sel = window.getSelection();
     const range = sel?.getRangeAt(0);
-    if (!range) return; 
+    if (!range) return;
 
     // Get text before cursor
     const textBeforeCursor = range.startContainer.textContent?.substring(0, range.startOffset) || "";
@@ -498,7 +530,7 @@ export default function MsChatCommentsEditor({
 
     if (editing) {
       const { path } = editing;
-    
+
       // 1️⃣ Remove the old message
       const removeMessage = (arr, path) => {
         if (path.length === 1) {
@@ -508,20 +540,20 @@ export default function MsChatCommentsEditor({
           removeMessage(arr[first].replies, rest);
         }
       };
-    
+
       removeMessage(updatedThreads, path);
-    
+
       // 2️⃣ Add the edited message at the bottom (latest)
       const newThread = { content: finalInnerHTML, replies: [] };
       updatedThreads.push(newThread);
-    
+
       // 3️⃣ Update state & backend
       setThreads(updatedThreads);
       setEditing(null);
-    
+
       await uploadThreadsToBackend(updatedThreads, true);
     }
-     else {
+    else {
       const newThread = { content: finalInnerHTML, replies: [] };
 
       if (parentIndex === null) {
@@ -544,14 +576,14 @@ export default function MsChatCommentsEditor({
   function handleEdit(path) {
     let target = threads[path[0]];
     if (path.length > 1) target = getReplyByPath(target, path.slice(1));
-  
+
     if (target) {
       // Extract only the message part (remove the prefix like ABC(29/10 11:12): )
       const contentWithoutPrefix = target.content.replace(
         /^[A-Z]{2,3}\(\d{2}\/\d{2}\s\d{2}:\d{2}\):\s*/,
         ""
       );
-  
+
       if (editorRef.current) {
         editorRef.current.innerHTML = contentWithoutPrefix;
       }
@@ -559,7 +591,7 @@ export default function MsChatCommentsEditor({
       setEditing({ path });
     }
   }
-  
+
 
   function toggleCollapse(id) {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
@@ -587,10 +619,10 @@ export default function MsChatCommentsEditor({
       window.open(url, "_blank");
     };
     const formattedContent = htmlContent.replace(
-    /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
-    `<span class="font-bold text-blue-600">$1</span><span class="text-gray-500">($2)</span>:`
-  );
-  
+      /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
+      `<span class="font-bold text-blue-600">$1</span><span class="text-gray-500">($2)</span>:`
+    );
+
     return (
       <div
         className="message-content"
@@ -604,7 +636,7 @@ export default function MsChatCommentsEditor({
       />
     );
   });
-  
+
 
 
   const renderReplies = (replies, path, level = 1, parentId = "") => {
@@ -759,7 +791,7 @@ export default function MsChatCommentsEditor({
         <div
           className="absolute bg-white border rounded-md shadow-md z-50"
           style={{
-            top: mentionPosition.y ,
+            top: mentionPosition.y,
             left: mentionPosition.x,
             minWidth: "120px",
           }}
