@@ -10,6 +10,7 @@ export interface Message {
   fromMe: boolean;
   edited?: boolean;
   media?: string[];
+  replies?: Message[]; // ✅ Add this
 }
 
 interface ConversationContextType {
@@ -23,20 +24,14 @@ const ConversationContext = createContext<ConversationContextType | undefined>(u
 export const ConversationProvider = ({ children }: { children: ReactNode }) => {
   const [conversations, setConversations] = useState<Record<number, Message[]>>({});
 
-  function flattenConversation(conversation: any[]): Message[] {
-    let messages: Message[] = [];
-  
-    function traverse(item: any) {
-      if (Array.isArray(item)) {
-        item.forEach(traverse);
-        return;
-      }
-  
-      // Extract sender, time, text from "SHI(25/10 36:05): hiii"
-      const match = item.content.match(/^(\w+)\(([^)]+)\):\s*(.*)$/);
+  function mapConversation(conversation: any[]): Message[] {
+    const currentUser = localStorage.getItem("username") || "";
+    return conversation.map((item) => {
+      // Extract sender, time, and text from "SHI(25/10 36:05): hiii"
+      const match = item.content?.match(/^(\w+)\(([^)]+)\):\s*(.*)$/);
       let sender = "Unknown";
       let time = "";
-      let text = item.content;
+      let text = item.content || "";
   
       if (match) {
         sender = match[1];
@@ -44,24 +39,19 @@ export const ConversationProvider = ({ children }: { children: ReactNode }) => {
         text = match[3];
       }
   
-      messages.push({
+      const message: Message = {
         id: Date.now() + Math.random(), // unique id
         sender,
         text,
         time,
-        fromMe: sender === "Surya",
+        fromMe: sender === currentUser,
         media: [],
-      });
+        replies: item.replies ? mapConversation(item.replies) : [], // ✅ recursive mapping
+      };
   
-      if (item.replies?.length) {
-        item.replies.forEach(traverse);
-      }
-    }
-  
-    conversation.forEach(traverse);
-    return messages;
+      return message;
+    });
   }
-  
   
 
   // Fetch conversation for a task
@@ -72,7 +62,7 @@ export const ConversationProvider = ({ children }: { children: ReactNode }) => {
 
       console.log("rawData",rawData);
       
-      const messages = flattenConversation(rawData);
+      const messages = mapConversation(rawData);
       setConversations((prev) => ({ ...prev, [taskId]: messages }));
     } catch (err) {
       console.error("Error fetching conversation:", err);

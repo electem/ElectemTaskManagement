@@ -52,15 +52,19 @@ export default function MsChatCommentsEditor({
   // --- HERE: map messages to threads ---
   useEffect(() => {
     if (messages.length > 0) {
-      const mappedThreads = messages.map((msg) => ({
-        content: `${msg.sender}(${msg.time}): ${msg.text}`, // format like SHI(25/10 10:49): wwww
-        replies: [], // no nested replies yet
-      }));
-
+      const mapMessagesToThreads = (msgs) =>
+        msgs.map((msg) => ({
+          content: `${msg.sender}(${msg.time}): ${msg.text}`,
+          replies: msg.replies ? mapMessagesToThreads(msg.replies) : [],
+        }));
+  
+      const mappedThreads = mapMessagesToThreads(messages);
+  
       setThreads(mappedThreads);
       currentTaskID.current = taskId;
     }
   }, [messages]);
+  
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -544,9 +548,20 @@ export default function MsChatCommentsEditor({
       if (parentIndex === null) {
         updatedThreads.push(newThread);
       } else {
-        let parent = updatedThreads[parentIndex];
-        if (replyIndex !== null) parent = parent.replies[replyIndex];
-        parent.replies = [...(parent.replies || []), newThread];
+            // Reply case
+      const parentThread = updatedThreads[parentIndex];
+      if (replyIndex !== null) {
+        parentThread.replies[replyIndex].replies = [
+          ...(parentThread.replies[replyIndex].replies || []),
+          newThread,
+        ];
+      } else {
+        parentThread.replies = [...(parentThread.replies || []), newThread];
+      }
+
+      // 🔥 Move parent thread to bottom
+      const movedThread = updatedThreads.splice(parentIndex, 1)[0];
+      updatedThreads.push(movedThread);
       }
       setThreads(updatedThreads);
 
@@ -629,7 +644,17 @@ export default function MsChatCommentsEditor({
       return (
         <div
           key={replyId}
-          className={`ml-${level * 4} mt-2 border-l-2 pl-2 border-gray-300`}
+          className={`ml-${level * 4} mt-2 border-l-2 pl-2 ${
+            level === 1
+              ? "border-gray-400"
+              : level === 2
+              ? "border-gray-500"
+              : level === 3
+              ? "border-gray-600"
+              : "border-gray-700"
+          }`}
+          
+          
         >
           <div className="flex justify-between items-center">
             <MessageContent htmlContent={reply.content} />
