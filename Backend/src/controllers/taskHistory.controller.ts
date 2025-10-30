@@ -67,18 +67,18 @@ export const createTaskChangeHistory = async (req: Request, res: Response) => {
       let replacingOldValue = `@${username}`;
       let replacingNewValue = `@${username}`;
 
-      if (change.fieldChanged === "owner") {
         // Get latest owner from DB
         const ownerChange = await prisma.taskChangeHistory.findFirst({
           where: { taskId: Number(taskId), fieldChanged: "owner" },
           orderBy: { changedAt: "desc" },
         });
-
+        console.log("======================");
+        console.log(ownerChange);
         if (ownerChange) {
           replacingOldValue = `@${ownerChange.oldValue || username}`;
           replacingNewValue = `@${ownerChange.newValue || username}`;
         }
-      }
+
 
       for (const msg of messages) {
         let updatedContent = msg.content;
