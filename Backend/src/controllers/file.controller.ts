@@ -79,7 +79,7 @@ export const uploadFile = async (req: Request, res: Response) => {
     });
 
     // Generate public URL for the file
-    const fileUrl = `https://iot.electems.com/task/api/uploads/${file.filename}`;
+    const fileUrl = `http://localhost:5000/uploads/${file.filename}`;
 
     res.json({
       success: true,

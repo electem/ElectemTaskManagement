@@ -184,7 +184,7 @@ const TaskManagement = () => {
       </div>
     );
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status: string) => { 
     const colors: Record<string, string> = {
       Pending: "bg-yellow-500",
       "In Progress": "bg-blue-500",

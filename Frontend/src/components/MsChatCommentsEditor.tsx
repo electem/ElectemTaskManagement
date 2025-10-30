@@ -390,7 +390,7 @@ export default function MsChatCommentsEditor({
 
     const sel = window.getSelection();
     const range = sel?.getRangeAt(0);
-    if (!range) return;
+    if (!range) return; 
 
     // Get text before cursor
     const textBeforeCursor = range.startContainer.textContent?.substring(0, range.startOffset) || "";
