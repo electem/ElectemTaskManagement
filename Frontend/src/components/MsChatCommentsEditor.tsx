@@ -60,10 +60,31 @@ export default function MsChatCommentsEditor({
 
       const mappedThreads = mapMessagesToThreads(messages);
 
-      setThreads(mappedThreads);
+      setThreads((prev) =>
+        JSON.stringify(prev) === JSON.stringify(mappedThreads)
+          ? prev
+          : mappedThreads
+      );
       currentTaskID.current = taskId;
     }
   }, [messages]);
+
+  useEffect(() => {
+    const videos = document.querySelectorAll("video");
+    videos.forEach((v) => {
+      v.addEventListener("timeupdate", () => {
+        v.dataset.time = v.currentTime.toString();
+      });
+    });
+  
+    return () => {
+      videos.forEach((v) => {
+        const savedTime = parseFloat(v.dataset.time || "0");
+        v.currentTime = savedTime;
+      });
+    };
+  }, [threads]);
+  
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -559,9 +580,19 @@ export default function MsChatCommentsEditor({
       if (parentIndex === null) {
         updatedThreads.push(newThread);
       } else {
-        let parent = updatedThreads[parentIndex];
-        if (replyIndex !== null) parent = parent.replies[replyIndex];
-        parent.replies = [...(parent.replies || []), newThread];
+       // Reply case
+       const parentThread = updatedThreads[parentIndex];
+       if (replyIndex !== null) {
+         parentThread.replies[replyIndex].replies = [
+           ...(parentThread.replies[replyIndex].replies || []),
+           newThread,
+         ];
+       } else {
+         parentThread.replies = [...(parentThread.replies || []), newThread];
+       }
+       // 🔥 Move parent thread to bottom
+       const movedThread = updatedThreads.splice(parentIndex, 1)[0];
+       updatedThreads.push(movedThread);
       }
       setThreads(updatedThreads);
 
@@ -635,7 +666,10 @@ export default function MsChatCommentsEditor({
         dangerouslySetInnerHTML={{ __html: formattedContent }}
       />
     );
-  });
+  },
+  // ✅ Custom comparison: only re-render when content actually changes
+  (prev, next) => prev.htmlContent === next.htmlContent
+);
 
 
 
@@ -648,7 +682,15 @@ export default function MsChatCommentsEditor({
       return (
         <div
           key={replyId}
-          className={`ml-${level * 4} mt-2 border-l-2 pl-2 border-gray-300`}
+          className={`ml-${level * 4} mt-2 border-l-2 pl-2 ${
+            level === 1
+              ? "border-gray-400"
+              : level === 2
+              ? "border-gray-500"
+              : level === 3
+              ? "border-gray-600"
+              : "border-gray-700"
+          }`}
         >
           <div className="flex justify-between items-center">
             <MessageContent htmlContent={reply.content} />
