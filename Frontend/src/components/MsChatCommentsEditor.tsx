@@ -721,71 +721,73 @@ export default function MsChatCommentsEditor({
     });
   };
 
-  return (
-    <div className={`${className} flex flex-col gap-3`}>
-      <div className="mt-2 text-sm text-slate-600">
-        <div className="bg-slate-50 p-3 rounded overflow-auto text-xs whitespace-pre-wrap prose prose-slate list-disc pl-5">
-          {threads.length > 0 ? (
-            threads.map((thread, index) => {
-              const threadPath = [index];
-              const threadId = `t-${index}`;
-              return (
-                <div key={threadId} className="relative mb-2">
-                  {/* Message Box with rounded border */}
-                  <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-md">
+ return (
+  <div className={`${className} flex flex-col h-[90vh] bg-gray-50 rounded-md shadow-md`}>
+    {/* 🔹 Middle Scrollable Section */}
+    <div className="flex-1 overflow-y-auto p-4 text-sm text-slate-600 bg-slate-50">
+      <div className="p-3 rounded text-xs whitespace-pre-wrap prose prose-slate list-disc pl-5">
+        {threads.length > 0 ? (
+          threads.map((thread, index) => {
+            const threadPath = [index];
+            const threadId = `t-${index}`;
+            return (
+              <div key={threadId} className="relative mb-3">
+                {/* Message Box with rounded border */}
+                <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-lg">
 
-                    {/* Floating Header Box */}
-                    <div className="absolute -top-3 -left-1 bg-white border border-gray-300 px-3 py-1 flex rounded-md items-center gap-2 text-xs shadow-sm">
-                      <span className="font-semibold text-blue-600">
-                        {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
-                      </span>
-                      <span className="text-gray-500 text-[11px]">
-                        {thread.content.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
-                      </span>
+                  {/* Floating Header Box */}
+                  <div className="absolute -top-3 -left-2 bg-white border border-gray-300 px-3 py-1 flex rounded-md items-center gap-2 text-xs shadow-sm">
+                    <span className="font-semibold text-blue-600">
+                      {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
+                    </span>
+                    <span className="text-gray-500 text-[11px]">
+                      {thread.content.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
+                    </span>
 
-                      <div className="flex gap-1 ml-2">
-                        <button
-                          className="hover:text-blue-600 transition"
-                          onClick={() => handleSend(index)}
-                          title="Reply"
-                        >
-                          ↩
-                        </button>
-                        <button
-                          className="hover:text-green-600 transition"
-                          onClick={() => handleEdit(threadPath)}
-                          title="Edit"
-                        >
-                          ✎
-                        </button>
-                      </div>
+                    <div className="flex gap-1 ml-2">
+                      <button
+                        className="hover:text-blue-600 transition"
+                        onClick={() => handleSend(index)}
+                        title="Reply"
+                      >
+                        ↩
+                      </button>
+                      <button
+                        className="hover:text-green-600 transition"
+                        onClick={() => handleEdit(threadPath)}
+                        title="Edit"
+                      >
+                        ✎
+                      </button>
                     </div>
+                  </div>
 
-                    {/* Actual Message Content */}
-                    <div className="mt-2">
-                      <MessageContent htmlContent={thread.content} />
-                    </div>
-                    {thread.replies &&
+                  {/* Actual Message Content */}
+                  <div className="mt-3">
+                    <MessageContent htmlContent={thread.content} />
+                  </div>
+
+                  {/* Replies */}
+                  {thread.replies &&
                     thread.replies.length > 0 &&
                     renderReplies(thread.replies, threadPath, 1, threadId)}
-                  </div>
-                  
                 </div>
-              
-              );
-            })
-          ) : html ? (
-            <div dangerouslySetInnerHTML={{ __html: html }} />
-          ) : (
-            <div className="text-slate-400">
-              No content yet — start typing or paste formatted text.
-            </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
+              </div>
+            );
+          })
+        ) : html ? (
+          <div dangerouslySetInnerHTML={{ __html: html }} />
+        ) : (
+          <div className="text-slate-400">
+            No content yet — start typing or paste formatted text.
+          </div>
+        )}
+        <div ref={bottomRef} />
       </div>
+    </div>
 
-      {/* Message Input Area */}
+    {/* 🔹 Bottom Fixed Editor Section */}
+    <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3 sticky bottom-0 z-10">
       <div className="flex items-end border rounded-2xl shadow-sm bg-white p-2 w-full max-w-full overflow-hidden">
         <div
           ref={editorRef}
@@ -796,8 +798,9 @@ export default function MsChatCommentsEditor({
           onKeyDown={handleKeyDown}
           contentEditable
           suppressContentEditableWarning
-          className={`flex-1 min-h-[130px] max-h-[350px] overflow-y-auto p-3 outline-none break-words whitespace-pre-wrap w-full ${isFocused ? "ring-2 ring-slate-200" : ""
-            }`}
+          className={`flex-1 min-h-[130px] max-h-[350px] overflow-y-auto p-3 outline-none break-words whitespace-pre-wrap w-full ${
+            isFocused ? "ring-2 ring-slate-200" : ""
+          }`}
           aria-label="Rich text comment editor"
           style={{
             whiteSpace: "pre-wrap",
@@ -808,11 +811,12 @@ export default function MsChatCommentsEditor({
 
         <div className="flex items-center gap-1 ml-2 shrink-0 pb-2">
           <label
-            className={`cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 p-1 rounded-md text-sm ${uploading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+            className={`cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 p-1 rounded-md text-sm ${
+              uploading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
             title="Attach file"
           >
-            <Upload size={18} /> {/* 👈 Lucide Upload icon */}
+            <Upload size={18} />
             <input
               type="file"
               className="hidden"
@@ -829,32 +833,34 @@ export default function MsChatCommentsEditor({
             ➤
           </button>
         </div>
-         
       </div>
-      {showMentions && filteredMentions.length > 0 && (
-        <div
-          className="absolute bg-white border rounded-md shadow-md z-50"
-          style={{
-            top: mentionPosition.y,
-            left: mentionPosition.x,
-            minWidth: "120px",
-          }}
-        >
-          {filteredMentions.map((name) => (
-            <div
-              key={name}
-              className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
-              onMouseDown={(e) => {
-                e.preventDefault(); // prevent editor blur
-                insertMention(name);
-              }}
-            >
-              @{name}
-            </div>
-          ))}
-        </div>
-      )}
-
     </div>
-  );
+
+    {/* Mentions Dropdown */}
+    {showMentions && filteredMentions.length > 0 && (
+      <div
+        className="absolute bg-white border rounded-md shadow-md z-50"
+        style={{
+          top: mentionPosition.y,
+          left: mentionPosition.x,
+          minWidth: "120px",
+        }}
+      >
+        {filteredMentions.map((name) => (
+          <div
+            key={name}
+            className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              insertMention(name);
+            }}
+          >
+            @{name}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
 }
