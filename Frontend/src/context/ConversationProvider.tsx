@@ -26,10 +26,12 @@ export const ConversationProvider = ({ children }: { children: ReactNode }) => {
 
   function mapConversation(conversation: any[]): Message[] {
     const currentUser = localStorage.getItem("username") || "";
+  
     return conversation.map((item) => {
-      // Extract sender, time, and text from "SHI(25/10 36:05): hiii"
+      // Expected format: "SHI(25/10 36:05): hiii"
       const match = item.content?.match(/^(\w+)\(([^)]+)\):\s*(.*)$/);
-      let sender = "Unknown";
+  
+      let sender = "";
       let time = "";
       let text = item.content || "";
   
@@ -40,18 +42,19 @@ export const ConversationProvider = ({ children }: { children: ReactNode }) => {
       }
   
       const message: Message = {
-        id: Date.now() + Math.random(), // unique id
+        id: Date.now() + Math.random(),
         sender,
         text,
         time,
-        fromMe: sender === currentUser,
+        fromMe: sender === currentUser || sender === "", // treat no-sender as mine if needed
         media: [],
-        replies: item.replies ? mapConversation(item.replies) : [], // ✅ recursive mapping
+        replies: item.replies ? mapConversation(item.replies) : [],
       };
   
       return message;
     });
   }
+  
   
 
   // Fetch conversation for a task
