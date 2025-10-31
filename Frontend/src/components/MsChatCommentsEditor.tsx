@@ -525,81 +525,113 @@ export default function MsChatCommentsEditor({
 
   async function handleSend(parentIndex = null, replyIndex = null) {
     const innerHTML = editorRef.current?.innerHTML?.trim() || "";
-
-    // 1. Get username from local storage (assuming it's stored under the key 'username')
+    if (!innerHTML) return;
+  
+    // Username prefix
     const fullUsername = localStorage.getItem("username") || "---";
-    // Extract the first three characters or use '---' as a fallback
     const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
-
-    // 2. Format the current Date and Time
+  
+    // Date/time
     const now = new Date();
     const day = String(now.getDate()).padStart(2, "0");
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const hours = String(now.getHours()).padStart(2, "0");
     const minutes = String(now.getMinutes()).padStart(2, "0");
-
     const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
-
-    // 3. Prepend the prefix and date/time to innerHTML
+  
     const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${innerHTML}`;
-
-    // Example output: JON(25/10 48:31): <div>Hello world!</div>
-    if (!finalInnerHTML.trim()) return;
-
     const updatedThreads = [...threads];
-    // const newMessageObj = { content: finalInnerHTML, replies: [] };
-
+  
+    // 🧠 IMPORTANT FIX: Early return after editing, so we never fall through
     if (editing) {
-      const { path } = editing;
-
-      // 1️⃣ Remove the old message
-      const removeMessage = (arr, path) => {
-        if (path.length === 1) {
-          arr.splice(path[0], 1);
+      const { path } = editing; // e.g. [0] or [0,1]
+      let edited = false;
+  
+      // Helper function: update nested reply safely
+      const updateNested = (arr, pathArr, newContent) => {
+        if (!arr) return false;
+        if (pathArr.length === 1) {
+          const idx = pathArr[0];
+          if (!arr[idx]) return false;
+          arr[idx].content = newContent;
+          return true;
         } else {
-          const [first, ...rest] = path;
-          removeMessage(arr[first].replies, rest);
+          const [first, ...rest] = pathArr;
+          if (!arr[first]) return false;
+          arr[first].replies = arr[first].replies || [];
+          return updateNested(arr[first].replies, rest, newContent);
         }
       };
-
-      removeMessage(updatedThreads, path);
-
-      // 2️⃣ Add the edited message at the bottom (latest)
-      const newThread = { content: finalInnerHTML, replies: [] };
-      updatedThreads.push(newThread);
-
-      // 3️⃣ Update state & backend
+  
+      // Case 1️⃣ Editing a parent
+      if (path.length === 1) {
+        const idx = path[0];
+        if (updatedThreads[idx]) {
+          const existingReplies = updatedThreads[idx].replies || [];
+          const thread = { ...updatedThreads[idx], content: finalInnerHTML, replies: existingReplies };
+  
+          // Remove old, push updated to bottom
+          updatedThreads.splice(idx, 1);
+          updatedThreads.push(thread);
+          edited = true;
+        }
+      }
+      // Case 2️⃣ Editing a reply
+      else {
+        const parentIdx = path[0];
+        const replyPath = path.slice(1);
+  
+        if (parentIdx >= 0 && parentIdx < updatedThreads.length) {
+          const success = updateNested(updatedThreads[parentIdx].replies, replyPath, finalInnerHTML);
+          if (success) {
+            // Move parent to bottom
+            const movedParent = updatedThreads.splice(parentIdx, 1)[0];
+            updatedThreads.push(movedParent);
+            edited = true;
+          }
+        }
+      }
+  
+      if (!edited) {
+        console.warn("⚠️ Invalid edit path, skipping duplicate creation");
+        return;
+      }
+  
       setThreads(updatedThreads);
       setEditing(null);
-
       await uploadThreadsToBackend(updatedThreads, true);
+  
+      // ✅ Critical: STOP here — prevents going into 'else' (new message block)
+      editorRef.current.innerHTML = "";
+      setHtml("");
+      return;
     }
-    else {
-      const newThread = { content: finalInnerHTML, replies: [] };
-
-      if (parentIndex === null) {
-        updatedThreads.push(newThread);
+  
+    // -------------------------------------------------
+    // ELSE → new message or reply creation
+    // -------------------------------------------------
+    const newThread = { content: finalInnerHTML, replies: [] };
+  
+    if (parentIndex === null) {
+      updatedThreads.push(newThread);
+    } else {
+      const parentThread = updatedThreads[parentIndex];
+      if (replyIndex !== null) {
+        parentThread.replies[replyIndex].replies = [
+          ...(parentThread.replies[replyIndex].replies || []),
+          newThread,
+        ];
       } else {
-       // Reply case
-       const parentThread = updatedThreads[parentIndex];
-       if (replyIndex !== null) {
-         parentThread.replies[replyIndex].replies = [
-           ...(parentThread.replies[replyIndex].replies || []),
-           newThread,
-         ];
-       } else {
-         parentThread.replies = [...(parentThread.replies || []), newThread];
-       }
-       // 🔥 Move parent thread to bottom
-       const movedThread = updatedThreads.splice(parentIndex, 1)[0];
-       updatedThreads.push(movedThread);
+        parentThread.replies = [...(parentThread.replies || []), newThread];
       }
-      setThreads(updatedThreads);
-
-      // For new messages, send only the new message object
-      await uploadThreadsToBackend(updatedThreads, false);
+      // Move parent to bottom
+      const movedThread = updatedThreads.splice(parentIndex, 1)[0];
+      updatedThreads.push(movedThread);
     }
-
+  
+    setThreads(updatedThreads);
+    await uploadThreadsToBackend(updatedThreads, false);
+  
     editorRef.current.innerHTML = "";
     setHtml("");
   }
