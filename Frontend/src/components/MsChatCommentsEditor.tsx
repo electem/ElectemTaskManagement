@@ -651,12 +651,12 @@ export default function MsChatCommentsEditor({
     };
     const formattedContent = htmlContent.replace(
       /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
-      `<span class="font-bold text-blue-600">$1</span><span class="text-gray-500">($2)</span>:`
+      `<span class="font-bold text-blue-600">$1</span><span class="font-bold text-blue-600">($2)</span>:`
     );
 
     return (
       <div
-        className="message-content"
+        className="message-content flex items-center flex-wrap"
         onClick={(e) => {
           const target = e.target as HTMLElement;
           if (target.tagName === "IMG") {
@@ -677,7 +677,6 @@ export default function MsChatCommentsEditor({
     return replies.map((reply, i) => {
       const replyPath = [...path, i];
       const replyId = `${parentId}-${i}`;
-      const isCollapsed = collapsed[replyId];
 
       return (
         <div
@@ -692,9 +691,9 @@ export default function MsChatCommentsEditor({
               : "border-gray-700"
           }`}
         >
-          <div className="flex justify-between items-center">
-            <MessageContent htmlContent={reply.content} />
-            <div className="flex gap-2 text-sm">
+          <div className="message-content flex items-center flex-wrap">
+            
+            <div className="flex gap-2 text-sm mr-3">
               <button
                 className="hover:text-blue-600"
                 onClick={() => handleSend(path[0], i)}
@@ -708,18 +707,11 @@ export default function MsChatCommentsEditor({
                 title="Edit"
               >
                 ✎
-              </button>
-              <button
-                className="hover:text-gray-500"
-                onClick={() => toggleCollapse(replyId)}
-                title="Collapse / Expand"
-              >
-                {isCollapsed ? "▶" : "▼"}
-              </button>
+              </button>             
             </div>
+            <MessageContent htmlContent={reply.content} />
           </div>
-
-          {!isCollapsed && reply.replies && reply.replies.length > 0 && (
+          { reply.replies && reply.replies.length > 0 && (
             <div>
               {renderReplies(reply.replies, replyPath, level + 1, replyId)}
             </div>
@@ -737,40 +729,49 @@ export default function MsChatCommentsEditor({
             threads.map((thread, index) => {
               const threadPath = [index];
               const threadId = `t-${index}`;
-              const isCollapsed = collapsed[threadId];
               return (
-                <div key={threadId} className="mb-2">
-                  <div className="flex justify-between items-center">
-                    <MessageContent htmlContent={thread.content} />
-                    <div className="flex gap-2 text-sm">
-                      <button
-                        className="hover:text-blue-600"
-                        onClick={() => handleSend(index)}
-                        title="Reply"
-                      >
-                        ↩
-                      </button>
-                      <button
-                        className="hover:text-green-600"
-                        onClick={() => handleEdit(threadPath)}
-                        title="Edit"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        className="hover:text-gray-500"
-                        onClick={() => toggleCollapse(threadId)}
-                        title="Collapse / Expand"
-                      >
-                        {isCollapsed ? "▶" : "▼"}
-                      </button>
+                <div key={threadId} className="relative mb-2">
+                  {/* Message Box with rounded border */}
+                  <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-md">
+
+                    {/* Floating Header Box */}
+                    <div className="absolute -top-3 -left-1 bg-white border border-gray-300 px-3 py-1 flex rounded-md items-center gap-2 text-xs shadow-sm">
+                      <span className="font-semibold text-blue-600">
+                        {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
+                      </span>
+                      <span className="text-gray-500 text-[11px]">
+                        {thread.content.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
+                      </span>
+
+                      <div className="flex gap-1 ml-2">
+                        <button
+                          className="hover:text-blue-600 transition"
+                          onClick={() => handleSend(index)}
+                          title="Reply"
+                        >
+                          ↩
+                        </button>
+                        <button
+                          className="hover:text-green-600 transition"
+                          onClick={() => handleEdit(threadPath)}
+                          title="Edit"
+                        >
+                          ✎
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  {!isCollapsed &&
-                    thread.replies &&
+
+                    {/* Actual Message Content */}
+                    <div className="mt-2">
+                      <MessageContent htmlContent={thread.content} />
+                    </div>
+                    {thread.replies &&
                     thread.replies.length > 0 &&
                     renderReplies(thread.replies, threadPath, 1, threadId)}
+                  </div>
+                  
                 </div>
+              
               );
             })
           ) : html ? (
@@ -828,6 +829,7 @@ export default function MsChatCommentsEditor({
             ➤
           </button>
         </div>
+         
       </div>
       {showMentions && filteredMentions.length > 0 && (
         <div
