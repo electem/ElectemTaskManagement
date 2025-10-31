@@ -1,7 +1,7 @@
 import { useState } from "react";
-import Dashboard from "@/components/Dashboard";
 import { SidebarContentSection } from "@/components/SidebarContentSection";
 import { LayoutDashboard, FolderKanban, ListTodo } from "lucide-react";
+import { Dashboard } from "@/components/Dashboard";
 
 const Index = () => {
   const [open, setOpen] = useState(true);
@@ -28,8 +28,8 @@ const Index = () => {
       </div>
 
       {/* Desktop View → Dashboard */}
-      <div className="hidden md:block flex-1 h-full">
-        <Dashboard />
+      <div className="hidden md:block flex-1 h-screen overflow-auto">
+        <Dashboard/>
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+
     if (!username.trim()) {
       toast({
         title: "Error",
@@ -25,25 +25,26 @@ const Login = () => {
       });
       return;
     }
-  
+
     setLoading(true);
-  
+
     try {
       // Send username to backend
       const res = await api.post("/api/auth/users", { username });
-      
+
       // Response contains token and username
-      const { token, username: returnedUsername } = res.data;
-  
+      const { token, username: returnedUsername,role } = res.data;
+
       // Store token & username in localStorage
       localStorage.setItem("token", token);
       localStorage.setItem("username", returnedUsername);
-  
+      localStorage.setItem("role", role);
+
       toast({
         title: "Login Successful",
         description: `Welcome, ${returnedUsername}!`,
       });
-  
+
       navigate("/dashboard");
     } catch (err: any) {
       console.error(err);
@@ -56,7 +57,7 @@ const Login = () => {
       setLoading(false);
     }
   };
-  
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">

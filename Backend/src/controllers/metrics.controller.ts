@@ -10,7 +10,7 @@ export class MetricsController {
    */
   static async getCycleEfficiency(req: Request, res: Response) {
     try {
-      const developerId = Number(req.params.developerId);
+      const developerId = req.params.developerId;
       const period = (req.query.period as 'daily' | 'weekly' | 'monthly') || 'weekly';
 
       const data = await prisma.developerPerformanceMetric.findMany({
@@ -41,7 +41,7 @@ export class MetricsController {
    */
   static async getDeliveryRate(req: Request, res: Response) {
     try {
-      const developerId = Number(req.params.developerId);
+      const developerId = req.params.developerId;
       const period = (req.query.period as 'daily' | 'weekly' | 'monthly') || 'weekly';
 
       const data = await prisma.developerPerformanceMetric.findMany({
@@ -70,7 +70,7 @@ export class MetricsController {
    */
   static async getReworkRatio(req: Request, res: Response) {
     try {
-      const developerId = Number(req.params.developerId);
+      const developerId = req.params.developerId;
       const period = (req.query.period as 'daily' | 'weekly' | 'monthly') || 'weekly';
 
       const data = await prisma.developerPerformanceMetric.findMany({
@@ -82,7 +82,6 @@ export class MetricsController {
           endDate: true,
           reworkRatio: true,
           totalReopened: true,
-          totalCompleted: true,
           computedAt: true,
         },
       });
@@ -100,7 +99,7 @@ export class MetricsController {
    */
   static async getAllMetrics(req: Request, res: Response) {
     try {
-      const developerId = Number(req.params.developerId);
+      const developerId = req.params.developerId;
       const period = (req.query.period as 'daily' | 'weekly' | 'monthly') || 'weekly';
 
       const records = await prisma.developerPerformanceMetric.findMany({

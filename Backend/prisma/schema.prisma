@@ -97,7 +97,7 @@ model TaskChangeHistory {
 
 model DeveloperPerformanceMetric {
   id                 Int       @id @default(autoincrement())
-  developerId        Int
+  developerId        String
   periodType         PeriodType
   startDate          DateTime
   endDate            DateTime

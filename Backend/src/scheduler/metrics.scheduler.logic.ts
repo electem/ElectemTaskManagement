@@ -87,7 +87,7 @@ export async function getDeliveryRateByDeveloper(developerId: string, startDate:
   const completedChanges = await prisma.taskChangeHistory.findMany({
     where: {
       fieldChanged: 'status',
-      newValue: 'Done',
+      newValue: 'Completed',
       changedAt: { gte: startDate, lte: endDate },
       task: { owner: developerId },
     },
@@ -122,7 +122,7 @@ export async function getReworkRatioByDeveloper(developerId: string, startDate: 
   const completed = new Set<number>();
 
   for (const c of changes) {
-    if (c.oldValue === 'Completed' && c.newValue === 'In Progress') reopened.add(c.taskId);
+    if (c.oldValue === 'Completed') reopened.add(c.taskId);
     if (c.newValue === 'Completed') completed.add(c.taskId);
   }
 
