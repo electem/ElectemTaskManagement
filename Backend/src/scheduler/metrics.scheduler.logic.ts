@@ -1,74 +1,97 @@
 import prisma from "../prisma/client";
 
+// ADD AT TOP OF FILE
+const ACTIVE_STATUSES = [
+  "In Progress", "Reviewed", "Tested", "Needs Validation",
+  "Changes Requested", "Reviewed by Vinod"
+];
+
+const COMPLETION_STATUSES = [
+  "Completed", "Tested", "Reviewed by Vinod" // Define what counts as done
+];
+
+const INACTIVE_STATUSES = [
+  "Pending", "On Hold", "Paused", "Partially Clear", "Draft", "Bug"
+];
+
+// ADD THESE HELPER FUNCTIONS AT TOP OF FILE
+
+// Safe array inclusion check for nullable values
+function isActiveStatus(status: string | null): boolean {
+  return status ? ACTIVE_STATUSES.includes(status) : false;
+}
+
+function isCompletionStatus(status: string | null): boolean {
+  return status ? COMPLETION_STATUSES.includes(status) : false;
+}
+
+function isInactiveStatus(status: string | null): boolean {
+  return status ? INACTIVE_STATUSES.includes(status) : false;
+}
 export async function getCycleEfficiencyByDeveloperAndPeriod(
   developerId: string,
   startDate: Date,
   endDate: Date
 ) {
-  // Fetch all tasks for the developer that had status changes in this period
-  const tasks = await prisma.task.findMany({
+  // ONLY get tasks that were COMPLETED in this period
+  const completionEvents = await prisma.taskChangeHistory.findMany({
     where: {
-      owner: developerId,
-      histories: {
-        some: {
-          fieldChanged: 'status',
-          changedAt: { gte: startDate, lte: endDate },
-        },
-      },
+      fieldChanged: 'status',
+      newValue: { in: COMPLETION_STATUSES },
+      changedAt: { gte: startDate, lte: endDate },
+      task: { owner: developerId },
     },
     include: {
-      histories: {
-        where: {
-          fieldChanged: 'status',
-          changedAt: { gte: startDate, lte: endDate },
+      task: {
+        include: {
+          histories: {
+            where: { fieldChanged: 'status' },
+            orderBy: { changedAt: 'asc' },
+          },
         },
-        orderBy: { changedAt: 'asc' },
       },
     },
   });
 
   let totalLeadTime = 0;
   let totalActiveTime = 0;
-  let completedTaskCount = 0;
+  const completedTaskIds = new Set<number>();
 
-  for (const task of tasks) {
-    const changes = task.histories;
-    if (!changes.length) continue;
+  for (const completionEvent of completionEvents) {
+    const taskId = completionEvent.taskId;
 
-    // Determine time periods spent "In Progress"
-    let inProgressStart: Date | null = null;
-    let activeTime = 0;
+    // Avoid double-counting same task
+    if (completedTaskIds.has(taskId)) continue;
+    completedTaskIds.add(taskId);
 
-    for (const change of changes) {
-      if (change.newValue === 'In Progress') {
-        inProgressStart = change.changedAt;
+    const task = completionEvent.task;
+    const allStatusChanges = task.histories;
+
+    let taskActiveTime = 0;
+    let currentActiveStart: Date | null = null;
+
+    // Calculate active time for ENTIRE task lifetime
+    for (const change of allStatusChanges) {
+      if (isActiveStatus(change.newValue) && !currentActiveStart) {
+        currentActiveStart = change.changedAt;
       }
-      if (change.oldValue === 'In Progress' && inProgressStart) {
-        const end = change.changedAt;
-        activeTime += end.getTime() - inProgressStart.getTime();
-        inProgressStart = null;
+
+      if (currentActiveStart &&
+          (isInactiveStatus(change.newValue) || isCompletionStatus(change.newValue))) {
+        taskActiveTime += change.changedAt.getTime() - currentActiveStart.getTime();
+        currentActiveStart = null;
       }
     }
 
-    // Determine lead time (Created → Done)
-    const doneEvent = changes.find(c => c.newValue === 'Completed');
-    const completedAt = doneEvent?.changedAt || task.createdAt;
-
-    // Only count if completion within range
-    if (!completedAt || completedAt < startDate || completedAt > endDate) continue;
-
-    const createdAt = task.createdAt < startDate ? startDate : task.createdAt;
-    const leadTime = completedAt.getTime() - createdAt.getTime();
-
-    if (leadTime <= 0) continue;
+    // Calculate lead time (creation to completion)
+    const leadTime = completionEvent.changedAt.getTime() - task.createdAt.getTime();
 
     totalLeadTime += leadTime;
-    totalActiveTime += activeTime;
-    completedTaskCount++;
+    totalActiveTime += taskActiveTime;
   }
 
-  const cycleEfficiency =
-    totalLeadTime > 0 ? (totalActiveTime / totalLeadTime) * 100 : 0;
+  const completedTaskCount = completedTaskIds.size;
+  const cycleEfficiency = totalLeadTime > 0 ? (totalActiveTime / totalLeadTime) * 100 : 0;
 
   return {
     developerId,
@@ -80,23 +103,21 @@ export async function getCycleEfficiencyByDeveloperAndPeriod(
     cycleEfficiency: +cycleEfficiency.toFixed(2),
   };
 }
-
-
 export async function getDeliveryRateByDeveloper(developerId: string, startDate: Date, endDate: Date) {
-  // Find all tasks for this developer that were completed during period
-  const completedChanges = await prisma.taskChangeHistory.findMany({
+  // Get UNIQUE tasks completed in period
+  const completedTasks = await prisma.taskChangeHistory.findMany({
     where: {
       fieldChanged: 'status',
-      newValue: 'Completed',
+      newValue: { in: COMPLETION_STATUSES },
       changedAt: { gte: startDate, lte: endDate },
       task: { owner: developerId },
     },
+    distinct: ['taskId'],
     select: { taskId: true },
   });
 
-  const completedCount = new Set(completedChanges.map(c => c.taskId)).size;
-
-  const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+  const completedCount = completedTasks.length;
+  const totalDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
   const deliveryRatePerDay = completedCount / totalDays;
 
   return {
@@ -109,30 +130,45 @@ export async function getDeliveryRateByDeveloper(developerId: string, startDate:
 
 
 export async function getReworkRatioByDeveloper(developerId: string, startDate: Date, endDate: Date) {
-  const changes = await prisma.taskChangeHistory.findMany({
+  // Get all completion events in period
+  const completionEvents = await prisma.taskChangeHistory.findMany({
     where: {
       fieldChanged: 'status',
+      newValue: { in: COMPLETION_STATUSES },
       changedAt: { gte: startDate, lte: endDate },
       task: { owner: developerId },
     },
-    select: { taskId: true, oldValue: true, newValue: true },
+    select: { taskId: true, changedAt: true },
   });
 
-  const reopened = new Set<number>();
-  const completed = new Set<number>();
+  const completedTasks = new Set<number>();
+  const reopenedTasks = new Set<number>();
 
-  for (const c of changes) {
-    if (c.oldValue === 'Completed') reopened.add(c.taskId);
-    if (c.newValue === 'Completed') completed.add(c.taskId);
+  for (const completion of completionEvents) {
+    completedTasks.add(completion.taskId);
+
+    // Check if this task was later reopened (moved back to active status)
+    const laterReopening = await prisma.taskChangeHistory.findFirst({
+      where: {
+        taskId: completion.taskId,
+        fieldChanged: 'status',
+        oldValue: { in: COMPLETION_STATUSES },
+        newValue: { in: ACTIVE_STATUSES },
+        changedAt: { gt: completion.changedAt, lte: endDate },
+      },
+    });
+
+    if (laterReopening) {
+      reopenedTasks.add(completion.taskId);
+    }
   }
 
-  const reworkRatio =
-    completed.size > 0 ? (reopened.size / completed.size) * 100 : 0;
+  const reworkRatio = completedTasks.size > 0 ? (reopenedTasks.size / completedTasks.size) * 100 : 0;
 
   return {
     developerId,
-    totalCompleted: completed.size,
-    totalReopened: reopened.size,
+    totalCompleted: completedTasks.size,
+    totalReopened: reopenedTasks.size,
     reworkRatio: +reworkRatio.toFixed(2),
   };
 }
