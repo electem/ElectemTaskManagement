@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import MsChatCommentsEditor from "./MsChatCommentsEditor.tsx";
 import { useConversationContext } from "@/context/ConversationProvider.tsx";
 import { useParams, useNavigate } from "react-router-dom"; // import useNavigate
-
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTaskContext } from "@/context/TaskContext";
 import { useTaskHistory } from "@/context/TaskHistoryContext.tsx";
 interface Message {
@@ -19,11 +19,9 @@ export default function ChatView() {
   const { taskId } = useParams<{ taskId: string }>();
   const { title } = useParams<{ title: string }>();
   const navigate = useNavigate(); // initialize navigate
-
-  const { markTaskAsRead } = useTaskContext();
   if (!taskId) return <div>Task not found</div>;
   const taskIdNumber = Number(taskId);
-
+  const description = localStorage.getItem("taskDescription");
   const [comment, setComment] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [fullViewImage, setFullViewImage] = useState<string | null>(null);
@@ -31,7 +29,7 @@ export default function ChatView() {
   const { conversations, fetchConversation, addMessage } =
     useConversationContext();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
+ 
   useEffect(() => {
     fetchConversation(taskIdNumber);
   }, [taskIdNumber]);
@@ -75,19 +73,9 @@ export default function ChatView() {
     setComment("");
   };
 
-  const handleEditMessage = (msgId: number) => {
-    const msg = conversations[taskIdNumber]?.find((m) => m.id === msgId);
-    if (!msg) return;
-
-    setComment(msg.text);
-    setEditingMessageId(msgId);
-  };
-
-  const messages = conversations[taskIdNumber] || [];
-
   return (
-<div className="flex flex-col h-full overflow-hidden bg-[#f5f5f5] dark:bg-[#1e1e1e] rounded-xl shadow-sm font-[Segoe UI,Arial,sans-serif] text-sm">
-{/* Header */}
+    <div className="flex flex-col h-full overflow-hidden bg-[#f5f5f5] dark:bg-[#1e1e1e] rounded-xl shadow-sm font-[Segoe UI,Arial,sans-serif] text-sm">
+      {/* Header */}
       <div className="sticky top-0 z-50 flex items-center justify-between bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 shadow">
         <button
           onClick={() => navigate(-1)}
@@ -95,9 +83,18 @@ export default function ChatView() {
         >
           ← Back
         </button>
-        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-          {title}
-        </h2>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <h1 className="text-xl font-semibold cursor-help">
+                {title}
+              </h1>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="max-w-xs text-sm text-muted-foreground">{description}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <div className="w-10" /> {/* Placeholder for alignment */}
       </div>
 

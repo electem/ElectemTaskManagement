@@ -216,9 +216,14 @@ const getStatusColor = (status: string) => {
   };
 
   // 🎯 ADDED: Function to mark as read before navigation
-  const handleChatClick = (taskId: string, title: string) => {
+  const handleChatClick = (taskId: string, title: string,description?: string) => {
     markTaskAsRead(taskId);
+      // ✅ Save description in localStorage
+  if (description) {
+    localStorage.setItem("taskDescription", description);
+  }
     navigate(`/tasks/${taskId}/${title}/chat`);
+
   };
 
   const handleTitleClick = (taskId: string) => {
@@ -423,7 +428,7 @@ const handleCopyTask = async (task: Task) => {
                         {/* New Message cell - clickable for chat */}
                         <TableCell
                           className="cursor-pointer hover:text-primary flex items-center gap-1"
-                          onClick={() => handleChatClick(taskIdStr, task.title)}
+                          onClick={() => handleChatClick(taskIdStr, task.title, task.description)}
                           title={`Click to view chat${
                             unreadCount > 0 ? ` (${unreadCount} unread)` : ""
                           }`}

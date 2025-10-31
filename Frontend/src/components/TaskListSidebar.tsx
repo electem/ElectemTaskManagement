@@ -291,8 +291,13 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
 
   const openChat = (task: Task) => {
     markTaskAsRead(task.id);
+    if (task) {
+      localStorage.setItem("taskDescription", task.description);
+    }
+  
     navigate(`/tasks/`);
     navigate(`/tasks/${task.id}/${task.title}/chat`);
+  
   };
 
   if (!sidebarOpen) {
