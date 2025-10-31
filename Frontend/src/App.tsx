@@ -18,33 +18,44 @@ import { ProjectProvider } from "./context/ProjectContext";
 import { ConversationProvider } from "./context/ConversationProvider";
 import { TaskHistoryProvider } from "./context/TaskHistoryContext"; // ✅ new import
 import FilesPage from "./pages/FilesPage";
+import ProtectedRoute from "./ProtectedRoute";
 
 const queryClient = new QueryClient();
 
 // Layout component
+// Layout component
 const AppLayout = () => {
   const location = useLocation();
-  const showSidebar = location.pathname !== "/login";
+  const token = localStorage.getItem("token");
+  const showSidebar = location.pathname !== "/login" && !!token; // ✅ only show if token exists
 
   return (
     <div className="flex min-h-screen w-full">
       {showSidebar && <AppSidebar />}
       <main className="flex-1 bg-gradient-subtle overflow-hidden">
         <Routes>
+          {/* Public Route */}
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Index />} />
-          <Route path="/task" element={<Index />} />
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/files" element={<FilesPage />} />
-          <Route path="/tasks/new" element={<TaskFormPage />} />
-          <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
-          <Route path="/tasks/:taskId/:title/chat" element={<ChatView />} />
+
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<Index />} />
+            <Route path="/task" element={<Index />} />
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/files" element={<FilesPage />} />
+            <Route path="/tasks/new" element={<TaskFormPage />} />
+            <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
+            <Route path="/tasks/:taskId/:title/chat" element={<ChatView />} />
+          </Route>
+
+          {/* Fallback */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </div>
   );
 };
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
