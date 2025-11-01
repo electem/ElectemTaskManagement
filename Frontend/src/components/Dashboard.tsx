@@ -13,6 +13,8 @@ import {
 import api from "@/lib/api";
 
 interface MetricsRecord {
+  developerId: string;
+  developerName: string;
   startDate: string;
   endDate: string;
   cycleEfficiency: number;
@@ -26,34 +28,47 @@ interface MetricsRecord {
 
 export const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<MetricsRecord[]>([]);
-  const [period, setPeriod] = useState("weekly");
-  const [selectedDev, setSelectedDev] = useState(
-    localStorage.getItem("username") || "101"
-  );
-  const [allDevelopers, setAllDevelopers] = useState<string[]>([]);
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [selectedMetric, setSelectedMetric] = useState<
+    "cycleEfficiency" | "deliveryRatePerDay" | "reworkRatio"
+  >("cycleEfficiency");
   const [loading, setLoading] = useState(true);
-  const userRole = localStorage.getItem("role");
-  const isAdmin = userRole === "admin";
 
-  // Fetch list of developers for admin dropdown
-  const fetchDevelopers = async () => {
-    if (!isAdmin) return;
-    try {
-      const res = await api.get("/api/users/users");
-      setAllDevelopers(res.data.map((u: any) => u.username));
-    } catch (error) {
-      console.error("Error fetching developers:", error);
+  // Color schemes for different metrics
+  const metricColors = {
+    cycleEfficiency: {
+      primary: "#3B82F6",
+      light: "#EFF6FF",
+      border: "border-blue-200"
+    },
+    deliveryRatePerDay: {
+      primary: "#10B981",
+      light: "#ECFDF5",
+      border: "border-emerald-200"
+    },
+    reworkRatio: {
+      primary: "#F59E0B",
+      light: "#FFFBEB",
+      border: "border-amber-200"
     }
   };
 
-  // Fetch metrics for selected developer and period
+  // Developer colors for consistent coloring
+  const getDeveloperColor = (developerId: string) => {
+    const colors = [
+      "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
+      "#06B6D4", "#84CC16", "#F97316", "#EC4899", "#6366F1"
+    ];
+    const index = parseInt(developerId, 10) % colors.length;
+    return colors[index];
+  };
+
+  // Fetch metrics for all developers
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      const res = await api.get(
-        `/metrics/developer/${selectedDev}?period=${period}`
-      );
-      setMetrics(res.data.records);
+      const res = await api.get(`/metrics/all?period=${period}`);
+      setMetrics(res.data.records || []);
     } catch (error) {
       console.error("Error fetching metrics:", error);
       setMetrics([]);
@@ -63,36 +78,52 @@ export const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDevelopers();
     fetchMetrics();
-  }, []);
+  }, [period]);
 
-  useEffect(() => {
-    fetchMetrics();
-  }, [period, selectedDev]);
+  const latest = metrics.length ? metrics[metrics.length - 1] : null;
 
-  const latest = metrics[metrics.length - 1];
+  // Format date
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+  // Transform data for Recharts - GROUP BY DATE
+  const transformDataForChart = () => {
+    const dates = Array.from(new Set(metrics.map(m => m.startDate)));
+
+    return dates.map(date => {
+      const dateData: any = { date };
+      metrics.filter(m => m.startDate === date).forEach(metric => {
+        const devName = metric.developerName || `Dev ${metric.developerId}`;
+        dateData[devName] = metric[selectedMetric];
+      });
+      return dateData;
     });
   };
 
-  // Custom tooltip for charts
+  const chartData = transformDataForChart();
+  const developers = Array.from(new Set(metrics.map(m => m.developerName || `Dev ${m.developerId}`)));
+
+  // Tooltip for chart - FIXED
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800">{`Period: ${formatDate(label)}`}</p>
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-800">{formatDate(label)}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} className="flex items-center text-sm" style={{ color: entry.color }}>
-              <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: entry.color }}></span>
-              {`${entry.name}: ${entry.value}${entry.dataKey === 'cycleEfficiency' || entry.dataKey === 'reworkRatio' ? '%' : ''}`}
-            </p>
+            <p
+              key={index}
+              className="text-sm"
+              style={{ color: entry.color }}
+            >{`${entry.name}: ${entry.value}${
+              selectedMetric === "cycleEfficiency" || selectedMetric === "reworkRatio"
+                ? "%"
+                : ""
+            }`}</p>
           ))}
         </div>
       );
@@ -102,7 +133,7 @@ export const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading dashboard data...</p>
@@ -112,181 +143,124 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Developer Metrics Dashboard</h1>
-          <p className="text-gray-600">Track and analyze development performance metrics</p>
-        </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            {isAdmin && (
-              <div className="w-full sm:w-64"> {/* Reduced width */}
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Developer
-                </label>
-                <select
-                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  value={selectedDev}
-                  onChange={(e) => setSelectedDev(e.target.value)}
-                >
-                  {allDevelopers.map((dev) => (
-                    <option key={dev} value={dev}>{`Developer ${dev}`}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="w-full sm:w-48"> {/* Reduced width */}
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Time Period
-              </label>
-              <select
-                className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
+        {/* --- CHART SECTION (TOP) - Perfect height to fit cards below --- */}
+        <div className="bg-white rounded-xl shadow p-4 mb-4">
+          {metrics.length > 0 ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
               >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Metric Cards */}
-        {latest && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Cycle Efficiency</h3>
-                <div className="w-10 h-10 bg-blue-400 rounded-full flex items-center justify-center">
-                  <span className="text-lg">⚡</span>
-                </div>
-              </div>
-              <p className="text-3xl font-bold mb-2">{latest.cycleEfficiency}%</p>
-              <p className="text-blue-100 text-sm">
-                {latest.completedTaskCount} Tasks Completed
-              </p>
-              <div className="mt-4 w-full bg-blue-400 rounded-full h-2">
-                <div
-                  className="bg-white rounded-full h-2 transition-all duration-1000"
-                  style={{ width: `${Math.min(latest.cycleEfficiency, 100)}%` }}
-                ></div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Delivery Rate</h3>
-                <div className="w-10 h-10 bg-green-400 rounded-full flex items-center justify-center">
-                  <span className="text-lg">🚀</span>
-                </div>
-              </div>
-              <p className="text-3xl font-bold mb-2">{latest.deliveryRatePerDay}/day</p>
-              <p className="text-green-100 text-sm">
-                {latest.completedCount} Total Completed
-              </p>
-              <div className="mt-4 flex items-center">
-                <span className="text-green-200 text-sm">Performance</span>
-                <div className="ml-2 flex-1 bg-green-400 rounded-full h-2">
-                  <div
-                    className="bg-white rounded-full h-2 transition-all duration-1000"
-                    style={{ width: `${Math.min(latest.deliveryRatePerDay * 10, 100)}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Rework Ratio</h3>
-                <div className="w-10 h-10 bg-red-400 rounded-full flex items-center justify-center">
-                  <span className="text-lg">🔄</span>
-                </div>
-              </div>
-              <p className="text-3xl font-bold mb-2">{latest.reworkRatio}%</p>
-              <p className="text-red-100 text-sm">
-                {latest.totalReopened} Reopened Tasks
-              </p>
-              <div className="mt-4 w-full bg-red-400 rounded-full h-2">
-                <div
-                  className="bg-white rounded-full h-2 transition-all duration-1000"
-                  style={{ width: `${Math.min(latest.reworkRatio, 100)}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Trend Charts */}
-        {metrics.length > 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Performance Trends</h3>
-              <span className="text-sm text-gray-500 mt-2 sm:mt-0">
-                Last 12 {period === 'daily' ? 'Days' : period === 'weekly' ? 'Weeks' : 'Months'}
-              </span>
-            </div>
-
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={metrics} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
-                  dataKey="startDate"
-                  tick={{ fill: '#6b7280' }}
+                  dataKey="date"
+                  tick={{ fill: "#6b7280" }}
                   tickFormatter={formatDate}
                 />
-                <YAxis
-                  tick={{ fill: '#6b7280' }}
-                  tickFormatter={(value) => `${value}${value > 10 ? '' : '%'}`}
-                />
+                <YAxis tick={{ fill: "#6b7280" }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="cycleEfficiency"
-                  stroke="#3b82f6"
-                  name="Cycle Efficiency (%)"
-                  strokeWidth={3}
-                  dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, fill: '#3b82f6' }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="deliveryRatePerDay"
-                  stroke="#10b981"
-                  name="Delivery Rate (/day)"
-                  strokeWidth={3}
-                  dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, fill: '#10b981' }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="reworkRatio"
-                  stroke="#ef4444"
-                  name="Rework Ratio (%)"
-                  strokeWidth={3}
-                  dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, fill: '#ef4444' }}
-                />
+
+                {/* Line for each developer with proper data keys */}
+                {developers.map((dev) => {
+                  const color = getDeveloperColor(dev);
+                  return (
+                    <Line
+                      key={dev}
+                      type="monotone"
+                      dataKey={dev}
+                      name={dev}
+                      stroke={color}
+                      strokeWidth={2}
+                      dot={{ fill: color, r: 4 }}
+                      activeDot={{ r: 6, fill: color }}
+                      connectNulls
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-            <div className="text-gray-400 mb-4">
-              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
+          ) : (
+            <div className="text-center text-gray-500 py-8">
+              No data available for the selected period.
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
-            <p className="text-gray-600">No metrics data found for the selected criteria.</p>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* --- METRIC CARDS (BOTTOM) --- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            {
+              key: "cycleEfficiency",
+              label: "Cycle Efficiency",
+              sub: "Tasks Completed",
+              value: latest?.cycleEfficiency ? `${latest.cycleEfficiency}%` : "--",
+              subValue: latest?.completedTaskCount || 0,
+            },
+            {
+              key: "deliveryRatePerDay",
+              label: "Delivery Rate",
+              sub: "Tasks Completed",
+              value: latest?.deliveryRatePerDay
+                ? `${latest.deliveryRatePerDay}/day`
+                : "--",
+              subValue: latest?.completedCount || 0,
+            },
+            {
+              key: "reworkRatio",
+              label: "Rework Ratio",
+              sub: "Reopened Tasks",
+              value: latest?.reworkRatio ? `${latest.reworkRatio}%` : "--",
+              subValue: latest?.totalReopened || 0,
+            },
+          ].map((metric) => {
+            const colors = metricColors[metric.key as keyof typeof metricColors];
+
+            return (
+              <div
+                key={metric.key}
+                className={`rounded-lg shadow p-4 text-center border ${
+                  selectedMetric === metric.key ? `${colors.border} border-2` : "border-transparent"
+                }`}
+                style={{ backgroundColor: colors.light }}
+              >
+                <p className="font-semibold mb-1" style={{ color: colors.primary }}>
+                  {metric.label}: {metric.value}
+                </p>
+                <p className="text-sm text-gray-500 mb-3">
+                  {metric.subValue} {metric.sub}
+                </p>
+
+                {/* Period buttons */}
+                <div className="flex justify-center gap-2">
+                  {["daily", "weekly", "monthly"].map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        setPeriod(p as any);
+                        setSelectedMetric(metric.key as any);
+                      }}
+                      className={`px-3 py-1 text-xs rounded-full border transition-all duration-200 ${
+                        period === p && selectedMetric === metric.key
+                          ? "text-white"
+                          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                      }`}
+                      style={{
+                        backgroundColor: period === p && selectedMetric === metric.key ? colors.primary : undefined,
+                        borderColor: period === p && selectedMetric === metric.key ? colors.primary : undefined,
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

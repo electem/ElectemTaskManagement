@@ -125,4 +125,31 @@ export class MetricsController {
       res.status(500).json({ error: 'Failed to fetch combined metrics data' });
     }
   }
+
+  static async getAllDevelopersMetrics(req: Request, res: Response) {
+    try {
+      const period = (req.query.period as 'daily' | 'weekly' | 'monthly') || 'weekly';
+
+      const records = await prisma.developerPerformanceMetric.findMany({
+        where: { periodType: period },
+        orderBy: { startDate: 'asc' },
+        select: {
+          developerId: true,
+          startDate: true,
+          endDate: true,
+          cycleEfficiency: true,
+          deliveryRatePerDay: true,
+          reworkRatio: true,
+          completedCount: true,
+          totalReopened: true,
+          completedTaskCount: true,
+        },
+      });
+
+      res.json({ period, records });
+    } catch (error) {
+      console.error('❌ Error fetching all developer metrics:', error);
+      res.status(500).json({ error: 'Failed to fetch metrics for all developers' });
+    }
+  }
 }
