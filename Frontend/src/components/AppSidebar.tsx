@@ -3,6 +3,7 @@ import {
   ListTodo,
   LogOut,
   FileText,
+   Grid3X3
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -18,7 +19,8 @@ import { SidebarContentSection } from "./SidebarContentSection"; // ✅ Import t
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Task Management", url: "/tasks", icon: ListTodo },
-   { title: "Files", url: "/files", icon: FileText }, 
+  { title: "Files", url: "/files", icon: FileText }, 
+  { title: "Grid View", url: "/tasks/grid", icon: Grid3X3 },
 ];
 
 export function AppSidebar() {

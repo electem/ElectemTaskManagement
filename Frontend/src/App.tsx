@@ -19,6 +19,7 @@ import { ConversationProvider } from "./context/ConversationProvider";
 import { TaskHistoryProvider } from "./context/TaskHistoryContext"; // ✅ new import
 import FilesPage from "./pages/FilesPage";
 import ProtectedRoute from "./ProtectedRoute";
+import TaskGridView from "./components/TaskGridView";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const AppLayout = () => {
             <Route path="/dashboard" element={<Index />} />
             <Route path="/task" element={<Index />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/tasks/grid" element={<TaskGridView />} />
             <Route path="/files" element={<FilesPage />} />
             <Route path="/tasks/new" element={<TaskFormPage />} />
             <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
