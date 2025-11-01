@@ -11,5 +11,6 @@ metricsRoutes.get('/rework-ratio/:developerId', MetricsController.getReworkRatio
 
 // Combined Dashboard Metrics
 metricsRoutes.get('/developer/:developerId', MetricsController.getAllMetrics);
+metricsRoutes.get("/all", MetricsController.getAllDevelopersMetrics);
 
 export default metricsRoutes;

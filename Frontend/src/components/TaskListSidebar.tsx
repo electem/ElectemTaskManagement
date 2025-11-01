@@ -366,16 +366,16 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
                     ) : (
                       <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
                     )}
-                    <div className="flex items-center max-w-[160px] overflow-hidden">
+                    <div className="flex items-center max-w-[260px] overflow-hidden">
                       <Button
                         variant="ghost"
                         onClick={() => handleToggle(task.id)}
-                        className={`flex-shrink h-auto px-3 py-2 justify-start transition-colors whitespace-nowrap overflow-hidden text-ellipsis ${expandedTaskId === task.id
+                        className={`flex-shrink h-auto py-2 justify-start transition-colors whitespace-nowrap overflow-hidden text-ellipsis ${expandedTaskId === task.id
                             ? 'bg-gray-100 dark:bg-gray-700'
                             : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                           }`}
                       >
-                        <span className="text-sm font-medium truncate max-w-[120px]">{task.title}</span>
+                        <span className="text-sm font-medium truncate max-w-[260px]">{task.title}</span>
                       </Button>
                       <Button
                         variant="ghost"
