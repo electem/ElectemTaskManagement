@@ -725,16 +725,16 @@ export default function MsChatCommentsEditor({
         >
           <div className="message-content flex items-center flex-wrap">
             
-            <div className="flex gap-2 text-sm mr-3">
+            <div className="flex gap-4 text-sm mr-3">
               <button
-                className="hover:text-blue-600"
+                className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
                 onClick={() => handleSend(path[0], i)}
                 title="Reply"
               >
                 ↩
               </button>
               <button
-                className="hover:text-green-600"
+                className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
                 onClick={() => handleEdit(replyPath)}
                 title="Edit"
               >
@@ -768,7 +768,7 @@ export default function MsChatCommentsEditor({
                 <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-lg">
 
                   {/* Floating Header Box */}
-                  <div className="absolute -top-3 -left-2 bg-white border border-gray-300 px-3 py-1 flex rounded-md items-center gap-2 text-xs shadow-sm">
+                  <div className="absolute -top-3 -left-2 bg-white border border-gray-300 px-3 flex rounded-md items-center gap-2 text-xs shadow-sm">
                     <span className="font-semibold text-blue-600">
                       {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
                     </span>
@@ -776,16 +776,16 @@ export default function MsChatCommentsEditor({
                       {thread.content.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
                     </span>
 
-                    <div className="flex gap-1 ml-2">
+                    <div className="flex gap-4 ml-2">
                       <button
-                        className="hover:text-blue-600 transition"
+                        className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
                         onClick={() => handleSend(index)}
                         title="Reply"
                       >
                         ↩
                       </button>
                       <button
-                        className="hover:text-green-600 transition"
+                        className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
                         onClick={() => handleEdit(threadPath)}
                         title="Edit"
                       >

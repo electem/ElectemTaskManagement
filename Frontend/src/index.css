@@ -128,4 +128,16 @@ All colors MUST be HSL.
   }
 }
 
+/* Add to your global.css or Tailwind config */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 
