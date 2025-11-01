@@ -11,7 +11,7 @@ import {
   Sidebar,
   SidebarTrigger,
   useSidebar,
-} from "@/components/ui/sidebar";
+} from "@/components/ui/sidebar"; 
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SidebarContentSection } from "./SidebarContentSection"; // ✅ Import the new component

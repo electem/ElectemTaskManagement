@@ -48,7 +48,7 @@ const AppLayout = () => {
             <Route path="/tasks/new" element={<TaskFormPage />} />
             <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
             <Route path="/tasks/:taskId/:title/chat" element={<ChatView />} />
-          </Route>
+          </Route> 
 
           {/* Fallback */}
           <Route path="*" element={<NotFound />} />
