@@ -13,7 +13,9 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-
+  const triggerWebSocketConnection = () => {
+    window.dispatchEvent(new CustomEvent('userLoggedIn'));
+  };
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -44,6 +46,7 @@ const Login = () => {
         title: "Login Successful",
         description: `Welcome, ${returnedUsername}!`,
       });
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       navigate("/dashboard");
     } catch (err: any) {

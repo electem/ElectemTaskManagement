@@ -1,6 +1,13 @@
-import api from "@/lib/api"; // Axios instance  with interceptor
-import { useCallback } from "react";
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import api from "@/lib/api";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  ReactNode,
+  createContext,
+  useContext,
+} from "react";
 
 export interface Task {
   id: number;
@@ -12,17 +19,10 @@ export interface Task {
   description: string;
   dueDate?: string;
   status: string;
-  url?: string;                // new field
+  url?: string;
   dependentTaskId?: number[];
-
 }
 
-// 🎯 ADDED: Interface for unread counts
-// interface TaskUnreadCounts {
-//   [taskId: string]: number; // Maps taskId (string) to unread count (number)
-// }
-
-// ✅ Unified unread structure
 interface UnreadData {
   count: number;
   mention: boolean;
@@ -39,7 +39,6 @@ interface TaskContextType {
   deleteTask: (id: number) => Promise<void>;
   refreshTasks: boolean;
   triggerTaskRefresh: () => void;
-  // 🎯 ADDED: Unread message state and functions
   unreadCounts: Record<string, UnreadData>;
   markTaskAsRead: (taskId: string) => void;
   incrementUnreadCount: (
@@ -48,6 +47,9 @@ interface TaskContextType {
     mentionedUser?: string | null,
     senderUser?: string | null
   ) => void;
+  latestWsMessage: any;
+  registerRefreshHandler: (cb: () => void) => void;
+  unregisterRefreshHandler: (cb: () => void) => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -55,34 +57,262 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [refreshTasks, setRefreshTasks] = useState(false);
-  // 🎯 ADDED: State for unread message counts
   const [unreadCounts, setUnreadCounts] = useState<Record<string, UnreadData>>({});
-console.log("tasks",tasks);
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [latestWsMessage, setLatestWsMessage] = useState<any>(null);
 
+  const refreshHandlers = useRef<Set<() => void>>(new Set());
+  const pendingMessagesRef = useRef<any[]>([]);
+  const tasksLoadedRef = useRef(false);
+  const connectionAttemptRef = useRef(false);
 
-  const countedTaskIdsRef = useRef<Set<string>>(new Set());
+  // 🔑 Track token dynamically
+  const [authToken, setAuthToken] = useState<string | null>(localStorage.getItem("token"));
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const current = localStorage.getItem("token");
+      setAuthToken((prev) => (prev !== current ? current : prev));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const triggerTaskRefresh = () => {
-    setRefreshTasks((prev) => !prev);
+  const triggerTaskRefresh = () => setRefreshTasks((prev) => !prev);
+
+  // ==========================
+  // 🧩 Fetch Tasks
+  // ==========================
+  const fetchTasks = useCallback(async () => {
+    try {
+      const res = await api.get("/tasks");
+      setTasks(res.data);
+      tasksLoadedRef.current = true;
+
+      // ✅ Process queued WebSocket messages once tasks are ready
+      if (pendingMessagesRef.current.length > 0) {
+        console.log(`🚀 Processing ${pendingMessagesRef.current.length} queued messages`);
+        pendingMessagesRef.current.forEach((msg) => handleWebSocketMessage(msg));
+        pendingMessagesRef.current = [];
+      }
+
+      return res.data;
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+    }
+  }, []);
+
+  // ==========================
+  // 🔔 Unread Logic
+  // ==========================
+  const markTaskAsRead = (taskId: string) => {
+    setUnreadCounts((prev) => {
+      const prevData = prev[taskId];
+      if (prevData && (prevData.count > 0 || prevData.mention)) {
+        return {
+          ...prev,
+          [taskId]: { count: 0, mention: false, mentionedUser: null, senderUser: null },
+        };
+      }
+      return prev;
+    });
   };
 
-  // Fetch all tasks
- const fetchTasks = useCallback(async () => {
-  try {
-    const res = await api.get("/tasks");
-    setTasks(res.data);
-    return res.data;
-  } catch (err) {
-    console.error("Error fetching tasks:", err);
-  }
-}, []);
+  const incrementUnreadCount = (
+    taskId: string,
+    hasMention = false,
+    mentionedUser: string | null = null,
+    senderUser: string | null = null
+  ) => {
+    setUnreadCounts((prev) => {
+      const prevData = prev[taskId] || {
+        count: 0,
+        mention: false,
+        mentionedUser: null,
+        senderUser: null,
+      };
 
-useEffect(() => {
-  countedTaskIdsRef.current.clear();
-}, [refreshTasks]);
+      const newData = {
+        count: prevData.count + 1,
+        mention: prevData.mention || hasMention,
+        mentionedUser: mentionedUser || prevData.mentionedUser,
+        senderUser: senderUser || prevData.senderUser,
+      };
 
+      return { ...prev, [taskId]: newData };
+    });
+  };
 
-  // Add new task
+  // ==========================
+  // 📌 Manage Handlers (for ChatView refresh)
+  // ==========================
+  const registerRefreshHandler = (cb: () => void) => {
+    refreshHandlers.current.add(cb);
+  };
+  const unregisterRefreshHandler = (cb: () => void) => {
+    refreshHandlers.current.delete(cb);
+  };
+
+  // ==========================
+  // 🌍 WebSocket Message Processor
+  // ==========================
+  const handleWebSocketMessage = async (response: any) => {
+    const { taskId, currentUser: senderName, payload } = response;
+    const username = localStorage.getItem("username") || "";
+    const filteredUsername = username.substring(0, 3).toLowerCase();
+
+    // Ignore self messages
+    if (senderName?.toLowerCase() === username.toLowerCase()) return;
+
+    if (localStorage.getItem("opendTaskId") == taskId) {
+      return;
+    }
+
+    let messageText = "";
+    if (Array.isArray(payload) && payload.length > 0) {
+      const lastMessage = payload[payload.length - 1];
+      messageText = lastMessage.content || "";
+    }
+
+    const lastPart = messageText.split(";").pop()?.trim() || "";
+    const hasMention = lastPart.toLowerCase().includes(`@${filteredUsername}`);
+
+    incrementUnreadCount(taskId, hasMention, hasMention ? filteredUsername : null, senderName);
+
+    // ✅ Trigger all registered refresh handlers (ChatView, etc.)
+    refreshHandlers.current.forEach((cb) => cb());
+  };
+
+  // ==========================
+  // 🌍 GLOBAL WEBSOCKET SETUP
+  // ==========================
+  const connectWebSocket = useCallback(() => {
+    const token = localStorage.getItem("token");
+    const currentUser = localStorage.getItem("username");
+    
+    if (!token || !currentUser) {
+      console.log("❌ No token or username available for WebSocket connection");
+      return;
+    }
+
+    // 🚫 PREVENT MULTIPLE CONNECTION ATTEMPTS
+    if (connectionAttemptRef.current) {
+      console.log("⏸️ WebSocket connection attempt already in progress");
+      return;
+    }
+
+    // 🚫 PREVENT MULTIPLE ACTIVE CONNECTIONS
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+      console.log("✅ WebSocket already connected or connecting");
+      return;
+    }
+
+    connectionAttemptRef.current = true;
+    console.log("🌐 Creating new WebSocket connection...");
+    const ws = new WebSocket(import.meta.env.VITE_WS_API_BASE);
+
+    ws.onopen = () => {
+      console.log("✅ Global WebSocket connected. Sending INIT...");
+      const currentUser = localStorage.getItem("username");
+      // Send INIT message immediately after connection
+      ws.send(JSON.stringify({ 
+        type: "INIT", 
+        currentUser: currentUser 
+      }));
+      setRetryCount(0);
+      setSocket(ws);
+      connectionAttemptRef.current = false;
+      console.log("📤 INIT message sent for user:", currentUser);
+    };
+
+    ws.onmessage = async (event) => {
+      try {
+        const response = JSON.parse(event.data);
+        console.log("📨 Global message received:", response);
+        setLatestWsMessage(response);
+
+        // 🕓 Tasks not yet loaded — queue message
+        if (!tasksLoadedRef.current) {
+          console.log("⏳ Tasks not loaded yet, queueing message...");
+          pendingMessagesRef.current.push(response);
+          return;
+        }
+
+        // ✅ Process immediately
+        handleWebSocketMessage(response);
+      } catch (err) {
+        console.error("❌ Error parsing WebSocket message:", err);
+      }
+    };
+
+    ws.onclose = (ev) => {
+      console.warn("⚠️ WebSocket disconnected:", ev.code, ev.reason);
+      setSocket(null);
+      connectionAttemptRef.current = false;
+      
+      // Only retry if user is still logged in
+      if (localStorage.getItem("token")) {
+        setTimeout(() => {
+          console.log("🔄 Attempting to reconnect WebSocket...");
+          setRetryCount((prev) => prev + 1);
+          connectWebSocket();
+        }, Math.min(5000, (retryCount + 1) * 1000));
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+      connectionAttemptRef.current = false;
+    };
+  }, [socket, retryCount]);
+
+  // ==========================
+  // 🎯 LOGIN EVENT LISTENER
+  // ==========================
+  useEffect(() => {
+    const handleUserLoggedIn = () => {
+      console.log("🎯 Login event detected, connecting WebSocket...");
+      // Clear any existing socket first
+      if (socket) {
+        console.log("🧹 Cleaning up existing WebSocket connection...");
+        socket.close();
+        setSocket(null);
+      }
+      // Wait a bit for localStorage to be fully updated
+      setTimeout(() => {
+        connectWebSocket();
+      }, 300);
+    };
+
+    window.addEventListener('userLoggedIn', handleUserLoggedIn);
+    return () => window.removeEventListener('userLoggedIn', handleUserLoggedIn);
+  }, [connectWebSocket, socket]);
+
+  // ==========================
+  // 🔄 TOKEN-BASED CONNECTION MANAGEMENT
+  // ==========================
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const currentUsername = localStorage.getItem("username");
+
+    if (token && currentUsername) {
+      // Only connect if no active connection exists
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        console.log("🔑 Token available. Connecting global WebSocket...");
+        connectWebSocket();
+      }
+      
+      // Fetch tasks
+      fetchTasks();
+    } else if (!token && socket) {
+      console.log("🚪 Token removed. Closing WebSocket...");
+      socket.close();
+      setSocket(null);
+    }
+  }, [authToken]);
+
+  // ==========================
+  // ✅ CRUDs (kept simple)
+  // ==========================
   const addTask = async (task: Omit<Task, "id">) => {
     try {
       const res = await api.post("/tasks", task);
@@ -94,19 +324,16 @@ useEffect(() => {
     }
   };
 
-  // Update a task
   const updateTask = async (id: number, task: Partial<Task>) => {
     try {
       const res = await api.put(`/tasks/${id}`, task);
       setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
       triggerTaskRefresh();
-
     } catch (err) {
       console.error("Error updating task:", err);
     }
   };
 
-  // Close (complete) task
   const closeTask = async (id: number) => {
     try {
       const res = await api.patch(`/tasks/${id}/status`, { status: "Completed" });
@@ -117,7 +344,6 @@ useEffect(() => {
     }
   };
 
-  // Delete task
   const deleteTask = async (id: number) => {
     try {
       await api.delete(`/tasks/${id}`);
@@ -127,91 +353,6 @@ useEffect(() => {
       console.error("Error deleting task:", err);
     }
   };
-
-  // 🎯 ADDED: Function to mark a task's chat as read
-  const markTaskAsRead = (taskId: string) => {
-    setUnreadCounts((prev) => {
-      const prevData = prev[taskId];
-  
-      // ✅ Only reset if it exists
-      if (prevData && (prevData.count > 0 || prevData.mention)) {
-        return {
-          ...prev,
-          [taskId]: { count: 0, mention: false,mentionedUser: null,
-            senderUser: null, },
-        };
-      }
-  
-      return prev;
-    });
-  };
-  
-
-  // 🎯 ADDED: Function to increment unread count
-  // 🎯 UPDATED: Support mention flag
-  const incrementUnreadCount = (taskId: string, hasMention = false,  mentionedUser: string | null = null,
-    senderUser: string | null = null) => {
-    console.log("🟡 incrementUnreadCount called", { taskId, hasMention });
-  
-    // ✅ Ensure task exists
-    console.log("🔢 Checking taskId:", taskId, "typeof:", typeof taskId);
-
-    tasks.forEach((t) => {
-      console.log(`➡️ Comparing task.id: ${t.id} (type: ${typeof t.id}) with taskId: ${taskId}`);
-    });
-    
-    const taskExists = tasks.some((t) => t.id.toString() === taskId.toString());
-    console.log("🔍 Task exists?", taskExists);
-    
-    if (!taskExists) {
-      console.log("⛔ No task found for ID:", taskId);
-      return;
-    }
-    
-  
-    // ✅ Prevent duplicate counting
-    // if (countedTaskIdsRef.current.has(taskId)) {
-    //   console.log("⚠️ Task ID already counted:", taskId);
-    //   return;
-    // }
-  
-    countedTaskIdsRef.current.add(taskId);
-    console.log("✅ Added task ID to countedTaskIdsRef:", countedTaskIdsRef.current);
-  
-    setUnreadCounts((prev) => {
-      const prevData = prev[taskId] || { count: 0, mention: false,
-        mentionedUser: null,
-        senderUser: null, };
-  
-      const newData = {
-        count: prevData.count + 1,
-        // Keep mention true if already true, or set to true if current message has mention
-        mention: prevData.mention || hasMention,
-        mentionedUser: mentionedUser || prevData.mentionedUser,
-        senderUser: senderUser || prevData.senderUser,
-      };
-  
-      console.log("📊 Updating unread count:", {
-        taskId,
-        previous: prevData,
-        newData,
-      });
-  
-      return {
-        ...prev,
-        [taskId]: newData,
-      };
-    });
-  };
-  
-
-
-
-  // Load tasks initially (only if token exists)
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) fetchTasks();
-  }, []);
 
   return (
     <TaskContext.Provider
@@ -224,10 +365,12 @@ useEffect(() => {
         deleteTask,
         refreshTasks,
         triggerTaskRefresh,
-        // 🎯 ADDED: New context values
         unreadCounts,
         markTaskAsRead,
         incrementUnreadCount,
+        latestWsMessage,
+        registerRefreshHandler,
+        unregisterRefreshHandler,
       }}
     >
       {children}
@@ -237,8 +380,6 @@ useEffect(() => {
 
 export const useTaskContext = () => {
   const context = useContext(TaskContext);
-  if (!context) {
-    throw new Error("useTaskContext must be used within a TaskProvider");
-  }
+  if (!context) throw new Error("useTaskContext must be used within a TaskProvider");
   return context;
 };

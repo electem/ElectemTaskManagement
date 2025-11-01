@@ -25,6 +25,7 @@ export default function ChatView() {
   const [comment, setComment] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [fullViewImage, setFullViewImage] = useState<string | null>(null);
+  const { latestWsMessage } = useTaskContext(); // Add this
 
   const { conversations, fetchConversation, addMessage } =
     useConversationContext();
@@ -32,7 +33,19 @@ export default function ChatView() {
  
   useEffect(() => {
     fetchConversation(taskIdNumber);
+    localStorage.setItem("opendTaskId",taskIdNumber.toString());
+    return () => {
+      localStorage.removeItem("opendTaskId");
+    };
   }, [taskIdNumber]);
+
+
+  useEffect(() => {
+    if (latestWsMessage && latestWsMessage.taskId === taskIdNumber) {
+      // Refresh conversation when new message arrives for this task
+      fetchConversation(taskIdNumber);
+    }
+  }, [latestWsMessage, taskIdNumber]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

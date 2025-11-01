@@ -62,66 +62,145 @@ const wss = new WebSocketServer({ port: 8089 });
 
 const taskConnections = new Map();
 
-wss.on('connection', (ws) => {
+wss.on("connection", (ws) => {
+  console.log("🟢 New WebSocket client connected");
 
-  console.log('New client connected');
-
-  ws.on('message',async function incoming(message:string) {
+  ws.on("message", async function incoming(message: string) {
     try {
-        const data = JSON.parse(message);
+      console.log("📨 Incoming message from client:", message);
 
-        if (data.type === 'INIT') {
-          const username = data.currentUser;
-          const taskId = data.taskId;
-          console.log("username",username);
-          console.log("taskId",taskId);
+      const data = JSON.parse(message);
 
-          if (username) {
+      // 🧩 INIT event — triggered when user connects
+      if (data.type === "INIT") {
+        const username = data.currentUser;
+        console.log(`⚙️ INIT received from: ${username}`);
 
-              taskConnections.set(username, ws);
-              ws.username = username;
-              const messages = await prisma.message.findUnique({
-                where: { taskId },
-              });
-              //call DB based on TaskId
-              broadcastUpdate(messages?.conversation, taskId, username);
+        // ✅ Save connection FIRST before processing updates
+        taskConnections.set(username, ws);
+        ws.username = username;
+        console.log(`✅ Connection saved for user ${username}`);
 
-              console.log(`Task ID: ${username} registered. Clients now: ${taskConnections.size}.`);
-        } else {
-            // Handle regular messages here
-            console.log(`Received regular message: ${data}`);
+        const user = await prisma.user.findUnique({ where: { username } });
+        let lastLogin = user?.lastLogin ?? new Date(0);
+        const now = new Date();
+
+        // Calculate time difference
+        const hoursDiff =
+          (now.getTime() - lastLogin.getTime()) / (1000 * 60 * 60);
+        console.log(
+          `🕓 Last login for ${username}: ${lastLogin}, diff: ${hoursDiff.toFixed(
+            2
+          )} hrs`
+        );
+
+        // Adjust window if > 6 hrs
+        if (hoursDiff > 6) {
+          lastLogin = new Date(lastLogin.getTime() - 2 * 60 * 60 * 1000);
+          console.log(`⏪ Adjusted last login by -2 hrs: ${lastLogin}`);
         }
+
+        // Fetch user tasks
+        const userTasks = await prisma.task.findMany({
+          where: {
+            OR: [{ owner: username }, { members: { has: username } }],
+          },
+          select: { id: true },
+        });
+        const taskIds = userTasks.map((t) => t.id);
+        console.log(`🧾 ${username} is part of tasks: [${taskIds.join(", ")}]`);
+
+        // Fetch updated messages
+        const updatedMessages = await prisma.message.findMany({
+          where: {
+            taskId: { in: taskIds },
+            updatedAt: { gt: lastLogin },
+          },
+          select: {
+            taskId: true,
+            conversation: true,
+            updatedAt: true,
+          },
+        });
+
+        const updatedTaskIds = updatedMessages.map((m) => m.taskId);
+        if (updatedTaskIds.length === 0) {
+          console.log(
+            `📭 No updated messages for ${username} since ${lastLogin}`
+          );
+        } else {
+          console.log(
+            `📬 Found ${
+              updatedTaskIds.length
+            } updated task(s) for ${username}: [${updatedTaskIds.join(", ")}]`
+          );
+        }
+
+        // ✅ Add a small delay to ensure frontend is ready
+        setTimeout(() => {
+          // Loop through updated tasks and broadcast
+          for (const taskId of updatedTaskIds) {
+            const msg = updatedMessages.find((m) => m.taskId === taskId);
+            console.log(
+              `🔄 Broadcasting updates for task ${taskId} (user: ${username})`
+            );
+            if (msg) {
+              console.log(
+                "🗣 Message payload:",
+                JSON.stringify(msg.conversation).slice(0, 200),
+                "..."
+              );
+              broadcastUpdate(msg.conversation, taskId.toString(), username,false);
+            } else {
+              console.warn(`⚠️ No message object found for task ${taskId}`);
+            }
+          }
+        }, 100); // 100ms delay to ensure frontend is ready
       }
-      }
-      catch (e) {
-          console.error('Received non-JSON or invalid message:', message);
-      }
+      await prisma.user.updateMany({
+        where: { username: ws.username },
+        data: { lastLogin: new Date() },
+      });
+    } catch (e) {
+      console.error("❌ Invalid WebSocket message or processing error:", e);
+    }
   });
 
-  ws.on('close', (code, reason) => {
-    console.log(`Client closed: code=${code} reason=${reason?.toString()}`);
+  ws.on("close", async (code, reason) => {
     if (ws.username) {
-      const username = ws.username;
-      console.log(`Connection for Task ID ${username} closed. Clients remaining: ${taskConnections.size}.`);
-      taskConnections.delete(username);
+      console.log(
+        `🔴 Client disconnected: ${ws.username} (code ${code}, reason: ${reason})`
+      );
+      await prisma.user.updateMany({
+        where: { username: ws.username },
+        data: { lastLogin: new Date() },
+      });
+      taskConnections.delete(ws.username);
+    } else {
+      console.log("🔴 Unidentified WebSocket client disconnected");
     }
   });
 });
 
-export function broadcastUpdate(payload: any, taskId: string, currentUser: string) {
+export function broadcastUpdate(payload: any, taskId: string, currentUser: string ,skipSelf: boolean = true) {
   const message = JSON.stringify(payload);
 
   for (const [key, client] of taskConnections) {
-    if (key === currentUser) continue; // Skip this key
+
+
+    
+    if (skipSelf && key === currentUser) continue;// Skip this key
     console.log(`Value for ${key}:`, client.readyState);
 
     if (client.readyState === 1) {
       const data = {
         "payload":payload,
         "taskId":taskId,
-        "currentUser":currentUser
+        currentUser: (!skipSelf && key === currentUser) ? "electem" : currentUser
       }
       client.send(JSON.stringify(data));
+      console.log("===========================");
+      console.log(skipSelf && key === currentUser);
     }
   }
 }

@@ -13,13 +13,13 @@ import ChatView from "./components/ChatView";
 import TaskFormPage from "./pages/TaskFormPage";
 import Login from "./pages/Login";
 
-import { TaskProvider } from "@/context/TaskContext";
 import { ProjectProvider } from "./context/ProjectContext";
 import { ConversationProvider } from "./context/ConversationProvider";
 import { TaskHistoryProvider } from "./context/TaskHistoryContext"; // ✅ new import
 import FilesPage from "./pages/FilesPage";
 import ProtectedRoute from "./ProtectedRoute";
 import TaskGridView from "./components/TaskGridView";
+import { TaskProvider } from "./context/TaskContext";
 
 const queryClient = new QueryClient();
 

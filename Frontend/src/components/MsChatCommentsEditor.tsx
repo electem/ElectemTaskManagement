@@ -7,8 +7,8 @@ import {
   Message,
   useConversationContext,
 } from "@/context/ConversationProvider";
-import { useTaskContext } from "@/context/TaskContext";
 import { useUsers } from "@/hooks/useUsers";
+import { useTaskContext } from "@/context/TaskContext";
 
 interface Props {
   placeholder?: string;
@@ -35,9 +35,6 @@ export default function MsChatCommentsEditor({
   const [collapsed, setCollapsed] = useState({});
   const [editing, setEditing] = useState(null); // { path: [indexes] }
   const currentUser = localStorage.getItem("username") || "Guest";
-  const [socket, setSocket] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [isConnected, setIsConnected] = useState(false);
   const { conversations } = useConversationContext();
   const messages: Message[] = conversations[taskId] || [];
   const currentTaskID = useRef(0);
@@ -48,7 +45,20 @@ export default function MsChatCommentsEditor({
   const [mentionPosition, setMentionPosition] = useState({ x: 0, y: 0 });
   const [mentionSearch, setMentionSearch] = useState("");
   const { users } = useUsers();
+  const { latestWsMessage } = useTaskContext();
 
+  useEffect(() => {
+    if (!latestWsMessage) return;
+  
+    const { taskId, currentUser, payload } = latestWsMessage;
+    console.log("taskID",taskId);
+  
+    // only update if this message belongs to the same task we’re viewing
+    if (taskId === currentTaskID && Array.isArray(payload)) {
+      setThreads(payload); // replace threads with latest data
+    }
+  }, [latestWsMessage]);
+  
   // --- HERE: map messages to threads ---
   useEffect(() => {
     if (messages.length > 0) {
@@ -115,103 +125,6 @@ export default function MsChatCommentsEditor({
     highlightCodeBlocks();
   }, [threads]);
 
-  // =========================
-  // WebSocket Connection with Auto-Reconnect + Status Indicator
-  // =========================
-  const connectWebSocket = () => {
-    const ws = new WebSocket(import.meta.env.VITE_WS_API_BASE);
-    console.log("ENV", import.meta.env.VITE_WS_API_BASE);
-
-
-    ws.onopen = () => {
-      console.log("Connected to WebSocket server");
-      // Send a JSON object immediately after connection opens
-      const initMessage = JSON.stringify({ type: "INIT", currentUser, taskId });
-      ws.send(initMessage);
-
-      setRetryCount(0);
-      setIsConnected(true);
-      setSocket(ws);
-    };
-
-    // In MsChatCommentsEditor.tsx - Update the WebSocket message handler
-    ws.onmessage = (event) => {
-      const response = JSON.parse(event.data);
-      console.log("Received update:", response, currentTaskID.current);
-      const { currentUser: senderName } = response;
-      if (response.taskId == currentTaskID.current) {
-        setThreads(response.payload);
-      }
-      console.log("Received update:", taskId, currentUser);
-      const username = localStorage.getItem("username") || "";
-      const filteredUsername = username.substring(0, 3).toLowerCase();
-      const isSender = senderName?.toLowerCase() === username;
-      const payload = response.payload;
-
-      if (isSender) {
-        console.log("🟡 Message from self — no unread increment");
-        return;
-      }
-      // ✅ Check if payload is an array and not empty
-      let messageText = "";
-
-      if (Array.isArray(payload) && payload.length > 0) {
-        // Get the last message object
-        const lastMessage = payload[payload.length - 1];
-
-        // Extract its "content" property
-        messageText = lastMessage.content || "";
-      }
-
-      console.log("payload:", payload);
-      console.log("messageText:", messageText);
-
-      const lastPart = messageText.split(";").pop()?.trim() || "";
-      console.log("lastPart", lastPart);
-
-      const hasMention = lastPart.toLowerCase().includes(`@${filteredUsername}`);
-      console.log("hasMention", hasMention);
-      const existingMessages = conversations?.[response.taskId] || [];
-      const newPayload = response.payload || [];
-
-      // Normalize both message arrays to same comparable structure
-      const existingNormalized = existingMessages.map(
-        (m) => `${m.sender}(${m.time}): ${m.text}`
-      );
-      const payloadNormalized = newPayload.map((p) => p.content);
-
-      const isDifferent =
-        JSON.stringify(existingNormalized) !==
-        JSON.stringify(payloadNormalized);
-
-      const currentPathParts = window.location.pathname.split("/");
-      const currentTaskIdFromUrl = currentPathParts[2]
-        ? Number(currentPathParts[2])
-        : null;
-      if (response.taskId !== currentTaskIdFromUrl && response.currentUser !== currentUser && isDifferent) {
-        console.log("incrementUnreadCount update:");
-        incrementUnreadCount(response.taskId, hasMention, hasMention ? filteredUsername : null, senderName) // sender name);
-      }
-    };
-
-    ws.onclose = (ev) => {
-      console.warn("WebSocket disconnected. Retrying...", ev.code, ev.reason);
-      setIsConnected(false);
-      setTimeout(() => {
-        setRetryCount((prev) => prev + 1);
-        connectWebSocket();
-      }, Math.min(5000, (retryCount + 1) * 1000)); // Exponential backoff up to 5s
-    };
-
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-      ws.close();
-    };
-  };
-
-  useEffect(() => {
-    connectWebSocket();
-  }, []);
 
   function highlightCodeBlocks() {
     if (!editorRef.current) return;
@@ -896,3 +809,4 @@ export default function MsChatCommentsEditor({
 );
 
 }
+
