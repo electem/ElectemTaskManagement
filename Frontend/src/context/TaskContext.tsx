@@ -1,3 +1,4 @@
+import { notificationService } from "@/hooks/notifications";
 import api from "@/lib/api";
 import {
   useCallback,
@@ -168,16 +169,22 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     }
 
     let messageText = "";
+    let taskTitle = "";
+
     if (Array.isArray(payload) && payload.length > 0) {
       const lastMessage = payload[payload.length - 1];
       messageText = lastMessage.content || "";
+
+      const task = tasks.find(t => t.id.toString() === taskId);
+    taskTitle = task?.title || "";
     }
 
     const lastPart = messageText.split(";").pop()?.trim() || "";
     const hasMention = lastPart.toLowerCase().includes(`@${filteredUsername}`);
-
+    // In TaskContext.tsx - Add this after the import
+console.log("🔍 NotificationService imported:", { notificationService });
     incrementUnreadCount(taskId, hasMention, hasMention ? filteredUsername : null, senderName);
-
+    notificationService.showMessageNotification(senderName, messageText, taskTitle);
     // ✅ Trigger all registered refresh handlers (ChatView, etc.)
     refreshHandlers.current.forEach((cb) => cb());
   };
