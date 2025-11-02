@@ -20,6 +20,7 @@ import FilesPage from "./pages/FilesPage";
 import ProtectedRoute from "./ProtectedRoute";
 import TaskGridView from "./components/TaskGridView";
 import { TaskProvider } from "./context/TaskContext";
+import { Dashboard } from "./components/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +41,7 @@ const AppLayout = () => {
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Index />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/task" element={<Index />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/grid" element={<TaskGridView />} />

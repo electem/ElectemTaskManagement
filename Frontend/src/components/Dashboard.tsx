@@ -53,15 +53,63 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  // Developer colors for consistent coloring
-  const getDeveloperColor = (developerId: string) => {
-    const colors = [
-      "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
-      "#06B6D4", "#84CC16", "#F97316", "#EC4899", "#6366F1"
-    ];
-    const index = parseInt(developerId, 10) % colors.length;
-    return colors[index];
-  };
+  // Fixed color functions
+const getDeveloperColor = (developerId: string, index: number) => {
+  const baseColors = [
+    "#3B82F6", // Blue
+    "#10B981", // Emerald
+    "#F59E0B", // Amber
+    "#EF4444", // Red
+    "#8B5CF6", // Violet
+    "#06B6D4", // Cyan
+    "#84CC16", // Lime
+    "#F97316", // Orange
+    "#EC4899", // Pink
+    "#6366F1"  // Indigo
+  ];
+  
+  // Ensure we have a valid developerId or use index as fallback
+  const baseColorIndex = developerId && !isNaN(parseInt(developerId)) ? 
+    Math.abs(parseInt(developerId, 10)) % baseColors.length : 
+    Math.abs(index) % baseColors.length;
+  
+  const baseColor = baseColors[baseColorIndex] || baseColors[0]; // Fallback to first color
+  
+  // Generate gradient variations for multiple developers
+  if (index > 0) {
+    return adjustColorShade(baseColor, index * 8); // 8% shade variation per developer
+  }
+  
+  return baseColor;
+};
+
+// Safe color adjustment function
+const adjustColorShade = (color: string, percent: number): string => {
+  // Handle undefined or invalid colors
+  if (!color || typeof color !== 'string') {
+    return "#3B82F6"; // Default blue
+  }
+  
+  // Ensure color is in correct format
+  let hex = color.replace("#", "");
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+  
+  // Validate hex color
+  if (!/^[0-9A-F]{6}$/i.test(hex)) {
+    return "#3B82F6"; // Default blue for invalid colors
+  }
+  
+  const num = parseInt(hex, 16);
+  const amt = Math.round(2.55 * percent);
+  
+  const R = Math.min(255, Math.max(0, ((num >> 16) & 0xFF) + amt));
+  const G = Math.min(255, Math.max(0, ((num >> 8) & 0xFF) + amt));
+  const B = Math.min(255, Math.max(0, (num & 0xFF) + amt));
+  
+  return `#${((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1).toUpperCase()}`;
+};
 
   // Fetch metrics for all developers
   const fetchMetrics = async () => {
@@ -91,24 +139,67 @@ export const Dashboard: React.FC = () => {
       year: "numeric",
     });
 
-  // Transform data for Recharts - GROUP BY DATE
+  // Transform data for Recharts - ENSURING ALL DEVELOPERS START AT SAME POINT
   const transformDataForChart = () => {
-    const dates = Array.from(new Set(metrics.map(m => m.startDate)));
+    const dates = Array.from(new Set(metrics.map(m => m.startDate))).sort();
+    const allDevelopers = Array.from(
+      new Set(metrics.map(m => m.developerName || `Dev ${m.developerId}`))
+    );
 
-    return dates.map(date => {
-      const dateData: any = { date };
-      metrics.filter(m => m.startDate === date).forEach(metric => {
-        const devName = metric.developerName || `Dev ${metric.developerId}`;
-        dateData[devName] = metric[selectedMetric];
+    // Find the earliest date where we have data for all developers
+    const findCommonStartDate = () => {
+      const developerFirstDates = new Map();
+      
+      allDevelopers.forEach(dev => {
+        const devMetrics = metrics.filter(m => 
+          (m.developerName || `Dev ${m.developerId}`) === dev
+        );
+        if (devMetrics.length > 0) {
+          const firstDate = devMetrics.reduce((earliest, current) => 
+            current.startDate < earliest ? current.startDate : earliest, 
+            devMetrics[0].startDate
+          );
+          developerFirstDates.set(dev, firstDate);
+        }
       });
+
+      // Return the latest of all first dates (ensuring all have data from this point)
+      const firstDates = Array.from(developerFirstDates.values());
+      return firstDates.length > 0 ? 
+        firstDates.reduce((latest, current) => current > latest ? current : latest) : 
+        dates[0];
+    };
+
+    const commonStartDate = findCommonStartDate();
+    const startIndex = dates.indexOf(commonStartDate);
+    const filteredDates = startIndex >= 0 ? dates.slice(startIndex) : dates;
+
+    return filteredDates.map(date => {
+      const dateData: any = { date };
+      
+      // Initialize all developers with null for this date
+      allDevelopers.forEach(dev => {
+        dateData[dev] = null;
+      });
+      
+      // Fill in actual data where available
+      metrics
+        .filter(m => m.startDate === date)
+        .forEach(metric => {
+          const devName = metric.developerName || `Dev ${metric.developerId}`;
+          dateData[devName] = metric[selectedMetric];
+        });
+      
       return dateData;
     });
   };
 
   const chartData = transformDataForChart();
-  const developers = Array.from(new Set(metrics.map(m => m.developerName || `Dev ${m.developerId}`)));
+  const developers = Array.from(
+    new Set(metrics.map(m => m.developerName || `Dev ${m.developerId}`))
+  );
 
-  // Tooltip for chart - FIXED
+  // Tooltip for chart
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -146,7 +237,7 @@ export const Dashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
 
-        {/* --- CHART SECTION (TOP) - Perfect height to fit cards below --- */}
+        {/* --- CHART SECTION (TOP) --- */}
         <div className="bg-white rounded-xl shadow p-4 mb-4">
           {metrics.length > 0 ? (
             <ResponsiveContainer width="100%" height={320}>
@@ -164,9 +255,13 @@ export const Dashboard: React.FC = () => {
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
 
-                {/* Line for each developer with proper data keys */}
-                {developers.map((dev) => {
-                  const color = getDeveloperColor(dev);
+                {/* Line for each developer with gradient colors and proper start */}
+                {developers.map((dev, index) => {
+                  // Find the original metric to get developerId for consistent coloring
+                  const devMetric = metrics.find(m => 
+                    (m.developerName || `Dev ${m.developerId}`) === dev
+                  );
+                  const color = getDeveloperColor(devMetric?.developerId || dev, index);
                   return (
                     <Line
                       key={dev}
@@ -177,7 +272,7 @@ export const Dashboard: React.FC = () => {
                       strokeWidth={2}
                       dot={{ fill: color, r: 4 }}
                       activeDot={{ r: 6, fill: color }}
-                      connectNulls
+                      connectNulls={false} // Don't connect lines across null values
                     />
                   );
                 })}
