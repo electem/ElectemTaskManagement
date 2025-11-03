@@ -48,7 +48,7 @@ const Login = () => {
       });
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      navigate("/dashboard");
+      navigate("/task");
     } catch (err: any) {
       console.error(err);
       toast({
