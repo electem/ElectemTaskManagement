@@ -6,9 +6,9 @@ import taskRoutes from "./routes/task.routes";
 import userRoutes from "./routes/userRoutes";
 import memberRoutes from "./routes/member.routes";
 import metricsRoutes from "./routes/metrics.routes";
-import messageRoute from "./routes/message.routes"
-import metricsSchedulerRoutes from "./scheduler/metrics.scheduler.route"
-import authRoutes from "./routes/authRoutes"
+import messageRoute from "./routes/message.routes";
+import metricsSchedulerRoutes from "./scheduler/metrics.scheduler.route";
+import authRoutes from "./routes/authRoutes";
 import projectRoutes from "./routes/projects";
 import fileRoutes from "./routes/fileRoutes";
 import { WebSocketServer } from "ws";
@@ -19,11 +19,13 @@ import fileUploadRoutes from "./routes/fileUploadRoutes";
 
 dotenv.config();
 const app = express();
-app.use(cors({
-  origin: "http://localhost:5173", // your frontend origin
-  credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization"], // <-- include Authorization
-}));
+app.use(
+  cors({
+    origin: "http://localhost:5173", // your frontend origin
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"], // <-- include Authorization
+  })
+);
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use((req, res, next) => {
@@ -31,11 +33,10 @@ app.use((req, res, next) => {
   next();
 });
 
-
 // Serve uploads folder statically
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
-app.use("/messages",messageRoute)
+app.use("/messages", messageRoute);
 app.use("/tasks", taskRoutes);
 app.use("/projects", projectRoutes);
 // ✅ Register Task History route
@@ -46,18 +47,18 @@ app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
 // Serve static files from uploads directory
 app.use("/uploads", fileRoutes);
-app.use('/metrics', metricsRoutes);
-app.use('/metrics/scheduler', metricsSchedulerRoutes);
-
+app.use("/metrics", metricsRoutes);
+app.use("/metrics/scheduler", metricsSchedulerRoutes);
 
 app.use("/", fileUploadRoutes);
 
-
-app.get("/health", (req, res) => res.json({ status: "OK", message: "Server running" }));
+app.get("/health", (req, res) =>
+  res.json({ status: "OK", message: "Server running" })
+);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-console.log("✅ Server started")
+console.log("✅ Server started");
 const wss = new WebSocketServer({ port: 8089 });
 
 const taskConnections = new Map();
@@ -150,7 +151,12 @@ wss.on("connection", (ws) => {
                 JSON.stringify(msg.conversation).slice(0, 200),
                 "..."
               );
-              broadcastUpdate(msg.conversation, taskId.toString(), username,false);
+              broadcastUpdate(
+                msg.conversation,
+                taskId.toString(),
+                username,
+                false
+              );
             } else {
               console.warn(`⚠️ No message object found for task ${taskId}`);
             }
@@ -182,24 +188,35 @@ wss.on("connection", (ws) => {
   });
 });
 
-export function broadcastUpdate(payload: any, taskId: string, currentUser: string ,skipSelf: boolean = true) {
+export function broadcastUpdate(
+  payload: any,
+  taskId: string,
+  currentUser: string,
+  skipSelf: boolean = true
+) {
   const message = JSON.stringify(payload);
 
+  let latestUsername = currentUser; // fallback to currentUser
+  try {
+    if (Array.isArray(payload) && payload.length > 0) {
+      const lastMessage = payload[payload.length - 1].content; // e.g. "RAV(03/11 10:02): hi"
+      const match = lastMessage.match(/^([A-Za-z0-9_]+)\(/); // Extract username before '('
+      if (match && match[1]) latestUsername = match[1];
+    }
+  } catch (e) {
+    console.error("Error extracting latest username:", e);
+  }
   for (const [key, client] of taskConnections) {
-
-
-    
-    if (skipSelf && key === currentUser) continue;// Skip this key
+    if (skipSelf && key === currentUser) continue; // Skip this key
     console.log(`Value for ${key}:`, client.readyState);
 
     if (client.readyState === 1) {
       const data = {
-        "payload":payload,
-        "taskId":taskId,
-        currentUser: (!skipSelf && key === currentUser) ? "electem" : currentUser
-      }
+        payload: payload,
+        taskId: taskId,
+        currentUser: !skipSelf && key === currentUser ? latestUsername : currentUser,
+      };
       client.send(JSON.stringify(data));
-      console.log("===========================");
       console.log(skipSelf && key === currentUser);
     }
   }
