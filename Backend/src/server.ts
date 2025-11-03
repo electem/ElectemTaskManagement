@@ -196,7 +196,7 @@ export function broadcastUpdate(
 ) {
   const message = JSON.stringify(payload);
 
-  let latestUsername = currentUser; // fallback to currentUser
+  let latestUsername = currentUser; // fallback  to currentUser
   try {
     if (Array.isArray(payload) && payload.length > 0) {
       const lastMessage = payload[payload.length - 1].content; // e.g. "RAV(03/11 10:02): hi"
