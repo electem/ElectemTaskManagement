@@ -16,6 +16,7 @@ import path from "path";
 import taskHistoryRoutes from "./routes/taskHistory.routes"; // ✅ NEW
 import prisma from "./prisma/client";
 import fileUploadRoutes from "./routes/fileUploadRoutes";
+import './scheduler/metrics.scheduler.cron';
 
 dotenv.config();
 const app = express();
