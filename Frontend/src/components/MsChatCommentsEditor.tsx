@@ -49,16 +49,16 @@ export default function MsChatCommentsEditor({
 
   useEffect(() => {
     if (!latestWsMessage) return;
-  
+
     const { taskId, currentUser, payload } = latestWsMessage;
     console.log("taskID",taskId);
-  
+
     // only update if this message belongs to the same task we’re viewing
     if (taskId === currentTaskID && Array.isArray(payload)) {
       setThreads(payload); // replace threads with latest data
     }
   }, [latestWsMessage]);
-  
+
   // --- HERE: map messages to threads ---
   useEffect(() => {
     if (messages.length > 0) {
@@ -86,7 +86,7 @@ export default function MsChatCommentsEditor({
         v.dataset.time = v.currentTime.toString();
       });
     });
-  
+
     return () => {
       videos.forEach((v) => {
         const savedTime = parseFloat(v.dataset.time || "0");
@@ -94,7 +94,7 @@ export default function MsChatCommentsEditor({
       });
     };
   }, [threads]);
-  
+
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -439,11 +439,11 @@ export default function MsChatCommentsEditor({
   async function handleSend(parentIndex = null, replyIndex = null) {
     const innerHTML = editorRef.current?.innerHTML?.trim() || "";
     if (!innerHTML) return;
-  
+
     // Username prefix
     const fullUsername = localStorage.getItem("username") || "---";
     const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
-  
+
     // Date/time
     const now = new Date();
     const day = String(now.getDate()).padStart(2, "0");
@@ -451,15 +451,15 @@ export default function MsChatCommentsEditor({
     const hours = String(now.getHours()).padStart(2, "0");
     const minutes = String(now.getMinutes()).padStart(2, "0");
     const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
-  
+
     const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${innerHTML}`;
     const updatedThreads = [...threads];
-  
+
     // 🧠 IMPORTANT FIX: Early return after editing, so we never fall through
     if (editing) {
       const { path } = editing; // e.g. [0] or [0,1]
       let edited = false;
-  
+
       // Helper function: update nested reply safely
       const updateNested = (arr, pathArr, newContent) => {
         if (!arr) return false;
@@ -475,14 +475,14 @@ export default function MsChatCommentsEditor({
           return updateNested(arr[first].replies, rest, newContent);
         }
       };
-  
+
       // Case 1️⃣ Editing a parent
       if (path.length === 1) {
         const idx = path[0];
         if (updatedThreads[idx]) {
           const existingReplies = updatedThreads[idx].replies || [];
           const thread = { ...updatedThreads[idx], content: finalInnerHTML, replies: existingReplies };
-  
+
           // Remove old, push updated to bottom
           updatedThreads.splice(idx, 1);
           updatedThreads.push(thread);
@@ -493,7 +493,7 @@ export default function MsChatCommentsEditor({
       else {
         const parentIdx = path[0];
         const replyPath = path.slice(1);
-  
+
         if (parentIdx >= 0 && parentIdx < updatedThreads.length) {
           const success = updateNested(updatedThreads[parentIdx].replies, replyPath, finalInnerHTML);
           if (success) {
@@ -504,27 +504,27 @@ export default function MsChatCommentsEditor({
           }
         }
       }
-  
+
       if (!edited) {
         console.warn("⚠️ Invalid edit path, skipping duplicate creation");
         return;
       }
-  
+
       setThreads(updatedThreads);
       setEditing(null);
       await uploadThreadsToBackend(updatedThreads, true);
-  
+
       // ✅ Critical: STOP here — prevents going into 'else' (new message block)
       editorRef.current.innerHTML = "";
       setHtml("");
       return;
     }
-  
+
     // -------------------------------------------------
     // ELSE → new message or reply creation
     // -------------------------------------------------
     const newThread = { content: finalInnerHTML, replies: [] };
-  
+
     if (parentIndex === null) {
       updatedThreads.push(newThread);
     } else {
@@ -541,10 +541,10 @@ export default function MsChatCommentsEditor({
       const movedThread = updatedThreads.splice(parentIndex, 1)[0];
       updatedThreads.push(movedThread);
     }
-  
+
     setThreads(updatedThreads);
     await uploadThreadsToBackend(updatedThreads, false);
-  
+
     editorRef.current.innerHTML = "";
     setHtml("");
   }
@@ -594,10 +594,17 @@ export default function MsChatCommentsEditor({
     const handleImageClick = (url: string) => {
       window.open(url, "_blank");
     };
-    const formattedContent = htmlContent.replace(
+    let formattedContent = htmlContent.replace(
       /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
-      `<span class="font-bold text-blue-600">$1</span><span class="font-bold text-blue-600">($2)</span>:`
+      `<span class="font-bold text-blue-600">$1</span>($2):`
     );
+
+    // Make URLs clickable
+    const urlRegex = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+    formattedContent = formattedContent.replace(urlRegex, (url) => {
+      const href = url.startsWith("http") ? url : `https://${url}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${url}</a>`;
+    });
 
     return (
       <div
@@ -637,7 +644,7 @@ export default function MsChatCommentsEditor({
           }`}
         >
           <div className="message-content flex items-center flex-wrap">
-            
+
             <div className="flex gap-4 text-sm mr-3">
               <button
                 className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
@@ -652,7 +659,7 @@ export default function MsChatCommentsEditor({
                 title="Edit"
               >
                 ✎
-              </button>             
+              </button>
             </div>
             <MessageContent htmlContent={reply.content} />
           </div>
