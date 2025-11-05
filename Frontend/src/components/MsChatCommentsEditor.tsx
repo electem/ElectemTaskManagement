@@ -600,11 +600,14 @@ export default function MsChatCommentsEditor({
     );
 
     // Make URLs clickable
-    const urlRegex = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
-    formattedContent = formattedContent.replace(urlRegex, (url) => {
-      const href = url.startsWith("http") ? url : `https://${url}`;
-      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${url}</a>`;
-    });
+    if (!/<a\s+[^>]*href=/.test(formattedContent)) {
+      const urlRegex = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+      formattedContent = formattedContent.replace(urlRegex, (url) => {
+        const href = url.startsWith("http") ? url : `https://${url}`;
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${url}</a>`;
+      });
+    }
+
 
     return (
       <div

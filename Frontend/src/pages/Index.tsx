@@ -2,6 +2,7 @@ import { useState } from "react";
 import { SidebarContentSection } from "@/components/SidebarContentSection";
 import { LayoutDashboard, FolderKanban, ListTodo } from "lucide-react";
 import { Dashboard } from "@/components/Dashboard";
+import TaskGridView from "@/components/TaskGridView";
 
 const Index = () => {
   const [open, setOpen] = useState(true);
@@ -20,11 +21,7 @@ const Index = () => {
     <div className="flex flex-col md:flex-row h-screen">
       {/* Mobile View → Sidebar */}
       <div className="block md:hidden h-full">
-        <SidebarContentSection
-          open={open}
-          menuItems={menuItems}
-          handleLogout={handleLogout}
-        />
+        <TaskGridView />
       </div>
 
       {/* Desktop View → Dashboard */}
