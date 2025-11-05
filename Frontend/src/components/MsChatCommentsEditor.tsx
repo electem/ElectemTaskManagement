@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import api from "@/lib/api";
-import { Upload } from "lucide-react"; // 👈 add this at the top
+import { Upload } from "lucide-react";
 import {
   Message,
   useConversationContext,
@@ -53,7 +53,7 @@ export default function MsChatCommentsEditor({
     const { taskId, currentUser, payload } = latestWsMessage;
     console.log("taskID",taskId);
 
-    // only update if this message belongs to the same task we’re viewing
+    // only update if this message belongs to the same task we're viewing
     if (taskId === currentTaskID && Array.isArray(payload)) {
       setThreads(payload); // replace threads with latest data
     }
@@ -276,17 +276,19 @@ export default function MsChatCommentsEditor({
         const minutes = String(now.getMinutes()).padStart(2, "0");
 
         const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
-        // Create file embed HTML based on file type
+
+        // Create proper file embed HTML based on file type
         let fileEmbedHtml = "";
         if (file.type.startsWith("image/")) {
-          fileEmbedHtml = `<img src='${data.url}' alt='${file.name}' class='max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer' />`;
+          fileEmbedHtml = `<img src="${data.url}" alt="${file.name}" class="max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer" />`;
         } else if (file.type.startsWith("video/")) {
-          fileEmbedHtml = `<video src='${data.url}'controls class='w-[300px] h-[200px] rounded-md my-2 object-cover'></video>`;
+          fileEmbedHtml = `<video src="${data.url}" controls class="w-[300px] h-[200px] rounded-md my-2 object-cover"></video>`;
         } else {
-          fileEmbedHtml = `<a href='${data.url}' target='_blank' class='text-blue-600 underline'>${file.name}</a>`;
+          // For PDFs and other files, show as downloadable link
+          fileEmbedHtml = `<a href="${data.url}" target="_blank" download="${file.name}" class="text-blue-600 underline">${file.name}</a>`;
         }
 
-        // Create the complete message content with user info and file (same format as handleSend)
+        // Create the complete message content with user info and file
         const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${fileEmbedHtml}`;
 
         // Use the SAME LOGIC as handleSend for updating threads
@@ -294,7 +296,6 @@ export default function MsChatCommentsEditor({
         const newThread = { content: finalInnerHTML, replies: [] };
 
         // For file uploads, always create as top-level message (parentIndex = null)
-        // If you want file uploads to be replies, you can pass parentIndex and replyIndex as parameters
         const parentIndex = null; // Top-level message
         const replyIndex = null;
 
@@ -312,14 +313,13 @@ export default function MsChatCommentsEditor({
             parentThread.replies = [...(parentThread.replies || []), newThread];
           }
 
-          // 🔥 Move parent thread to bottom
+          // Move parent thread to bottom
           const movedThread = updatedThreads.splice(parentIndex, 1)[0];
           updatedThreads.push(movedThread);
         }
         setThreads(updatedThreads);
 
         // Use the SAME LOGIC as handleSend for backend upload
-        // For new file messages, send only the new message object (same as handleSend)
         await uploadThreadsToBackend(updatedThreads, false);
 
         // Clear the file input
@@ -350,10 +350,7 @@ export default function MsChatCommentsEditor({
     return coords;
   }
 
-
   function handleInput(e) {
-
-
     const sel = window.getSelection();
     const range = sel?.getRangeAt(0);
     if (!range) return;
@@ -402,8 +399,6 @@ export default function MsChatCommentsEditor({
     syncHtml();
   }
 
-
-
   function syncHtml() {
     const inner = editorRef.current ? editorRef.current.innerHTML : "";
     setHtml(inner);
@@ -423,14 +418,12 @@ export default function MsChatCommentsEditor({
 
   async function uploadThreadsToBackend(messageData: any, isEdit = false) {
     try {
-
       await api.post("/messages/upsert", {
         taskId,
         newMessage: messageData,
         currentUser,
         isEdit,
       });
-
     } catch (err) {
       console.error("Failed to upload conversation", err);
     }
@@ -568,7 +561,6 @@ export default function MsChatCommentsEditor({
     }
   }
 
-
   function toggleCollapse(id) {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
   }
@@ -594,20 +586,40 @@ export default function MsChatCommentsEditor({
     const handleImageClick = (url: string) => {
       window.open(url, "_blank");
     };
-    let formattedContent = htmlContent.replace(
+
+    // First, extract and preserve any existing HTML elements (images, videos, links)
+    let formattedContent = htmlContent;
+
+    // Format the username and timestamp part
+    formattedContent = formattedContent.replace(
       /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
       `<span class="font-bold text-blue-600">$1</span>($2):`
     );
 
-    // Make URLs clickable
-    if (!/<a\s+[^>]*href=/.test(formattedContent)) {
-      const urlRegex = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
-      formattedContent = formattedContent.replace(urlRegex, (url) => {
-        const href = url.startsWith("http") ? url : `https://${url}`;
-        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${url}</a>`;
-      });
-    }
+    // Only make plain URLs clickable (not those already in tags)
+    // This regex matches URLs that are not inside HTML tags
+    const urlRegex = /(?:^|>|\s)(https?:\/\/[^\s<>&]+|www\.[^\s<>&]+)/gi;
+    formattedContent = formattedContent.replace(urlRegex, (match) => {
+      // Skip if this is already inside an HTML tag or contains HTML tags
+      if (match.includes('<') || match.includes('>') ||
+          formattedContent.includes('href="') || formattedContent.includes("href='") ||
+          formattedContent.includes('src="')) {
+        return match;
+      }
 
+      const url = match.trim();
+      const href = url.startsWith("http") ? url : `https://${url}`;
+      const isImage = /\.(jpg|jpeg|png|gif|bmp|webp)(\?.*)?$/i.test(url);
+      const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+
+      if (isImage) {
+        return ` <img src="${href}" alt="Uploaded image" class="max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer" />`;
+      } else if (isVideo) {
+        return ` <video src="${href}" controls class="w-[300px] h-[200px] rounded-md my-2 object-cover"></video>`;
+      } else {
+        return ` <a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${url}</a>`;
+      }
+    });
 
     return (
       <div
@@ -621,12 +633,7 @@ export default function MsChatCommentsEditor({
         dangerouslySetInnerHTML={{ __html: formattedContent }}
       />
     );
-  },
-  // ✅ Custom comparison: only re-render when content actually changes
-  (prev, next) => prev.htmlContent === next.htmlContent
-);
-
-
+  }, (prev, next) => prev.htmlContent === next.htmlContent);
 
   const renderReplies = (replies, path, level = 1, parentId = "") => {
     return replies.map((reply, i) => {
@@ -676,147 +683,150 @@ export default function MsChatCommentsEditor({
     });
   };
 
- return (
-  <div className={`${className} flex flex-col h-[90vh] bg-gray-50 rounded-md shadow-md`}>
-    {/* 🔹 Middle Scrollable Section */}
-    <div className="flex-1 overflow-y-auto p-4 text-sm text-slate-600 bg-slate-50">
-      <div className="p-3 rounded text-xs whitespace-pre-wrap prose prose-slate list-disc pl-5">
-        {threads.length > 0 ? (
-          threads.map((thread, index) => {
-            const threadPath = [index];
-            const threadId = `t-${index}`;
-            return (
-              <div key={threadId} className="relative mb-3">
-                {/* Message Box with rounded border */}
-                <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-lg">
+  return (
+    <div className={`${className} flex flex-col h-[90vh] bg-gray-50 rounded-md shadow-md`}>
+      {/* 🔹 Middle Scrollable Section */}
+      <div className="flex-1 overflow-y-auto p-4 text-sm text-slate-600 bg-slate-50">
+        <div className="p-3 rounded text-xs whitespace-pre-wrap prose prose-slate list-disc pl-5">
+          {threads.length > 0 ? (
+            threads.map((thread, index) => {
+              const threadPath = [index];
+              const threadId = `t-${index}`;
+              return (
+                <div key={threadId} className="relative mb-3">
+                  {/* Message Box with rounded border */}
+                  <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-lg">
 
-                  {/* Floating Header Box */}
-                  <div className="absolute -top-3 -left-2 bg-white border border-gray-300 px-3 flex rounded-md items-center gap-2 text-xs shadow-sm">
-                    <span className="font-semibold text-blue-600">
-                      {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
-                    </span>
-                    <span className="text-gray-500 text-[11px]">
-                      {thread.content.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
-                    </span>
+                    {/* Floating Header Box */}
+                    <div className="absolute -top-3 -left-2 bg-white border border-gray-300 px-3 flex rounded-md items-center gap-2 text-xs shadow-sm">
+                      <span className="font-semibold text-blue-600">
+                        {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
+                      </span>
+                      <span className="text-gray-500 text-[11px]">
+                        {thread.content.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
+                      </span>
 
-                    <div className="flex gap-4 ml-2">
-                      <button
-                        className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
-                        onClick={() => handleSend(index)}
-                        title="Reply"
-                      >
-                        ↩
-                      </button>
-                      <button
-                        className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
-                        onClick={() => handleEdit(threadPath)}
-                        title="Edit"
-                      >
-                        ✎
-                      </button>
+                      <div className="flex gap-4 ml-2">
+                        <button
+                          className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
+                          onClick={() => handleSend(index)}
+                          title="Reply"
+                        >
+                          ↩
+                        </button>
+                        <button
+                          className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
+                          onClick={() => handleEdit(threadPath)}
+                          title="Edit"
+                        >
+                          ✎
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Actual Message Content */}
-                  <div className="mt-3">
-                    <MessageContent htmlContent={thread.content} />
-                  </div>
+                    {/* Actual Message Content */}
+                    <div className="mt-3">
+                      <MessageContent htmlContent={thread.content} />
+                    </div>
 
-                  {/* Replies */}
-                  {thread.replies &&
-                    thread.replies.length > 0 &&
-                    renderReplies(thread.replies, threadPath, 1, threadId)}
+                    {/* Replies */}
+                    {thread.replies &&
+                      thread.replies.length > 0 &&
+                      renderReplies(thread.replies, threadPath, 1, threadId)}
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        ) : html ? (
-          <div dangerouslySetInnerHTML={{ __html: html }} />
-        ) : (
-          <div className="text-slate-400">
-            No content yet — start typing or paste formatted text.
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-    </div>
-
-    {/* 🔹 Bottom Fixed Editor Section */}
-    <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3 sticky bottom-0 z-10">
-      <div className="flex items-end border rounded-2xl shadow-sm bg-white p-2 w-full max-w-full overflow-hidden">
-        <div
-          ref={editorRef}
-          onPaste={handlePaste}
-          onInput={handleInput}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          onKeyDown={handleKeyDown}
-          contentEditable
-          suppressContentEditableWarning
-          className={`flex-1 min-h-[130px] max-h-[350px] overflow-y-auto p-3 outline-none break-words whitespace-pre-wrap w-full ${
-            isFocused ? "ring-2 ring-slate-200" : ""
-          }`}
-          aria-label="Rich text comment editor"
-          style={{
-            whiteSpace: "pre-wrap",
-            wordWrap: "break-word",
-            overflowWrap: "break-word",
-          }}
-        />
-
-        <div className="flex items-center gap-1 ml-2 shrink-0 pb-2">
-          <label
-            className={`cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 p-1 rounded-md text-sm ${
-              uploading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-            title="Attach file"
-          >
-            <Upload size={18} />
-            <input
-              type="file"
-              className="hidden"
-              onChange={(e) => handleFileUpload(e, taskId)}
-              disabled={uploading}
-            />
-          </label>
-
-          <button
-            onClick={() => handleSend()}
-            className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 transition text-sm"
-            title="Send"
-          >
-            ➤
-          </button>
+              );
+            })
+          ) : html ? (
+            <div dangerouslySetInnerHTML={{ __html: html }} />
+          ) : (
+            <div className="text-slate-400">
+              No content yet — start typing or paste formatted text.
+            </div>
+          )}
+          <div ref={bottomRef} />
         </div>
       </div>
-    </div>
 
-    {/* Mentions Dropdown */}
-    {showMentions && filteredMentions.length > 0 && (
-      <div
-        className="absolute bg-white border rounded-md shadow-md z-50"
-        style={{
-          top: mentionPosition.y,
-          left: mentionPosition.x,
-          minWidth: "120px",
-        }}
-      >
-        {filteredMentions.map((name) => (
+      {/* 🔹 Bottom Fixed Editor Section */}
+      <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3 sticky bottom-0 z-10">
+        <div className="flex items-end border rounded-2xl shadow-sm bg-white p-2 w-full max-w-full overflow-hidden">
           <div
-            key={name}
-            className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              insertMention(name);
+            ref={editorRef}
+            onPaste={handlePaste}
+            onInput={handleInput}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onKeyDown={handleKeyDown}
+            contentEditable
+            suppressContentEditableWarning
+            className={`flex-1 min-h-[130px] max-h-[350px] overflow-y-auto p-3 outline-none break-words whitespace-pre-wrap w-full ${
+              isFocused ? "ring-2 ring-slate-200" : ""
+            }`}
+            aria-label="Rich text comment editor"
+            style={{
+              whiteSpace: "pre-wrap",
+              wordWrap: "break-word",
+              overflowWrap: "break-word",
             }}
-          >
-            @{name}
+          />
+
+          <div className="flex items-center gap-1 ml-2 shrink-0 pb-2">
+            <label
+              className={`cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 p-1 rounded-md text-sm ${
+                uploading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              title="Attach file"
+            >
+              <Upload size={18} />
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => handleFileUpload(e, taskId)}
+                disabled={uploading}
+                accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+              />
+            </label>
+
+            {uploading && (
+              <span className="text-xs text-gray-500">Uploading...</span>
+            )}
+
+            <button
+              onClick={() => handleSend()}
+              className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 transition text-sm"
+              title="Send"
+            >
+              ➤
+            </button>
           </div>
-        ))}
+        </div>
       </div>
-    )}
-  </div>
-);
 
+      {/* Mentions Dropdown */}
+      {showMentions && filteredMentions.length > 0 && (
+        <div
+          className="absolute bg-white border rounded-md shadow-md z-50"
+          style={{
+            top: mentionPosition.y,
+            left: mentionPosition.x,
+            minWidth: "120px",
+          }}
+        >
+          {filteredMentions.map((name) => (
+            <div
+              key={name}
+              className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                insertMention(name);
+              }}
+            >
+              @{name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
-
