@@ -32,7 +32,7 @@ export const getAllFilesWithTaskTitle = async (req: Request, res: Response) => {
       id: file.id,
       taskId: file.task?.id || null,
       title: file.task?.title || "No Task",
-      fileUrl: `http://localhost:5000/uploads/${file.fileName}`,
+      fileUrl: `https://iot.electems.com/task/api/uploads/${file.fileName}`,
       fileName: file.originalName,
       uploadDate: file.uploadDate,
     }));
