@@ -252,19 +252,35 @@ const TaskGridView = () => {
           .filter((task) => messages[task.id] && messages[task.id].length > 0)
           // ✅ Sort by last message time (latest first)
           .sort((a, b) => {
-            const getLastTime = (id: number) => {
-              const last = messages[id]?.[messages[id].length - 1];
-              const match = last?.match(/\((\d{2}\/\d{2}\s+\d{2}:\d{2})\)/); // extract "(01/11 15:55)"
-              if (match) {
-                const dateStr = match[1];
-                // Create a comparable timestamp
-                const [day, month, time] = dateStr.split(/[ /]/);
-                return new Date(`2025-${month}-${day}T${time}:00`).getTime();
-              }
-              return 0;
+            const extractTime = (msg: string) => {
+              // Match SUR(06/11 10:29:45) or SUR(06/11 10:29)
+              const match = msg.match(
+                /\((\d{2})\/(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?\)/
+              );
+              if (!match) return 0;
+              const [, day, month, hour, minute, second] = match.map(Number);
+              const year = new Date().getFullYear();
+              return new Date(
+                year,
+                month - 1,
+                day,
+                hour,
+                minute,
+                second || 0
+              ).getTime();
             };
-            return getLastTime(b.id) - getLastTime(a.id);
+
+            const getLatestTime = (taskId: number) => {
+              const msgs = messages[taskId];
+              if (!msgs || msgs.length === 0) return 0;
+
+              // Check all messages for latest timestamp
+              return Math.max(...msgs.map((msg) => extractTime(msg)));
+            };
+
+            return getLatestTime(b.id) - getLatestTime(a.id);
           })
+
           .map((task) => {
             const unread = unreadCounts[task.id.toString()] || 0;
             const taskMessages = messages[task.id] || [];
