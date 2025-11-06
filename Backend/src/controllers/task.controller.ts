@@ -140,29 +140,61 @@ export const searchTasks = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing search query parameter 'q'." });
     }
 
-    // ✅ Convert to lowercase for case-insensitive match
-    const lowerQuery = query.toLowerCase();
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const params = words;
 
-    // ✅ Use POSITION for literal substring search (handles all characters)
-    const tasks = await prisma.$queryRawUnsafe<Task[]>(`
-      SELECT DISTINCT t.*
+    // For each word, check if it appears in title, description, or conversation
+    const matchConditions = words
+      .map(
+        (_, i) => `
+          (POSITION(LOWER($${i + 1}) IN LOWER(t.title)) > 0 OR
+           POSITION(LOWER($${i + 1}) IN LOWER(t.description)) > 0 OR
+           POSITION(LOWER($${i + 1}) IN LOWER(CAST(m.conversation AS TEXT))) > 0)
+        `
+      )
+      .join(" OR ");
+
+    // Each word contributes 1 point if it appears anywhere (title, desc, or chat)
+    const matchScore = words
+      .map(
+        (_, i) => `
+          CASE WHEN (
+            POSITION(LOWER($${i + 1}) IN LOWER(t.title)) > 0 OR
+            POSITION(LOWER($${i + 1}) IN LOWER(t.description)) > 0 OR
+            POSITION(LOWER($${i + 1}) IN LOWER(CAST(m.conversation AS TEXT))) > 0
+          ) THEN 1 ELSE 0 END
+        `
+      )
+      .join(" + ");
+
+    const tasks = await prisma.$queryRawUnsafe<
+      (Task & { match_score: number })[]
+    >(
+      `
+      SELECT DISTINCT t.*, (${matchScore}) AS match_score
       FROM "Task" t
       LEFT JOIN "Message" m ON m."taskId" = t.id
-      WHERE 
-        POSITION(LOWER($1) IN LOWER(t.title)) > 0
-        OR POSITION(LOWER($1) IN LOWER(t.description)) > 0
-        OR POSITION(LOWER($1) IN LOWER(CAST(m.conversation AS TEXT))) > 0
-      ORDER BY t."createdAt" DESC;
-    `, lowerQuery);
+      WHERE ${matchConditions}
+      ORDER BY match_score DESC, t."createdAt" DESC;
+    `,
+      ...params
+    );
 
-    console.log("tasks", tasks); 
+    // Now get all tasks with max matched word count
+    let filteredTasks = tasks;
+    if (tasks.length > 0) {
+      const maxScore = Math.max(...tasks.map(t => Math.round(t.match_score)));
+      filteredTasks = tasks.filter(t => Math.round(t.match_score) === maxScore);
+    }
 
-    return res.json({ count: tasks.length, results: tasks });
+    return res.json({ count: filteredTasks.length, results: filteredTasks });
   } catch (error) {
     console.error("Error searching tasks:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
 
 
 
