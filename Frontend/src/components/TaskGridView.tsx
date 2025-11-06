@@ -280,7 +280,7 @@ const TaskGridView = () => {
 
             return getLatestTime(b.id) - getLatestTime(a.id);
           })
-
+  
           .map((task) => {
             const unread = unreadCounts[task.id.toString()] || 0;
             const taskMessages = messages[task.id] || [];
