@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MessageCircle, Search } from "lucide-react";
-import { getTasks, searchTasks, TaskDTO } from "@/services/taskService";
+import { searchTasks, TaskDTO } from "@/services/taskService";
 import { Badge } from "@/components/ui/badge";
 import axios from "axios";
 import { useConversationContext } from "@/context/ConversationProvider";
@@ -31,10 +31,10 @@ export interface Task {
 
 const TaskGridView = () => {
   const navigate = useNavigate();
-  const { unreadCounts, markTaskAsRead } = useTaskContext();
+  const { tasks: ctxTasks, fetchTasks: fetchCtxTasks, unreadCounts, markTaskAsRead } = useTaskContext();  
   const { projects, fetchProjects } = useProjectContext();
 
-  const [tasks, setTasks] = useState<TaskDTO[]>([]);
+const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Record<number, string[]>>({});
 
@@ -45,34 +45,48 @@ const TaskGridView = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const username = localStorage.getItem("username");
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await getTasks();
-        setTasks(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+useEffect(() => {
+  const load = async () => {
+    try {
+      // ✅ Reuse tasks from TaskContext if already available
+      if (Array.isArray(ctxTasks) && ctxTasks.length > 0) {
+        setTasks(ctxTasks as TaskDTO[]);
+      } else {
+        await fetchCtxTasks();
       }
-    };
-    load();
-    fetchProjects();
-    
-  }, []);
 
-  useEffect(() => {
-    const delay = setTimeout(async () => {
-      if (!searchQuery.trim()) {
-        const data = await getTasks();
-        setTasks(data);
-        return;
+      // ✅ Reuse projects from ProjectContext if already loaded
+      if (!Array.isArray(projects) || projects.length === 0) {
+        await fetchProjects();
       }
-      const results = await searchTasks(searchQuery);
-      setTasks(results);
-    }, 400);
-    return () => clearTimeout(delay);
-  }, [searchQuery]);
+    } catch (err) {
+      console.error("Error loading data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  load();
+}, []);
+
+
+
+useEffect(() => {
+  const delay = setTimeout(async () => {
+    if (!searchQuery.trim()) {
+      //  Use tasks from TaskContext directly (no re-fetch)
+      setTasks(Array.isArray(ctxTasks) ? ctxTasks : []);
+      return;
+    }
+
+    //  If searching, fetch filtered tasks
+    const results = await searchTasks(searchQuery);
+    setTasks(results);
+  }, 400);
+
+  return () => clearTimeout(delay);
+}, [searchQuery, ctxTasks]);
+
 
   // ✅ Fetch last 2 messages per task
  useEffect(() => {
