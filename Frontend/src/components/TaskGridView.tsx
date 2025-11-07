@@ -17,6 +17,7 @@ import { MessageCircle, Search } from "lucide-react";
 import { getTasks, searchTasks, TaskDTO } from "@/services/taskService";
 import { Badge } from "@/components/ui/badge";
 import axios from "axios";
+import { useConversationContext } from "@/context/ConversationProvider";
 export interface Task {
   id: number;
   title: string;
@@ -41,7 +42,6 @@ const TaskGridView = () => {
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-
   const username = localStorage.getItem("username");
 
   useEffect(() => {
@@ -57,6 +57,7 @@ const TaskGridView = () => {
     };
     load();
     fetchProjects();
+    
   }, []);
 
   useEffect(() => {
@@ -73,70 +74,85 @@ const TaskGridView = () => {
   }, [searchQuery]);
 
   // ✅ Fetch last 2 messages per task
-  useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const results: Record<number, string[]> = {};
-        const messageTimes: Record<number, number> = {};
+ useEffect(() => {
+  const fetchMessages = async () => {
+    if (tasks.length === 0) return;
 
-        await Promise.all(
-          tasks.map(async (task) => {
-            const res = await api.get(`/messages`, {
-              params: { taskId: task.id },
-            });
-            const convo = res.data || [];
+    try {
+      const taskIds = tasks.map((t) => t.id);
+      const res = await api.post("/messages/allMessages", { taskIds });
+      const data = res.data || [];
 
-            // record message time for sorting later
-            if (convo.length > 0) {
-              const lastMsg = convo[convo.length - 1];
-              const lastTime = new Date(
-                lastMsg.createdAt || lastMsg.timestamp || Date.now()
-              ).getTime();
-              messageTimes[task.id] = lastTime;
-            } else {
-              messageTimes[task.id] = 0;
-            }
+      const results: Record<number, string[]> = {};
+      const messageTimes: Record<number, number> = {};
 
-            const lastTwo = convo.slice(-2).map((m: any) => {
-              const raw =
-                typeof m === "string" ? m : m?.content || m?.text || "";
+      data.forEach((msg: any) => {
+        const convo = msg.conversation || [];
 
-              // extract sender name before first colon (like "SUR(01/11 15:55):")
-              const senderMatch = raw.match(/^([^:]+:)/);
-              const senderPrefix = senderMatch ? senderMatch[1] + " " : "";
+        // take last 2 messages from conversation
+        const lastTwo = convo.slice(-2).map((m: any) => {
+          const raw = typeof m === "string" ? m : m?.content || m?.text || "";
 
-              if (/<img\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(raw)) {
-                return `${senderPrefix}📷 Image`;
-              }
+          // ✅ Extract sender, timestamp, and message text cleanly
+          const match = raw.match(
+            /^(\w+)\((\d{2}\/\d{2}\s+\d{2}:\d{2}(?::\d{2})?)\):\s*(.*)$/
+          );
 
-              if (
-                /<video\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(raw) ||
-                /\.(mp4|mov|avi|mkv|webm)/i.test(raw)
-              ) {
-                return `${senderPrefix}🎬 Video`;
-              }
+          let sender = "";
+          let time = "";
+          let text = raw;
 
-              const cleanText = raw.replace(/<[^>]*>/g, "").trim();
-              const shortText =
-                cleanText.length > 200
-                  ? cleanText.slice(0, 200) + "..."
-                  : cleanText;
+          if (match) {
+            sender = match[1];
+            time = match[2];
+            text = match[3]; // remove prefix from message text
+          }
 
-              return `${senderPrefix}${shortText}`;
-            });
+          // ✅ Handle image or video previews
+          if (/<img\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text)) {
+            text = "📷 Image";
+          } else if (
+            /<video\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text) ||
+            /\.(mp4|mov|avi|mkv|webm)/i.test(text)
+          ) {
+            text = "🎬 Video";
+          } else {
+            // clean text & limit length
+            text = text.replace(/<[^>]*>/g, "").trim();
+            if (text.length > 200) text = text.slice(0, 200) + "...";
+          }
 
-            results[task.id] = lastTwo;
-          })
-        );
+          // ✅ Format sender in navy blue and bold
+          const formatted = `<span class="text-blue-800 font-semibold">${sender}</span> (${time}): ${text}`;
 
-        setMessages(results);
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-      }
-    };
 
-    if (tasks.length > 0) fetchMessages();
-  }, [tasks]);
+          return formatted;
+        });
+
+        results[msg.taskId] = lastTwo;
+
+        // record message time for sorting
+        if (convo.length > 0) {
+          const lastMsg = convo[convo.length - 1];
+          const lastTime = new Date(
+            lastMsg.createdAt || lastMsg.timestamp || msg.updatedAt || Date.now()
+          ).getTime();
+          messageTimes[msg.taskId] = lastTime;
+        } else {
+          messageTimes[msg.taskId] = 0;
+        }
+      });
+
+      setMessages(results);
+    } catch (error) {
+      console.error("Error fetching bulk messages:", error);
+    }
+  };
+
+  fetchMessages();
+}, [tasks]);
+
+
 
   const owners = Array.from(new Set(tasks.map((t) => t.owner)));
 
@@ -340,9 +356,10 @@ const TaskGridView = () => {
                     <p
                       key={i}
                       className="whitespace-pre-line break-words w-full text-gray-700"
-                    >
-                      {i === 0 ? "💬 " : "🗨️ "} {msg}
-                    </p>
+                      dangerouslySetInnerHTML={{
+                        __html: `${i === 0 ? "💬 " : "🗨️ "} ${msg}`,
+                      }}
+                    />
                   ))}
                 </div>
               </div>

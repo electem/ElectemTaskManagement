@@ -19,6 +19,40 @@ export const getMessages = async (req: Request, res: Response) => {
   }
 };
 
+// get all the conversations for all the tasks
+export const getMessagesBulk = async (req: Request, res: Response) => {
+  try {
+    const { taskIds } = req.body;
+
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({ error: "taskIds (array) are required" });
+    }
+
+    // Fetch all message rows for these taskIds
+    const messages = await prisma.message.findMany({
+      where: {
+        taskId: {
+          in: taskIds,
+        },
+      },
+      select: {
+        id: true,
+        taskId: true,
+        conversation: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Return all rows
+    res.json(messages);
+  } catch (error) {
+    console.error("Error fetching bulk messages:", error);
+    res.status(500).json({ error: "Failed to fetch messages in bulk" });
+  }
+};
+
+
 export const upsertMessage = async (req: Request, res: Response) => {
   try {
     const { taskId, newMessage, currentUser, isEdit } = req.body;
