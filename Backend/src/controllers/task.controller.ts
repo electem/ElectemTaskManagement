@@ -35,22 +35,41 @@ export const createTask = async (req: Request, res: Response) => {
       dependentTaskId, // <-- should be an array of numbers
     } = req.body;
 
-    const task = await prisma.task.create({
-      data: {
-        title,
-        description,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        status,
-        projectId,
-        project,
-        owner,
-        members,
-        url,
-        // ✅ ensure dependentTaskId is always an Int[]
-        dependentTaskId: Array.isArray(dependentTaskId)
-          ? dependentTaskId.map((id) => Number(id))
-          : [],
-      },
+    // ✅ Wrap in a transaction
+    const task = await prisma.$transaction(async (tx) => {
+      // 1️⃣ Create the new task
+      const newTask = await tx.task.create({
+        data: {
+          title,
+          description,
+          dueDate: dueDate ? new Date(dueDate) : null,
+          status,
+          projectId,
+          project,
+          owner,
+          members,
+          url,
+          dependentTaskId: Array.isArray(dependentTaskId)
+            ? dependentTaskId.map((id) => Number(id))
+            : [],
+        },
+      });
+
+      // 2️⃣ Ensure Notes entry exists for this project
+      const existingNotes = await tx.notes.findUnique({
+        where: { projectId },
+      });
+
+      if (!existingNotes) {
+        await tx.notes.create({
+          data: {
+            projectId,
+            notes: [], // default empty array
+          },
+        });
+      }
+
+      return newTask;
     });
 
     res.json(task);
@@ -59,6 +78,7 @@ export const createTask = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to create task" });
   }
 };
+
 
 // ✅ Update a task
 export const updateTask = async (req: Request, res: Response) => {

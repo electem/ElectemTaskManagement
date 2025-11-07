@@ -2,13 +2,16 @@ import React, { useRef, useState, useEffect } from "react";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import api from "@/lib/api";
-import { Upload } from "lucide-react";
+import { Upload, FileText,X} from "lucide-react";
 import {
   Message,
   useConversationContext,
 } from "@/context/ConversationProvider";
 import { useUsers } from "@/hooks/useUsers";
 import { useTaskContext } from "@/context/TaskContext";
+import { toast } from "sonner";
+
+
 
 interface Props {
   placeholder?: string;
@@ -45,7 +48,8 @@ export default function MsChatCommentsEditor({
   const [mentionPosition, setMentionPosition] = useState({ x: 0, y: 0 });
   const [mentionSearch, setMentionSearch] = useState("");
   const { users } = useUsers();
-  const { latestWsMessage } = useTaskContext();
+  const { latestWsMessage,tasks } = useTaskContext();
+  
 
   useEffect(() => {
     if (!latestWsMessage) return;
@@ -561,6 +565,62 @@ export default function MsChatCommentsEditor({
     }
   }
 
+
+  // Handle notes here
+
+  // reuse same prefix-stripping regex as backend/client edit to be consistent
+function stripPrefixClient(full = "") {
+  return String(full).replace(/^[A-Z]{2,4}\s*\(\d{2}\/\d{2}\s\d{2}:\d{2}\):\s*/, "").trim();
+}
+
+async function handleNotes(path) {
+  try {
+    const threadIndex = path[0];
+    let content = threads[threadIndex]?.content;
+    if (!content) {
+      toast.error("No content for selected thread");
+      return;
+    }
+
+    // handle nested reply case
+    if (path.length > 1) {
+      const reply = getReplyByPath(threads[threadIndex], path.slice(1));
+      if (reply) content = reply.content;
+    }
+
+    // ✅ no need to strip SUR prefix for storage
+    if (!content.trim()) {
+      toast.error("Note text is empty");
+      return;
+    }
+
+    const currentTask = tasks.find((t) => t.id === taskId);
+    const projectId = currentTask?.projectId;
+
+    if (!projectId) {
+      toast.error("Project not found for this task");
+      return;
+    }
+
+    const payload = { projectId, message: content };
+
+    const res = await api.post("/notes/addnotes", payload);
+
+    if (res.data?.success) {
+      if (res.data.created) {
+        toast.success("Note added to project notes");
+      } else {
+        toast.info("Note already exists");
+      }
+    } else {
+      toast.error("Failed to add note");
+    }
+  } catch (err) {
+    console.error("handleNotes error:", err);
+    toast.error("Failed to add note");
+  }
+}
+
   function toggleCollapse(id) {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
   }
@@ -620,6 +680,8 @@ export default function MsChatCommentsEditor({
         return ` <a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${url}</a>`;
       }
     });
+
+    
 
     return (
       <div
@@ -696,14 +758,15 @@ export default function MsChatCommentsEditor({
                 <div key={threadId} className="relative mb-3">
                   {/* Message Box with rounded border */}
                   <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-lg">
-
                     {/* Floating Header Box */}
                     <div className="absolute -top-3 -left-2 bg-white border border-gray-300 px-3 flex rounded-md items-center gap-2 text-xs shadow-sm">
                       <span className="font-semibold text-blue-600">
                         {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
                       </span>
                       <span className="text-gray-500 text-[11px]">
-                        {thread.content.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
+                        {thread.content.match(
+                          /\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/
+                        )?.[1] || "--:--"}
                       </span>
 
                       <div className="flex gap-4 ml-2">
@@ -720,6 +783,13 @@ export default function MsChatCommentsEditor({
                           title="Edit"
                         >
                           ✎
+                        </button>
+                        <button
+                          className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md hover:bg-blue-50"
+                          onClick={() => handleNotes(threadPath)}
+                          title="Add Note"
+                        >
+                          <FileText size={17} />
                         </button>
                       </div>
                     </div>
