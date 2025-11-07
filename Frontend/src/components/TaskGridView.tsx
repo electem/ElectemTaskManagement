@@ -41,6 +41,7 @@ const TaskGridView = () => {
   const [projectFilter, setProjectFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [bulkMessages, setBulkMessages] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const username = localStorage.getItem("username");
 
@@ -82,7 +83,7 @@ const TaskGridView = () => {
       const taskIds = tasks.map((t) => t.id);
       const res = await api.post("/messages/allMessages", { taskIds });
       const data = res.data || [];
-
+      setBulkMessages(data);
       const results: Record<number, string[]> = {};
       const messageTimes: Record<number, number> = {};
 
@@ -264,38 +265,17 @@ const TaskGridView = () => {
 
       {/* Grid layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 overflow-y-auto pb-6">
-        {filteredTasks
-          .filter((task) => messages[task.id] && messages[task.id].length > 0)
-          // ✅ Sort by last message time (latest first)
-          .sort((a, b) => {
-            const extractTime = (msg: string) => {
-              // Match SUR(06/11 10:29:45) or SUR(06/11 10:29)
-              const match = msg.match(
-                /\((\d{2})\/(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?\)/
-              );
-              if (!match) return 0;
-              const [, day, month, hour, minute, second] = match.map(Number);
-              const year = new Date().getFullYear();
-              return new Date(
-                year,
-                month - 1,
-                day,
-                hour,
-                minute,
-                second || 0
-              ).getTime();
-            };
+    {filteredTasks
+  .filter((task) => messages[task.id] && messages[task.id].length > 0)
+  .sort((a, b) => {
+    const getLastUpdated = (taskId: number) => {
+      const record = bulkMessages.find((m) => m.taskId === taskId);
+      return record ? new Date(record.updatedAt).getTime() : 0;
+    };
 
-            const getLatestTime = (taskId: number) => {
-              const msgs = messages[taskId];
-              if (!msgs || msgs.length === 0) return 0;
+    return getLastUpdated(b.id) - getLastUpdated(a.id);
+  })
 
-              // Check all messages for latest timestamp
-              return Math.max(...msgs.map((msg) => extractTime(msg)));
-            };
-
-            return getLatestTime(b.id) - getLatestTime(a.id);
-          })
   
           .map((task) => {
             const unread = unreadCounts[task.id.toString()] || 0;
