@@ -72,6 +72,27 @@ export const ConversationProvider = ({ children }: { children: ReactNode }) => {
       toast.error("Failed to fetch conversation");
     }
   };
+
+  const fetchBulkConversations = async (taskIds: number[]) => {
+  try {
+    const res = await api.post("/messages/bulk", { taskIds });
+    const data = res.data || [];
+
+    const mapped: Record<number, Message[]> = {};
+    data.forEach((msg) => {
+      const conversation = Array.isArray(msg.conversation)
+        ? mapConversation(msg.conversation)
+        : [];
+      mapped[msg.taskId] = conversation;
+    });
+
+    setConversations((prev) => ({ ...prev, ...mapped }));
+  } catch (err) {
+    console.error("Error fetching bulk conversations:", err);
+    toast.error("Failed to fetch conversations");
+  }
+};
+
   
 
   // Add new message or upsert conversation
