@@ -14,9 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MessageCircle, Search } from "lucide-react";
-import { getTasks, searchTasks, TaskDTO } from "@/services/taskService";
+import { searchTasks, TaskDTO } from "@/services/taskService";
 import { Badge } from "@/components/ui/badge";
 import axios from "axios";
+import { useConversationContext } from "@/context/ConversationProvider";
 export interface Task {
   id: number;
   title: string;
@@ -30,113 +31,143 @@ export interface Task {
 
 const TaskGridView = () => {
   const navigate = useNavigate();
-  const { unreadCounts, markTaskAsRead } = useTaskContext();
+  const { tasks: ctxTasks, fetchTasks: fetchCtxTasks, unreadCounts, markTaskAsRead } = useTaskContext();  
   const { projects, fetchProjects } = useProjectContext();
 
-  const [tasks, setTasks] = useState<TaskDTO[]>([]);
+const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Record<number, string[]>>({});
 
   const [projectFilter, setProjectFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [bulkMessages, setBulkMessages] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-
   const username = localStorage.getItem("username");
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await getTasks();
-        setTasks(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+useEffect(() => {
+  const load = async () => {
+    try {
+      // ✅ Reuse tasks from TaskContext if already available
+      if (Array.isArray(ctxTasks) && ctxTasks.length > 0) {
+        setTasks(ctxTasks as TaskDTO[]);
+      } else {
+        await fetchCtxTasks();
       }
-    };
-    load();
-    fetchProjects();
-  }, []);
 
-  useEffect(() => {
-    const delay = setTimeout(async () => {
-      if (!searchQuery.trim()) {
-        const data = await getTasks();
-        setTasks(data);
-        return;
+      // ✅ Reuse projects from ProjectContext if already loaded
+      if (!Array.isArray(projects) || projects.length === 0) {
+        await fetchProjects();
       }
-      const results = await searchTasks(searchQuery);
-      setTasks(results);
-    }, 400);
-    return () => clearTimeout(delay);
-  }, [searchQuery]);
+    } catch (err) {
+      console.error("Error loading data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  load();
+}, []);
+
+
+
+useEffect(() => {
+  const delay = setTimeout(async () => {
+    if (!searchQuery.trim()) {
+      //  Use tasks from TaskContext directly (no re-fetch)
+      setTasks(Array.isArray(ctxTasks) ? ctxTasks : []);
+      return;
+    }
+
+    //  If searching, fetch filtered tasks
+    const results = await searchTasks(searchQuery);
+    setTasks(results);
+  }, 400);
+
+  return () => clearTimeout(delay);
+}, [searchQuery, ctxTasks]);
+
 
   // ✅ Fetch last 2 messages per task
-  useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const results: Record<number, string[]> = {};
-        const messageTimes: Record<number, number> = {};
+ useEffect(() => {
+  const fetchMessages = async () => {
+    if (tasks.length === 0) return;
 
-        await Promise.all(
-          tasks.map(async (task) => {
-            const res = await api.get(`/messages`, {
-              params: { taskId: task.id },
-            });
-            const convo = res.data || [];
+    try {
+      const taskIds = tasks.map((t) => t.id);
+      const res = await api.post("/messages/allMessages", { taskIds });
+      const data = res.data || [];
+      setBulkMessages(data);
+      const results: Record<number, string[]> = {};
+      const messageTimes: Record<number, number> = {};
 
-            // record message time for sorting later
-            if (convo.length > 0) {
-              const lastMsg = convo[convo.length - 1];
-              const lastTime = new Date(
-                lastMsg.createdAt || lastMsg.timestamp || Date.now()
-              ).getTime();
-              messageTimes[task.id] = lastTime;
-            } else {
-              messageTimes[task.id] = 0;
-            }
+      data.forEach((msg: any) => {
+        const convo = msg.conversation || [];
 
-            const lastTwo = convo.slice(-2).map((m: any) => {
-              const raw =
-                typeof m === "string" ? m : m?.content || m?.text || "";
+        // take last 2 messages from conversation
+        const lastTwo = convo.slice(-2).map((m: any) => {
+          const raw = typeof m === "string" ? m : m?.content || m?.text || "";
 
-              // extract sender name before first colon (like "SUR(01/11 15:55):")
-              const senderMatch = raw.match(/^([^:]+:)/);
-              const senderPrefix = senderMatch ? senderMatch[1] + " " : "";
+          // ✅ Extract sender, timestamp, and message text cleanly
+          const match = raw.match(
+            /^(\w+)\((\d{2}\/\d{2}\s+\d{2}:\d{2}(?::\d{2})?)\):\s*(.*)$/
+          );
 
-              if (/<img\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(raw)) {
-                return `${senderPrefix}📷 Image`;
-              }
+          let sender = "";
+          let time = "";
+          let text = raw;
 
-              if (
-                /<video\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(raw) ||
-                /\.(mp4|mov|avi|mkv|webm)/i.test(raw)
-              ) {
-                return `${senderPrefix}🎬 Video`;
-              }
+          if (match) {
+            sender = match[1];
+            time = match[2];
+            text = match[3]; // remove prefix from message text
+          }
 
-              const cleanText = raw.replace(/<[^>]*>/g, "").trim();
-              const shortText =
-                cleanText.length > 200
-                  ? cleanText.slice(0, 200) + "..."
-                  : cleanText;
+          // ✅ Handle image or video previews
+          if (/<img\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text)) {
+            text = "📷 Image";
+          } else if (
+            /<video\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text) ||
+            /\.(mp4|mov|avi|mkv|webm)/i.test(text)
+          ) {
+            text = "🎬 Video";
+          } else {
+            // clean text & limit length
+            text = text.replace(/<[^>]*>/g, "").trim();
+            if (text.length > 200) text = text.slice(0, 200) + "...";
+          }
 
-              return `${senderPrefix}${shortText}`;
-            });
+          // ✅ Format sender in navy blue and bold
+          const formatted = `<span class="text-blue-800 font-semibold">${sender}</span> (${time}): ${text}`;
 
-            results[task.id] = lastTwo;
-          })
-        );
 
-        setMessages(results);
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-      }
-    };
+          return formatted;
+        });
 
-    if (tasks.length > 0) fetchMessages();
-  }, [tasks]);
+        results[msg.taskId] = lastTwo;
+
+        // record message time for sorting
+        if (convo.length > 0) {
+          const lastMsg = convo[convo.length - 1];
+          const lastTime = new Date(
+            lastMsg.createdAt || lastMsg.timestamp || msg.updatedAt || Date.now()
+          ).getTime();
+          messageTimes[msg.taskId] = lastTime;
+        } else {
+          messageTimes[msg.taskId] = 0;
+        }
+      });
+
+      setMessages(results);
+    } catch (error) {
+      console.error("Error fetching bulk messages:", error);
+    }
+  };
+
+  fetchMessages();
+}, [tasks]);
+
+
 
   const owners = Array.from(new Set(tasks.map((t) => t.owner)));
 
@@ -248,38 +279,17 @@ const TaskGridView = () => {
 
       {/* Grid layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 overflow-y-auto pb-6">
-        {filteredTasks
-          .filter((task) => messages[task.id] && messages[task.id].length > 0)
-          // ✅ Sort by last message time (latest first)
-          .sort((a, b) => {
-            const extractTime = (msg: string) => {
-              // Match SUR(06/11 10:29:45) or SUR(06/11 10:29)
-              const match = msg.match(
-                /\((\d{2})\/(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?\)/
-              );
-              if (!match) return 0;
-              const [, day, month, hour, minute, second] = match.map(Number);
-              const year = new Date().getFullYear();
-              return new Date(
-                year,
-                month - 1,
-                day,
-                hour,
-                minute,
-                second || 0
-              ).getTime();
-            };
+    {filteredTasks
+  .filter((task) => messages[task.id] && messages[task.id].length > 0)
+  .sort((a, b) => {
+    const getLastUpdated = (taskId: number) => {
+      const record = bulkMessages.find((m) => m.taskId === taskId);
+      return record ? new Date(record.updatedAt).getTime() : 0;
+    };
 
-            const getLatestTime = (taskId: number) => {
-              const msgs = messages[taskId];
-              if (!msgs || msgs.length === 0) return 0;
+    return getLastUpdated(b.id) - getLastUpdated(a.id);
+  })
 
-              // Check all messages for latest timestamp
-              return Math.max(...msgs.map((msg) => extractTime(msg)));
-            };
-
-            return getLatestTime(b.id) - getLatestTime(a.id);
-          })
   
           .map((task) => {
             const unread = unreadCounts[task.id.toString()] || 0;
@@ -340,9 +350,10 @@ const TaskGridView = () => {
                     <p
                       key={i}
                       className="whitespace-pre-line break-words w-full text-gray-700"
-                    >
-                      {i === 0 ? "💬 " : "🗨️ "} {msg}
-                    </p>
+                      dangerouslySetInnerHTML={{
+                        __html: `${i === 0 ? "💬 " : "🗨️ "} ${msg}`,
+                      }}
+                    />
                   ))}
                 </div>
               </div>
