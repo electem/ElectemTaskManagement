@@ -10,14 +10,22 @@ export const getTasks = async (req: Request, res: Response) => {
     const tasks = await prisma.task.findMany({
       where: projectId ? { projectId } : {},
       include: { projectRel: true },
+      orderBy: [
+        { owner: "asc" },       // 1️⃣ Owner alphabetically A–Z
+        { dueDate: "asc" },     // 2️⃣ Older dueDate first
+        { status: "asc" },      // 3️⃣ Just normal alphabetical order (optional)
+      ],
     });
 
     res.json(tasks);
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching tasks:", error);
     res.status(500).json({ error: "Failed to fetch tasks" });
   }
 };
+
+
+
 
 // ✅ Create a task
 export const createTask = async (req: Request, res: Response) => {

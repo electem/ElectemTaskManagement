@@ -34,6 +34,7 @@ interface UnreadData {
 interface TaskContextType {
   tasks: Task[];
   fetchTasks: () => Promise<void>;
+  searchTasks: (query: string) => Promise<Task[]>;
   addTask: (task: Omit<Task, "id">) => Promise<void>;
   updateTask: (id: number, task: Partial<Task>) => Promise<void>;
   closeTask: (id: number) => Promise<void>;
@@ -101,6 +102,23 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       console.error("Error fetching tasks:", err);
     }
   }, []);
+  // ==========================
+// 🔍 Search Tasks
+// ==========================
+const searchTasks = useCallback(async (query: string): Promise<Task[]> => {
+  try {
+    if (!query.trim()) {
+      const all = await fetchTasks();
+      return all || [];
+    }
+    const res = await api.get("/tasks/search", { params: { q: query } });
+    return res.data.results || [];
+  } catch (err) {
+    console.error("Error searching tasks:", err);
+    return [];
+  }
+}, [fetchTasks]);
+
 
   // ==========================
   // 🔔 Unread Logic
@@ -366,6 +384,7 @@ console.log("🔍 NotificationService imported:", { notificationService });
       value={{
         tasks,
         fetchTasks,
+        searchTasks,
         addTask,
         updateTask,
         closeTask,
