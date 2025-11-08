@@ -10,7 +10,7 @@ import {
 import { useUsers } from "@/hooks/useUsers";
 import { useTaskContext } from "@/context/TaskContext";
 import { toast } from "sonner";
-
+import linkifyHtml from 'linkify-html';
 
 
 interface Props {
@@ -647,38 +647,18 @@ async function handleNotes(path) {
       window.open(url, "_blank");
     };
 
-    // First, extract and preserve any existing HTML elements (images, videos, links)
-    let formattedContent = htmlContent;
-
-    // Format the username and timestamp part
-    formattedContent = formattedContent.replace(
+    // First extract username/timestamp part
+    let formattedContent = htmlContent.replace(
       /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
       `<span class="font-bold text-blue-600">$1</span>($2):`
     );
 
-    // Only make plain URLs clickable (not those already in tags)
-    // This regex matches URLs that are not inside HTML tags
-    const urlRegex = /(?:^|>|\s)(https?:\/\/[^\s<>&]+|www\.[^\s<>&]+)/gi;
-    formattedContent = formattedContent.replace(urlRegex, (match) => {
-      // Skip if this is already inside an HTML tag or contains HTML tags
-      if (match.includes('<') || match.includes('>') ||
-          formattedContent.includes('href="') || formattedContent.includes("href='") ||
-          formattedContent.includes('src="')) {
-        return match;
-      }
+    // Use linkifyjs for robust URL detection
+    formattedContent = linkifyHtml(formattedContent, {
+      target: "_blank",
+      rel: "noopener noreferrer",
+      className: "text-blue-600 underline",
 
-      const url = match.trim();
-      const href = url.startsWith("http") ? url : `https://${url}`;
-      const isImage = /\.(jpg|jpeg|png|gif|bmp|webp)(\?.*)?$/i.test(url);
-      const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
-
-      if (isImage) {
-        return ` <img src="${href}" alt="Uploaded image" class="max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer" />`;
-      } else if (isVideo) {
-        return ` <video src="${href}" controls class="w-[300px] h-[200px] rounded-md my-2 object-cover"></video>`;
-      } else {
-        return ` <a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${url}</a>`;
-      }
     });
 
     
@@ -695,7 +675,7 @@ async function handleNotes(path) {
         dangerouslySetInnerHTML={{ __html: formattedContent }}
       />
     );
-  }, (prev, next) => prev.htmlContent === next.htmlContent);
+  });
 
   const renderReplies = (replies, path, level = 1, parentId = "") => {
     return replies.map((reply, i) => {
