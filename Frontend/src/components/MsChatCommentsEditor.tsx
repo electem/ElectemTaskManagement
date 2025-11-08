@@ -565,6 +565,67 @@ export default function MsChatCommentsEditor({
     }
   }
 
+  // create task using task icon
+async function handleCreateTask(path) {
+  try {
+    // Get the thread content from path
+    const threadIndex = path[0];
+    let content = threads[threadIndex]?.content;
+
+    if (path.length > 1) {
+      const reply = getReplyByPath(threads[threadIndex], path.slice(1));
+      if (reply) content = reply.content;
+    }
+
+    if (!content || !content.trim()) {
+      toast.error("Cannot create task from empty content");
+      return;
+    }
+
+    // Strip username/timestamp prefix and remove HTML tags
+    let fullText = stripPrefixClient(content);
+    fullText = fullText.replace(/<[^>]*>/g, "").trim(); // remove HTML
+
+    // Split lines for title/description logic
+    const lines = fullText.split("\n").map(line => line.trim()).filter(line => line);
+    const title = lines[0]?.slice(0, 50) || "New Task";
+    const description = lines.length > 1 ? lines.slice(1).join("\n") : "";
+
+    // Get current task details
+    const currentTask = tasks.find((t) => t.id === taskId);
+    if (!currentTask) {
+      toast.error("Current task not found");
+      return;
+    }
+
+    // Construct payload
+    const newTaskPayload = {
+      projectId: currentTask.projectId,
+      project: currentTask.project, // Required for Prisma
+      owner: currentTask.owner,
+      status: currentTask.status,
+      members: currentTask.members,
+      title,
+      description,
+      dueDate: currentTask.dueDate || null,
+      url: currentTask.url || "",
+      dependentTaskId: [],
+    };
+
+    const res = await api.post("/tasks", newTaskPayload);
+
+    if (res.data) {
+      toast.success("Task created successfully");
+    } else {
+      toast.error("Failed to create task");
+    }
+  } catch (err) {
+    console.error("handleCreateTask error:", err);
+    toast.error("Failed to create task");
+  }
+}
+
+
 
   // Handle notes here
 
@@ -771,6 +832,14 @@ async function handleNotes(path) {
                         >
                           <FileText size={17} />
                         </button>
+                        <button
+  className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md hover:bg-blue-50"
+  onClick={() => handleCreateTask(threadPath)}
+  title="Create Task"
+>
+  🗒️ {/* You can replace with <X size={17} /> or any Lucide icon */}
+</button>
+
                       </div>
                     </div>
 
