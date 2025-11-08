@@ -8,7 +8,11 @@ export const createTaskChangeHistory = async (req: Request, res: Response) => {
     const { taskId, changes, changedAt, currentUser } = req.body;
 
     if (!taskId || !Array.isArray(changes) || changes.length === 0) {
-      return res.status(400).json({ error: "Invalid request data. Expected { taskId, changes[] }" });
+      return res
+        .status(400)
+        .json({
+          error: "Invalid request data. Expected { taskId, changes[] }",
+        });
     }
 
     const changeGroupId = crypto.randomUUID();
@@ -53,9 +57,13 @@ export const createTaskChangeHistory = async (req: Request, res: Response) => {
     // Step 3: Build messages
     const username = currentUser || "System";
     const currentTime = new Date();
-    const formattedTime = `${currentTime.getDate()}/${
-      currentTime.getMonth() + 1
-    } ${currentTime.getHours()}:${currentTime.getMinutes()}`;
+
+    const day = String(currentTime.getDate()).padStart(2, "0");
+    const month = String(currentTime.getMonth() + 1).padStart(2, "0");
+    const hours = String(currentTime.getHours()).padStart(2, "0");
+    const minutes = String(currentTime.getMinutes()).padStart(2, "0");
+
+    const formattedTime = `${day}/${month} ${hours}:${minutes}`;
 
     let contentsToAppend: any[] = [];
 
@@ -67,24 +75,24 @@ export const createTaskChangeHistory = async (req: Request, res: Response) => {
       let replacingOldValue = `@${username}`;
       let replacingNewValue = `@${username}`;
 
-        // Get latest owner from DB
-        const ownerChange = await prisma.taskChangeHistory.findFirst({
-          where: { taskId: Number(taskId), fieldChanged: "owner" },
-          orderBy: { changedAt: "desc" },
-        });
-        console.log("======================");
-        console.log(ownerChange);
-        if (ownerChange) {
-          replacingOldValue = `@${ownerChange.oldValue || username}`;
-          replacingNewValue = `@${ownerChange.newValue || username}`;
-        }
-
+      // Get latest owner from DB
+      const ownerChange = await prisma.taskChangeHistory.findFirst({
+        where: { taskId: Number(taskId), fieldChanged: "owner" },
+        orderBy: { changedAt: "desc" },
+      });
+      if (ownerChange) {
+        replacingOldValue = `@${ownerChange.oldValue || username}`;
+        replacingNewValue = `@${ownerChange.newValue || username}`;
+      }
 
       for (const msg of messages) {
         let updatedContent = msg.content;
 
         if (replacingOldValue === replacingNewValue) {
-          updatedContent = updatedContent.replace(/@oldowner/g, replacingOldValue);
+          updatedContent = updatedContent.replace(
+            /@oldowner/g,
+            replacingOldValue
+          );
           updatedContent = updatedContent.replace(/@newowner/g, "");
         } else {
           updatedContent = updatedContent
@@ -94,7 +102,7 @@ export const createTaskChangeHistory = async (req: Request, res: Response) => {
 
         contentsToAppend.push({
           ...msg,
-          content: `Vin(${formattedTime}): ${updatedContent}`,
+          content: `VIN(${formattedTime}): ${updatedContent}`,
         });
       }
     }
@@ -124,10 +132,18 @@ export const createTaskChangeHistory = async (req: Request, res: Response) => {
       broadcastUpdate(updatedConversation, taskId, currentUser);
     }
 
-    return res.status(201).json({ createdRecords, messagesAppended: contentsToAppend.length,updatedConversation, });
+    return res
+      .status(201)
+      .json({
+        createdRecords,
+        messagesAppended: contentsToAppend.length,
+        updatedConversation,
+      });
   } catch (error) {
     console.error("❌ Error creating task change history:", error);
-    return res.status(500).json({ error: "Failed to create task change history" });
+    return res
+      .status(500)
+      .json({ error: "Failed to create task change history" });
   }
 };
 
@@ -147,7 +163,9 @@ export const getTaskChangeHistory = async (req: Request, res: Response) => {
     });
 
     if (history.length === 0) {
-      return res.status(404).json({ message: "No change history found for this task" });
+      return res
+        .status(404)
+        .json({ message: "No change history found for this task" });
     }
 
     // Group by changeGroupId
@@ -178,7 +196,9 @@ export const getTaskChangeHistory = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("❌ Error fetching task change history:", error);
-    return res.status(500).json({ error: "Failed to fetch task change history" });
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch task change history" });
   }
 };
 
@@ -189,7 +209,9 @@ export const getLatestByField = async (req: Request, res: Response) => {
     const { taskId, fieldChanged } = req.params;
 
     if (!taskId || isNaN(Number(taskId)) || !fieldChanged) {
-      return res.status(400).json({ error: "Invalid taskId or missing fieldChanged" });
+      return res
+        .status(400)
+        .json({ error: "Invalid taskId or missing fieldChanged" });
     }
 
     // Fetch latest record for that taskId and fieldChanged
@@ -211,4 +233,3 @@ export const getLatestByField = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to fetch latest record" });
   }
 };
-
