@@ -32,10 +32,10 @@ export const getTasks = async (req: Request, res: Response) => {
     const tasks = await prisma.task.findMany({
       where: filters,
       include: { projectRel: true }, // Include project relation
-      orderBy: [
-        { updatedAt: "desc" }, // newest updates first
-        { dueDate: "asc" },    // earlier due dates first
-        { owner: "asc" },      // alphabetical owner
+       orderBy: [
+        { owner: "asc" },     // Owner A–Z
+        { dueDate: "asc" },   // Earlier due dates first
+        { status: "asc" },    // Status alphabetical
       ],
     });
 
