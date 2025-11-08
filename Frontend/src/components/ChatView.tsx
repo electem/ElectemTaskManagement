@@ -5,6 +5,10 @@ import { useParams, useNavigate } from "react-router-dom"; // import useNavigate
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTaskContext } from "@/context/TaskContext";
 import { useTaskHistory } from "@/context/TaskHistoryContext.tsx";
+import { FileText, X } from "lucide-react";
+import api from "@/lib/api";
+import { toast } from "sonner";
+
 interface Message {
   id: number;
   sender: string;
@@ -25,7 +29,12 @@ export default function ChatView() {
   const [comment, setComment] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [fullViewImage, setFullViewImage] = useState<string | null>(null);
-  const { latestWsMessage } = useTaskContext(); // Add this
+  const { latestWsMessage,tasks  } = useTaskContext(); // Add this
+
+  const [notesOpen, setNotesOpen] = useState(false);
+const [projectNotes, setProjectNotes] = useState<{ content: string }[]>([]);
+const [loadingNotes, setLoadingNotes] = useState(false);
+
 
   const { conversations, fetchConversation, addMessage } =
     useConversationContext();
@@ -85,6 +94,31 @@ export default function ChatView() {
 
     setComment("");
   };
+  async function fetchProjectNotes() {
+  const currentTask = tasks.find((t) => t.id === taskIdNumber);
+  const projectId = currentTask?.projectId;
+  if (!projectId) return;
+
+  setLoadingNotes(true);
+  try {
+    const res = await api.get(`/notes/${projectId}`);
+    if (res.data?.found) {
+      setProjectNotes(res.data.notes);
+    } else {
+      setProjectNotes([]);
+    }
+  } catch (err) {
+    console.error("Failed to fetch notes", err);
+    toast.error("Failed to fetch notes");
+  } finally {
+    setLoadingNotes(false);
+  }
+}
+function toggleNotesSlider() {
+  if (!notesOpen) fetchProjectNotes(); // fetch when opening
+  setNotesOpen(prev => !prev);
+}
+
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#f5f5f5] dark:bg-[#1e1e1e] rounded-xl shadow-sm font-[Segoe UI,Arial,sans-serif] text-sm">
@@ -99,16 +133,23 @@ export default function ChatView() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <h1 className="text-xl font-semibold cursor-help">
-                {title}
-              </h1>
+              <h1 className="text-xl font-semibold cursor-help">{title}</h1>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p className="max-w-xs text-sm text-muted-foreground">{description}</p>
+              <p className="max-w-xs text-sm text-muted-foreground">
+                {description}
+              </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <div className="w-10" /> {/* Placeholder for alignment */}
+        <button
+          onClick={toggleNotesSlider}
+          className="flex items-center justify-center p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+          title="Project Notes"
+        >
+          <FileText size={24} />
+        </button>
+        {/* Placeholder for alignment */}
       </div>
 
       {/* Sticky editor */}
@@ -127,6 +168,35 @@ export default function ChatView() {
           onSend={handleSendMessage}
         />
       </div>
+      {notesOpen && (
+        <div className="fixed top-0 right-0 w-96 h-full bg-white dark:bg-gray-800 shadow-xl z-50 flex flex-col">
+          <div className="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold">Project Notes</h2>
+            <button
+              onClick={() => setNotesOpen(false)}
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {loadingNotes && (
+              <div className="text-sm text-gray-500">Loading...</div>
+            )}
+            {!loadingNotes && projectNotes.length === 0 && (
+              <div className="text-sm text-gray-400">No notes yet.</div>
+            )}
+            {projectNotes.map((note, idx) => (
+              <div
+                key={idx}
+                className="p-2 border rounded-md bg-gray-50 dark:bg-gray-900"
+              >
+                {note.content}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Full view modal */}
       {fullViewImage && (

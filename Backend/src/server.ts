@@ -16,6 +16,7 @@ import path from "path";
 import taskHistoryRoutes from "./routes/taskHistory.routes"; // ✅ NEW
 import prisma from "./prisma/client";
 import fileUploadRoutes from "./routes/fileUploadRoutes";
+import notesRoutes from "./routes/notesRoutes";
 import './scheduler/metrics.scheduler.cron';
 
 dotenv.config();
@@ -46,6 +47,10 @@ app.use("/api/users", userRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
+
+// Notes
+app.use("/notes", notesRoutes);
+
 // Serve static files from uploads directory
 app.use("/uploads", fileRoutes);
 app.use("/metrics", metricsRoutes);
