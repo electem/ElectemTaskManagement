@@ -10,7 +10,7 @@ export const addNote = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "projectId and message are required" });
     }
 
-    const noteObject = { content: String(message) };
+   const noteObject = message;
 
     const result = await prisma.$transaction(async (tx) => {
       // Find existing notes row

@@ -637,23 +637,25 @@ function stripPrefixClient(full = "") {
 async function handleNotes(path) {
   try {
     const threadIndex = path[0];
-    let content = threads[threadIndex]?.content;
-    if (!content) {
+    let thread = threads[threadIndex];
+
+    // handle nested reply case
+    if (path.length > 1) {
+      thread = getReplyByPath(threads[threadIndex], path.slice(1));
+    }
+
+    if (!thread) {
       toast.error("No content for selected thread");
       return;
     }
 
-    // handle nested reply case
-    if (path.length > 1) {
-      const reply = getReplyByPath(threads[threadIndex], path.slice(1));
-      if (reply) content = reply.content;
-    }
+    // Recursively map replies
+    const mapThreadForNote = (t) => ({
+      content: t.content,
+      replies: t.replies && t.replies.length > 0 ? t.replies.map(mapThreadForNote) : [],
+    });
 
-    // ✅ no need to strip SUR prefix for storage
-    if (!content.trim()) {
-      toast.error("Note text is empty");
-      return;
-    }
+    const messageForNote = mapThreadForNote(thread);
 
     const currentTask = tasks.find((t) => t.id === taskId);
     const projectId = currentTask?.projectId;
@@ -663,7 +665,7 @@ async function handleNotes(path) {
       return;
     }
 
-    const payload = { projectId, message: content };
+    const payload = { projectId, message: messageForNote };
 
     const res = await api.post("/notes/addnotes", payload);
 
@@ -681,6 +683,7 @@ async function handleNotes(path) {
     toast.error("Failed to add note");
   }
 }
+
 
   function toggleCollapse(id) {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
