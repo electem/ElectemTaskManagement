@@ -383,7 +383,7 @@ const handleCopyTask = async (task: Task) => {
                           {/* Description cell - truncated to 20 characters */}
                           <TableCell title={task.description}>
                             {truncateText(task.description, 20)}
-                          </TableCell>
+                          </TableCell> 
                           <TableCell
                             className="cursor-pointer hover:underline text-blue-600"
                             onClick={() => {
