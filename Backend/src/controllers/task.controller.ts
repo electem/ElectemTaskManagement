@@ -5,15 +5,37 @@ import { Task } from "@prisma/client";
 // ✅ Get all tasks (optionally filter by project)
 export const getTasks = async (req: Request, res: Response) => {
   try {
-    const projectId = req.query.projectId ? Number(req.query.projectId) : undefined;
+    const { project, owner, status, projectId } = req.query;
 
+    // Build filters dynamically
+    const filters: any = {};
+
+    // ✅ Handle projectId safely
+    if (projectId && projectId !== "undefined" && projectId !== "null" && !isNaN(Number(projectId))) {
+      filters.projectId = Number(projectId);
+    }
+
+    // ✅ Only add project filter if it's not "all"
+    if (project && project !== "all") {
+      filters.project = String(project);
+    }
+
+    if (owner && owner !== "all") {
+      filters.owner = String(owner);
+    }
+
+    if (status && status !== "all") {
+      filters.status = String(status);
+    }
+
+    // Fetch tasks with filters + optimized sorting
     const tasks = await prisma.task.findMany({
-      where: projectId ? { projectId } : {},
-      include: { projectRel: true },
+      where: filters,
+      include: { projectRel: true }, // Include project relation
       orderBy: [
-        { owner: "asc" },       // 1️⃣ Owner alphabetically A–Z
-        { dueDate: "asc" },     // 2️⃣ Older dueDate first
-        { status: "asc" },      // 3️⃣ Just normal alphabetical order (optional)
+        { updatedAt: "desc" }, // newest updates first
+        { dueDate: "asc" },    // earlier due dates first
+        { owner: "asc" },      // alphabetical owner
       ],
     });
 
@@ -23,6 +45,7 @@ export const getTasks = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to fetch tasks" });
   }
 };
+
 
 
 

@@ -84,28 +84,42 @@ const truncateText = (text: string, maxLength: number) => {
 const TaskManagement = () => {
   const navigate = useNavigate();
   // 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
-  const { tasks: contextTasks, addTask, closeTask, unreadCounts, markTaskAsRead, fetchTasks, searchTasks } = useTaskContext();
+  const { tasks: contextTasks, addTask, closeTask, unreadCounts, markTaskAsRead, fetchTasks, searchTasks,setFilters } = useTaskContext();
   const [historyModalTask, setHistoryModalTask] = useState<number | null>(null);
   const [historyColumn, setHistoryColumn] = useState<
     "owner" | "dueDate" | "status"
   >("owner");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
-  const [ownerFilter, setOwnerFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [copyingTaskId, setCopyingTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [projectFilter, setProjectFilter] = useState("all");
+const [ownerFilter, setOwnerFilter] = useState("all");
+const [statusFilter, setStatusFilter] = useState("all");
+
+
+  
   const { projects, fetchProjects } = useProjectContext();
   
   const username = localStorage.getItem("username");
 
- useEffect(() => {
-  const init = async () => {
-    await fetchTasks();
+useEffect(() => {
+  const loadTasks = async () => {
+    setLoading(true);
+
+    // Build filters to send to fetchTasks
+    const activeFilters = {
+      project: projectFilter || "all",
+      owner: ownerFilter || "all",
+      status: statusFilter || "all",
+    };
+
+    await fetchTasks(activeFilters); // fetchTasks accepts filters param
     setLoading(false);
   };
-  init();
-}, []);
+
+  loadTasks();
+}, [projectFilter, ownerFilter, statusFilter, fetchTasks]);
+
 
 
   useEffect(() => {
@@ -150,11 +164,6 @@ useEffect(() => {
       return false;
     }
   }
-   if (( projectFilter !== "INTERNAL" && task.project==="INTERNAL"))return false;
-    if (projectFilter !== "all"  && task.project !== projectFilter) return false;
-    if (ownerFilter !== "all" && task.owner !== ownerFilter) return false;
-    if (statusFilter !== "all" && task.status !== statusFilter) return false;
-
     //  Show task if user is either the owner OR a member
     const isOwner = task.owner === username;
     const isMember = task.members.includes(username);
@@ -281,7 +290,7 @@ const handleCopyTask = async (task: Task) => {
                     className=" pl-10 pr-4 w-[300px]"
                   />
                 </div>
-                <Select value={projectFilter} onValueChange={setProjectFilter}>
+               <Select value={projectFilter} onValueChange={setProjectFilter}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Projects" />
                   </SelectTrigger>
@@ -296,6 +305,7 @@ const handleCopyTask = async (task: Task) => {
                 </Select>
 
                 <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Owners" />
                   </SelectTrigger>
@@ -310,6 +320,7 @@ const handleCopyTask = async (task: Task) => {
                 </Select>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Status" />
                   </SelectTrigger>
