@@ -8,6 +8,7 @@ import { useTaskHistory } from "@/context/TaskHistoryContext.tsx";
 import { FileText, X } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import MsgBox from "./MsgBox.tsx";
 
 interface Message {
   id: number;
@@ -119,24 +120,34 @@ function toggleNotesSlider() {
   setNotesOpen(prev => !prev);
 }
 function NoteItem({ note }: { note: { content: string; replies?: any[] } }) {
-  return (
-    <div className="pl-2 border-l ml-2 space-y-1">
-      <div
-        className="p-2 border rounded-md bg-gray-50 dark:bg-gray-900"
-        dangerouslySetInnerHTML={{ __html: note.content }}
-      />
-      {note.replies && note.replies.length > 0 && (
-        <div className="ml-4 space-y-1">
-          {note.replies.map((r, idx) => (
-            <NoteItem key={idx} note={r} />
-          ))}
-        </div>
-      )}
+  // MessageContent renderer
+  const MessageContent = ({ htmlContent }: { htmlContent: string }) => (
+    <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+  );
+
+  const renderReplies = (replies: any[], path: number[], level: number) => (
+    <div className="ml-4">
+      {replies.map((reply, idx) => (
+        <NoteItem key={idx} note={reply} />
+      ))}
     </div>
   );
+
+  return (
+    <MsgBox
+      thread={note}
+      threadPath={[0]}       
+      threadId={"note"}
+      onReply={() => {}}     
+      onEdit={() => {}}
+      onAddNote={() => {}}
+      onCreateTask={() => {}}
+      renderReplies={renderReplies}
+      MessageContent={MessageContent}
+      showActions={false}    // ✅ hides buttons
+    />
+  );
 }
-
-
 
 
   return (

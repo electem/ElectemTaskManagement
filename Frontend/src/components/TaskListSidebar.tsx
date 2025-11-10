@@ -299,9 +299,8 @@ const sortedTasks = tasks;
     (task) =>
       (task.members.includes(username) || task.owner.includes(username)) &&
       !["Cancelled", "Completed"].includes(task.status) &&
-      !task.projectRel.name.toLowerCase().startsWith("int") // ✅ use projectRel.name
+      !(task.projectRel?.name?.toLowerCase().startsWith("int"))// ✅ use projectRel.name
   );
-
 
 
 
