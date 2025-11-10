@@ -5,71 +5,39 @@ import { Task } from "@prisma/client";
 // ✅ Get all tasks (optionally filter by project)
 export const getTasks = async (req: Request, res: Response) => {
   try {
-    const { project, owner, status, projectId, currentUser } = req.query;
+    const { project, owner, status, projectId } = req.query;
 
-    const whereClauses: string[] = [];
-    const params: any[] = [];
+    // Build filters dynamically
+    const filters: any = {};
 
-    // ✅ Dynamic filters
+    // ✅ Handle projectId safely
     if (projectId && projectId !== "undefined" && projectId !== "null" && !isNaN(Number(projectId))) {
-      params.push(Number(projectId));
-      whereClauses.push(`"projectId" = $${params.length}`);
+      filters.projectId = Number(projectId);
     }
 
+    // ✅ Only add project filter if it's not "all"
     if (project && project !== "all") {
-      params.push(String(project));
-      whereClauses.push(`"project" = $${params.length}`);
+      filters.project = String(project);
     }
 
     if (owner && owner !== "all") {
-      params.push(String(owner));
-      whereClauses.push(`"owner" = $${params.length}`);
+      filters.owner = String(owner);
     }
 
     if (status && status !== "all") {
-      params.push(String(status));
-      whereClauses.push(`"status" = $${params.length}`);
+      filters.status = String(status);
     }
 
-    const whereSQL = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
-
-    // ✅ Add current user param for CASE sorting
-    params.push(String(currentUser || ""));
-
-    // ✅ Custom status order array
-    const statusOrder = [
-      "Pending",
-      "In Progress",
-      "Tested",
-      "Reviewed",
-      "Bug",
-      "Changes Requested",
-      "On Hold",
-      "Paused",
-      "Reviewed by Vinod",
-      "Needs Validation",
-      "Completed",
-      "Cancelled",
-      "Draft"
-    ];
-
-    // Generate CASE WHEN for status ordering
-    const statusCaseSQL = statusOrder
-      .map((s, i) => `WHEN "status" = '${s}' THEN ${i}`)
-      .join(" ");
-
-    // ✅ Final SQL query
-    const query = `
-      SELECT * FROM "Task"
-      ${whereSQL}
-      ORDER BY
-        CASE WHEN LOWER("owner") = LOWER($${params.length}) THEN 0 ELSE 1 END,  -- Logged-in user first
-        "owner" ASC,                                                            -- Then alphabetical by owner
-        "dueDate" ASC,                                                          -- Then earliest due first
-        CASE ${statusCaseSQL} ELSE ${statusOrder.length} END                    -- Custom status order
-    `;
-
-    const tasks = await prisma.$queryRawUnsafe<any[]>(query, ...params);
+    // Fetch tasks with filters + optimized sorting
+    const tasks = await prisma.task.findMany({
+      where: filters,
+      include: { projectRel: true }, // Include project relation
+       orderBy: [
+        { owner: "asc" },     // Owner A–Z
+        { dueDate: "asc" },   // Earlier due dates first
+        { status: "asc" },    // Status alphabetical
+      ],
+    });
 
     res.json(tasks);
   } catch (error) {
@@ -77,6 +45,8 @@ export const getTasks = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to fetch tasks" });
   }
 };
+
+
 
 
 

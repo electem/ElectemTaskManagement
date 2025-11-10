@@ -388,8 +388,6 @@ const TaskForm = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, dueDate: e.target.value })
                   }
-                  disabled={isEditMode}
-                  className={isEditMode ? "cursor-not-allowed opacity-70" : ""}
                 />
               </div>
             </div>

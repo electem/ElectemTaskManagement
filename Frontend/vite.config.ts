@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:5000", // backend URL
+        target: "https://iot.electems.com/task/api", // backend URL
 
         changeOrigin: true,
         secure: false,
