@@ -118,6 +118,25 @@ function toggleNotesSlider() {
   if (!notesOpen) fetchProjectNotes(); // fetch when opening
   setNotesOpen(prev => !prev);
 }
+function NoteItem({ note }: { note: { content: string; replies?: any[] } }) {
+  return (
+    <div className="pl-2 border-l ml-2 space-y-1">
+      <div
+        className="p-2 border rounded-md bg-gray-50 dark:bg-gray-900"
+        dangerouslySetInnerHTML={{ __html: note.content }}
+      />
+      {note.replies && note.replies.length > 0 && (
+        <div className="ml-4 space-y-1">
+          {note.replies.map((r, idx) => (
+            <NoteItem key={idx} note={r} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 
   return (
@@ -191,7 +210,7 @@ function toggleNotesSlider() {
                 key={idx}
                 className="p-2 border rounded-md bg-gray-50 dark:bg-gray-900"
               >
-                {note.content}
+                 <NoteItem key={idx} note={note} />
               </div>
             ))}
           </div>

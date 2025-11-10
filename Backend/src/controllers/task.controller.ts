@@ -5,19 +5,50 @@ import { Task } from "@prisma/client";
 // ✅ Get all tasks (optionally filter by project)
 export const getTasks = async (req: Request, res: Response) => {
   try {
-    const projectId = req.query.projectId ? Number(req.query.projectId) : undefined;
+    const { project, owner, status, projectId } = req.query;
 
+    // Build filters dynamically
+    const filters: any = {};
+
+    // ✅ Handle projectId safely
+    if (projectId && projectId !== "undefined" && projectId !== "null" && !isNaN(Number(projectId))) {
+      filters.projectId = Number(projectId);
+    }
+
+    // ✅ Only add project filter if it's not "all"
+    if (project && project !== "all") {
+      filters.project = String(project);
+    }
+
+    if (owner && owner !== "all") {
+      filters.owner = String(owner);
+    }
+
+    if (status && status !== "all") {
+      filters.status = String(status);
+    }
+
+    // Fetch tasks with filters + optimized sorting
     const tasks = await prisma.task.findMany({
-      where: projectId ? { projectId } : {},
-      include: { projectRel: true },
+      where: filters,
+      include: { projectRel: true }, // Include project relation
+       orderBy: [
+        { owner: "asc" },     // Owner A–Z
+        { dueDate: "asc" },   // Earlier due dates first
+        { status: "asc" },    // Status alphabetical
+      ],
     });
 
     res.json(tasks);
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching tasks:", error);
     res.status(500).json({ error: "Failed to fetch tasks" });
   }
 };
+
+
+
+
 
 // ✅ Create a task
 export const createTask = async (req: Request, res: Response) => {

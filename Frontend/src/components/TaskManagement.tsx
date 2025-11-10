@@ -22,7 +22,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Edit2, MessageCircle,Copy,Search } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { TaskDTO, getTasks, deleteTask,searchTasks } from "@/services/taskService";
 import { useProjectContext } from "@/context/ProjectContext";
 import { Input } from "@/components/ui/input"; // make sure it's already imported
 import { TaskHistoryModal } from "./TaskHistoryModal";
@@ -85,69 +84,74 @@ const truncateText = (text: string, maxLength: number) => {
 const TaskManagement = () => {
   const navigate = useNavigate();
   // 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
-  const {
-    tasks: contextTasks,
-    addTask,
-    closeTask,
-    unreadCounts,
-    markTaskAsRead,
-  } = useTaskContext();
+  const { tasks: contextTasks, addTask, closeTask, unreadCounts, markTaskAsRead, fetchTasks, searchTasks,setFilters } = useTaskContext();
   const [historyModalTask, setHistoryModalTask] = useState<number | null>(null);
   const [historyColumn, setHistoryColumn] = useState<
     "owner" | "dueDate" | "status"
   >("owner");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
-  const [ownerFilter, setOwnerFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [fetchedTasks, setFetchedTasks] = useState<TaskDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [copyingTaskId, setCopyingTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [projectFilter, setProjectFilter] = useState("all");
+const [ownerFilter, setOwnerFilter] = useState("all");
+const [statusFilter, setStatusFilter] = useState("all");
+
+
+  
   const { projects, fetchProjects } = useProjectContext();
   
   const username = localStorage.getItem("username");
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const data = await getTasks();
-        setFetchedTasks(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+useEffect(() => {
+  const loadTasks = async () => {
+    setLoading(true);
+
+    // Build filters to send to fetchTasks
+    const activeFilters = {
+      project: projectFilter || "all",
+      owner: ownerFilter || "all",
+      status: statusFilter || "all",
     };
 
-    fetchTasks();
-  }, []);
+    await fetchTasks(activeFilters); // fetchTasks accepts filters param
+    setLoading(false);
+  };
+
+  loadTasks();
+}, [projectFilter, ownerFilter, statusFilter, fetchTasks]);
+
+
 
   useEffect(() => {
     fetchProjects();
   }, []);
 
-  useEffect(() => {
+ const [displayTasks, setDisplayTasks] = useState<TaskDTO[]>([]);
+
+useEffect(() => {
+  setDisplayTasks(contextTasks);
+}, [contextTasks]);
+
+useEffect(() => {
   const delayDebounce = setTimeout(async () => {
     if (!searchQuery.trim()) {
-      // reload all tasks if search cleared
-      const data = await getTasks();
-      setFetchedTasks(data); // ✅ FIXED
+      setDisplayTasks(contextTasks);
       return;
     }
-
     const results = await searchTasks(searchQuery);
-    setFetchedTasks(results); // ✅ FIXED
+    setDisplayTasks(results);
   }, 400);
 
   return () => clearTimeout(delayDebounce);
-}, [searchQuery]);
+}, [searchQuery, contextTasks]);
+
 
 
   // Get unique owners dynamically from fetched tasks
-  const owners = Array.from(new Set(fetchedTasks.map((task) => task.owner)));
+  const owners = Array.from(new Set(contextTasks.map((task) => task.owner)));
 
   // Filter tasks
-  const filteredTasks = fetchedTasks.filter((task) => {
+  const filteredTasks = displayTasks.filter((task) => {
     // Note: The logic below seems to be designed to exclude 'Completed' tasks unless the filter is explicitly set to 'Completed'
     const isSearching = searchQuery.trim().length > 0;
 
@@ -160,11 +164,6 @@ const TaskManagement = () => {
       return false;
     }
   }
-   if (( projectFilter !== "INTERNAL" && task.project==="INTERNAL"))return false;
-    if (projectFilter !== "all"  && task.project !== projectFilter) return false;
-    if (ownerFilter !== "all" && task.owner !== ownerFilter) return false;
-    if (statusFilter !== "all" && task.status !== statusFilter) return false;
-
     //  Show task if user is either the owner OR a member
     const isOwner = task.owner === username;
     const isMember = task.members.includes(username);
@@ -291,7 +290,7 @@ const handleCopyTask = async (task: Task) => {
                     className=" pl-10 pr-4 w-[300px]"
                   />
                 </div>
-                <Select value={projectFilter} onValueChange={setProjectFilter}>
+               <Select value={projectFilter} onValueChange={setProjectFilter}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Projects" />
                   </SelectTrigger>
@@ -306,6 +305,7 @@ const handleCopyTask = async (task: Task) => {
                 </Select>
 
                 <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Owners" />
                   </SelectTrigger>
@@ -320,6 +320,7 @@ const handleCopyTask = async (task: Task) => {
                 </Select>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Status" />
                   </SelectTrigger>
@@ -355,34 +356,6 @@ const handleCopyTask = async (task: Task) => {
                 </TableHeader>
                 <TableBody>
                   {[...filteredTasks]
-                    .sort((a, b) => {
-                      const statusOrder = [
-                        "In Progress",
-                        "Pending",
-                        "Tested",
-                        "Reviewed",
-                        "Partially Clear",
-                        "Paused",
-                        "Bug",
-                        "On Hold",
-                        "Cancelled",
-                        "Draft",
-                        "Completed",
-                        "Needs Validation",
-                        "Reviewed by Vinod",
-                        "Changes Requested",
-                      ];
-
-                      const aIndex = statusOrder.indexOf(a.status);
-                      const bIndex = statusOrder.indexOf(b.status);
-
-                      // If both statuses not found in the list, keep original order
-                      if (aIndex === -1 && bIndex === -1) return 0;
-                      if (aIndex === -1) return 1;
-                      if (bIndex === -1) return -1;
-
-                      return aIndex - bIndex;
-                    })
                     .map((task) => {
                       const taskIdStr = task.id.toString();
                       // 🎯 GET UNREAD COUNT
@@ -419,9 +392,9 @@ const handleCopyTask = async (task: Task) => {
                           </TableCell>
 
                           {/* Description cell - truncated to 20 characters */}
-                          <TableCell title={task.description}>
+                          <TableCell title={task.description}> 
                             {truncateText(task.description, 20)}
-                          </TableCell>
+                          </TableCell> 
                           <TableCell
                             className="cursor-pointer hover:underline text-blue-600"
                             onClick={() => {
