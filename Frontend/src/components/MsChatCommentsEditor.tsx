@@ -569,7 +569,7 @@ export default function MsChatCommentsEditor({
   // create task using task icon
 async function handleCreateTask(path) {
   try {
-    // Get the thread content from path
+    // 1️⃣ Get the thread content from the selected message
     const threadIndex = path[0];
     let content = threads[threadIndex]?.content;
 
@@ -583,27 +583,25 @@ async function handleCreateTask(path) {
       return;
     }
 
-    // Strip username/timestamp prefix and remove HTML tags
+    // 2️⃣ Strip prefix and HTML tags for task title/description
     let fullText = stripPrefixClient(content);
-    fullText = fullText.replace(/<[^>]*>/g, "").trim(); // remove HTML
-
-    // Split lines for title/description logic
+    fullText = fullText.replace(/<[^>]*>/g, "").trim();
     const lines = fullText.split("\n").map(line => line.trim()).filter(line => line);
     const title = lines[0]?.slice(0, 50) || "New Task";
     const description = lines.length > 1 ? lines.slice(1).join("\n") : "";
 
-    // Get current task details
-    const currentTask = tasks.find((t) => t.id === taskId);
+    // 3️⃣ Get current task details
+    const currentTask = tasks.find(t => t.id === taskId);
     if (!currentTask) {
       toast.error("Current task not found");
       return;
     }
 
-    // Construct payload
-    const newTaskPayload = {
+    // 4️⃣ Prepare payload for task creation
+    const newTaskPayload: any = {
       projectId: currentTask.projectId,
-      project: currentTask.project, // Required for Prisma
-      owner: currentTask.owner,
+      project: currentTask.project.toString(),
+      owner: currentTask.owner.toString(),
       status: currentTask.status,
       members: currentTask.members,
       title,
@@ -613,10 +611,28 @@ async function handleCreateTask(path) {
       dependentTaskId: [currentTask.id],
     };
 
+    // 5️⃣ Prepare first message for the new task (send only for this click)
+    const fullUsername = localStorage.getItem("username") || "---";
+    const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
+    const strippedContent = content.replace(/^[A-Z]{2,4}\(\d{2}\/\d{2} \d{2}:\d{2}\):\s*/, "");
+    const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${strippedContent}`;
+    const firstMessageThread = [{ content: finalInnerHTML, replies: [] }];
+
+    // 6️⃣ Pass initialMessage only for this click
+    newTaskPayload.initialMessage = firstMessageThread;
+    newTaskPayload.currentUser = fullUsername; 
+
+    // 7️⃣ Call createTask API — backend will insert the message only if initialMessage exists
     const res = await api.post("/tasks", newTaskPayload);
 
-    if (res.data) {
-      toast.success("Task created successfully");
+    if (res.data?.id) {
+      toast.success("Task created successfully and message added to conversation");
     } else {
       toast.error("Failed to create task");
     }
