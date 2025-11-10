@@ -177,8 +177,7 @@ const TaskDetailComponent: React.FC<TaskDetailProps> = ({ task, onUpdate }) => {
           <input
             type="date"
             value={localDueDate ? localDueDate.split("T")[0] : ""}
-            onChange={handleDueDateChange}
-            disabled={isUpdating}
+           readOnly
             className="text-xs p-1 rounded border border-gray-300 dark:border-gray-600 bg-transparent"
           />
         </div>
@@ -299,9 +298,8 @@ const sortedTasks = tasks;
     (task) =>
       (task.members.includes(username) || task.owner.includes(username)) &&
       !["Cancelled", "Completed"].includes(task.status) &&
-      !task.projectRel.name.toLowerCase().startsWith("int") // ✅ use projectRel.name
+      !(task.projectRel?.name?.toLowerCase().startsWith("int"))// ✅ use projectRel.name
   );
-
 
 
 

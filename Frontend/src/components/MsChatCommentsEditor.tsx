@@ -11,6 +11,7 @@ import { useUsers } from "@/hooks/useUsers";
 import { useTaskContext } from "@/context/TaskContext";
 import { toast } from "sonner";
 import linkifyHtml from 'linkify-html';
+import MsgBox from "./MsgBox";
 
 
 interface Props {
@@ -609,7 +610,7 @@ async function handleCreateTask(path) {
       description,
       dueDate: currentTask.dueDate || null,
       url: currentTask.url || "",
-      dependentTaskId: [],
+      dependentTaskId: [currentTask.id],
     };
 
     const res = await api.post("/tasks", newTaskPayload);
@@ -801,61 +802,17 @@ async function handleNotes(path) {
               return (
                 <div key={threadId} className="relative mb-3">
                   {/* Message Box with rounded border */}
-                  <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-lg">
-                    {/* Floating Header Box */}
-                    <div className="absolute -top-3 -left-2 bg-white border border-gray-300 px-3 flex rounded-md items-center gap-2 text-xs shadow-sm">
-                      <span className="font-semibold text-blue-600">
-                        {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
-                      </span>
-                      <span className="text-gray-500 text-[11px]">
-                        {thread.content.match(
-                          /\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/
-                        )?.[1] || "--:--"}
-                      </span>
-
-                      <div className="flex gap-4 ml-2">
-                        <button
-                          className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
-                          onClick={() => handleSend(index)}
-                          title="Reply"
-                        >
-                          ↩
-                        </button>
-                        <button
-                          className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
-                          onClick={() => handleEdit(threadPath)}
-                          title="Edit"
-                        >
-                          ✎
-                        </button>
-                        <button
-                          className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md hover:bg-blue-50"
-                          onClick={() => handleNotes(threadPath)}
-                          title="Add Note"
-                        >
-                          <FileText size={17} />
-                        </button>
-                        <button
-  className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md hover:bg-blue-50"
-  onClick={() => handleCreateTask(threadPath)}
-  title="Create Task"
->
-  🗒️ {/* You can replace with <X size={17} /> or any Lucide icon */}
-</button>
-
-                      </div>
-                    </div>
-
-                    {/* Actual Message Content */}
-                    <div className="mt-3">
-                      <MessageContent htmlContent={thread.content} />
-                    </div>
-
-                    {/* Replies */}
-                    {thread.replies &&
-                      thread.replies.length > 0 &&
-                      renderReplies(thread.replies, threadPath, 1, threadId)}
-                  </div>
+                  <MsgBox
+                    thread={thread}
+                    threadPath={threadPath}
+                    threadId={threadId}
+                    onReply={handleSend}
+                    onEdit={handleEdit}
+                    onAddNote={handleNotes}
+                    onCreateTask={handleCreateTask}
+                    renderReplies={renderReplies}
+                    MessageContent={MessageContent}
+                  />
                 </div>
               );
             })
