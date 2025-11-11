@@ -81,7 +81,7 @@ const MsgBox: React.FC<MsgBoxProps> = ({
     </div>
   )}
 
-  {/* Message Body */}
+  {/* Message Body  */}
   <div className="mt-3">
     <MessageContent htmlContent={cleanedContent} />
   </div>
