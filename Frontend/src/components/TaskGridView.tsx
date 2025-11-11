@@ -28,6 +28,20 @@ export interface Task {
   dueDate?: string;
   status: string;
 }
+interface ConversationMessage {
+  content?: string;
+  text?: string;
+  createdAt?: string;
+  timestamp?: string; // <-- add this
+}
+
+interface BulkMessage {
+  taskId: number;
+  updatedAt: string;
+  conversation?: ConversationMessage[];
+}
+
+
 
 const TaskGridView = () => {
   const navigate = useNavigate();
@@ -41,7 +55,7 @@ const [tasks, setTasks] = useState<Task[]>([]);
   const [projectFilter, setProjectFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [bulkMessages, setBulkMessages] = useState<any[]>([]);
+  const [bulkMessages, setBulkMessages] = useState<BulkMessage[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const username = localStorage.getItem("username");
 
@@ -97,11 +111,12 @@ useEffect(() => {
       const results: Record<number, string[]> = {};
       const messageTimes: Record<number, number> = {};
 
-      data.forEach((msg: any) => {
+      data.forEach((msg: BulkMessage) => {
+
         const convo = msg.conversation || [];
 
         // take last 2 messages from conversation
-        const lastTwo = convo.slice(-2).map((m: any) => {
+        const lastTwo = convo.slice(-2).map((m: string | ConversationMessage) => {
           const raw = typeof m === "string" ? m : m?.content || m?.text || "";
 
           // ✅ Extract sender, timestamp, and message text cleanly

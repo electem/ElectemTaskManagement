@@ -12,6 +12,12 @@ export interface Message {
   media?: string[];
   replies?: Message[]; // ✅ Add this
 }
+interface RawMessage {
+  content: string;
+  replies?: RawMessage[];
+  [key: string]: unknown; // optional extra fields
+}
+
 
 interface ConversationContextType {
   conversations: Record<number, Message[]>; // key = taskId
@@ -24,7 +30,7 @@ const ConversationContext = createContext<ConversationContextType | undefined>(u
 export const ConversationProvider = ({ children }: { children: ReactNode }) => {
   const [conversations, setConversations] = useState<Record<number, Message[]>>({});
 
-  function mapConversation(conversation: any[]): Message[] {
+  function mapConversation(conversation: RawMessage[]): Message[] {
     const currentUser = localStorage.getItem("username") || "";
   
     return conversation.map((item) => {

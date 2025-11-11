@@ -168,7 +168,7 @@ const TaskForm = () => {
       toast.error("Please fill in all required fields");
       return;
     }
-      const titleRegex = /^[a-zA-Z0-9\s\-_&()*{}\[\]'"']+$/;
+      const titleRegex = /^[a-zA-Z0-9\s\-_&()*{}\[\]'"]+$/;
 
     if (!titleRegex.test(formData.title)) {
       toast.error(

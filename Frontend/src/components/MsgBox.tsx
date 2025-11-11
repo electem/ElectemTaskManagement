@@ -1,8 +1,13 @@
 import React from "react";
 import { FileText } from "lucide-react";
 
+interface Thread {
+  content: string;
+  replies?: Thread[];
+}
+
 interface MsgBoxProps {
-  thread: any;
+  thread: Thread;
   threadPath: number[];
   threadId: string;
   onReply: (index: number) => void;
@@ -10,7 +15,7 @@ interface MsgBoxProps {
   onAddNote: (path: number[]) => void;
   onCreateTask: (path: number[]) => void;
   renderReplies: (
-    replies: any[],
+    replies: Thread[],
     path: number[],
     level: number,
     parentId: string
@@ -19,6 +24,8 @@ interface MsgBoxProps {
 
   showActions?: boolean;
 }
+
+
 
 const MsgBox: React.FC<MsgBoxProps> = ({
   thread,

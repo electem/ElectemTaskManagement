@@ -4,7 +4,6 @@ import { useConversationContext } from "@/context/ConversationProvider.tsx";
 import { useParams, useNavigate } from "react-router-dom"; // import useNavigate
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTaskContext } from "@/context/TaskContext";
-import { useTaskHistory } from "@/context/TaskHistoryContext.tsx";
 import { FileText, X } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -19,36 +18,37 @@ interface Message {
   edited?: boolean;
   media?: string[];
 }
+interface Note {
+  content: string;
+  replies?: Note[];
+}
+
 
 export default function ChatView() {
   const { taskId } = useParams<{ taskId: string }>();
   const { title } = useParams<{ title: string }>();
   const navigate = useNavigate(); // initialize navigate
-  if (!taskId) return <div>Task not found</div>;
   const taskIdNumber = Number(taskId);
   const description = localStorage.getItem("taskDescription");
   const [comment, setComment] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [fullViewImage, setFullViewImage] = useState<string | null>(null);
-  const { latestWsMessage,tasks  } = useTaskContext(); // Add this
-
+  const { latestWsMessage, tasks } = useTaskContext(); // Add this
   const [notesOpen, setNotesOpen] = useState(false);
-const [projectNotes, setProjectNotes] = useState<{ content: string }[]>([]);
-const [loadingNotes, setLoadingNotes] = useState(false);
-
-
+  const [projectNotes, setProjectNotes] = useState<{ content: string }[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
   const { conversations, fetchConversation, addMessage } =
     useConversationContext();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
- 
+
+
   useEffect(() => {
     fetchConversation(taskIdNumber);
-    localStorage.setItem("opendTaskId",taskIdNumber.toString());
+    localStorage.setItem("opendTaskId", taskIdNumber.toString());
     return () => {
       localStorage.removeItem("opendTaskId");
     };
   }, [taskIdNumber]);
-
 
   useEffect(() => {
     if (latestWsMessage && latestWsMessage.taskId === taskIdNumber) {
@@ -60,6 +60,9 @@ const [loadingNotes, setLoadingNotes] = useState(false);
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversations[taskIdNumber]]);
+
+    if (!taskId) return <div>Task not found</div>;
+
 
   const handleSendMessage = (text: string, mediaFiles?: File[]) => {
     const mediaUrls =
@@ -119,13 +122,13 @@ function toggleNotesSlider() {
   if (!notesOpen) fetchProjectNotes(); // fetch when opening
   setNotesOpen(prev => !prev);
 }
-function NoteItem({ note }: { note: { content: string; replies?: any[] } }) {
+function NoteItem({ note }: { note: Note }) {
   // MessageContent renderer
   const MessageContent = ({ htmlContent }: { htmlContent: string }) => (
     <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
   );
 
-  const renderReplies = (replies: any[], path: number[], level: number) => (
+ const renderReplies = (replies: Note[],) => (
     <div className="ml-4">
       {replies.map((reply, idx) => (
         <NoteItem key={idx} note={reply} />

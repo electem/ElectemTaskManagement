@@ -13,6 +13,11 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  function isAxiosError(
+    error: unknown
+  ): error is { response?: { data?: { message?: string } } } {
+    return typeof error === "object" && error !== null && "response" in error;
+  }
   const triggerWebSocketConnection = () => {
     window.dispatchEvent(new CustomEvent('userLoggedIn'));
   };
@@ -35,7 +40,7 @@ const Login = () => {
       const res = await api.post("/api/auth/users", { username });
 
       // Response contains token and username
-      const { token, username: returnedUsername,role } = res.data;
+      const { token, username: returnedUsername, role } = res.data;
 
       // Store token & username in localStorage
       localStorage.setItem("token", token);
@@ -49,11 +54,20 @@ const Login = () => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       navigate("/task");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+
+      let message = "Failed to login. Try again later.";
+
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (isAxiosError(err)) {
+        message = err.response?.data?.message || message;
+      }
+
       toast({
         title: "Login Failed",
-        description: err.response?.data?.message || "Failed to login. Try again later.",
+        description: message,
         variant: "destructive",
       });
     } finally {

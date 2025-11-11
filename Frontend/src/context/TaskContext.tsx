@@ -23,6 +23,17 @@ export interface Task {
   url?: string;
   dependentTaskId?: number[];
 }
+interface WsMessage {
+  taskId: string;
+  currentUser: string;
+  payload: Array<{ content?: string }>;
+}
+interface TaskFilters {
+  project?: string;
+  owner?: string;
+  status?: string;
+}
+
 
 interface UnreadData {
   count: number;
@@ -49,7 +60,7 @@ interface TaskContextType {
     mentionedUser?: string | null,
     senderUser?: string | null
   ) => void;
-  latestWsMessage: any;
+  latestWsMessage: WsMessage | null;
   registerRefreshHandler: (cb: () => void) => void;
   unregisterRefreshHandler: (cb: () => void) => void;
 
@@ -79,7 +90,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [unreadCounts, setUnreadCounts] = useState<Record<string, UnreadData>>({});
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [latestWsMessage, setLatestWsMessage] = useState<any>(null);
+  const [latestWsMessage, setLatestWsMessage] = useState<WsMessage | null>(null);
   const [filters, setFilters] = useState({
   project: "all",
   owner: "all",
@@ -89,7 +100,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
 
 
   const refreshHandlers = useRef<Set<() => void>>(new Set());
-  const pendingMessagesRef = useRef<any[]>([]);
+ const pendingMessagesRef = useRef<WsMessage[]>([]);
   const tasksLoadedRef = useRef(false);
   const connectionAttemptRef = useRef(false);
 
@@ -108,7 +119,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   // ==========================
   // 🧩 Fetch Tasks
   // ==========================
- const fetchTasks = useCallback(async (filters?: any) => {
+ const fetchTasks = useCallback(async (filters?: TaskFilters) => {
   try {
     const params = new URLSearchParams();
     params.append("project", filters?.project || "all");
@@ -203,7 +214,7 @@ const searchTasks = useCallback(async (query: string): Promise<Task[]> => {
   // ==========================
   // 🌍 WebSocket Message Processor
   // ==========================
-  const handleWebSocketMessage = async (response: any) => {
+  const handleWebSocketMessage = async (response: WsMessage) => {
     const { taskId, currentUser: senderName, payload } = response;
     const username = localStorage.getItem("username") || "";
     const filteredUsername = username.substring(0, 3).toLowerCase();

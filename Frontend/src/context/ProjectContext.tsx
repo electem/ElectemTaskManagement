@@ -2,12 +2,22 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { toast } from "sonner";
 import api from "@/lib/api"; // Axios instance with interceptor
 
+
+export interface Task {
+  id: number;
+  title: string;
+  description?: string;
+  status?: string;
+  dueDate?: string;
+  owner?: string;
+}
+
 export interface Project {
   id: number;
   name: string;
   description?: string;
   owner?: string;
-  tasks?: any[];
+  tasks?: Task[];
 }
 
 interface ProjectContextType {
