@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../prisma/client";
+import { broadcastUpdate } from "../server";
 import { Task } from "@prisma/client";
 
 // ✅ Get all tasks (optionally filter by project)
@@ -63,7 +64,9 @@ export const createTask = async (req: Request, res: Response) => {
       owner,
       members,
       url,
-      dependentTaskId, // <-- should be an array of numbers
+      dependentTaskId, // <-- array of numbers
+      initialMessage,  // optional first message
+      currentUser,     // optional for broadcasting
     } = req.body;
 
     // ✅ Wrap in a transaction
@@ -90,14 +93,25 @@ export const createTask = async (req: Request, res: Response) => {
       const existingNotes = await tx.notes.findUnique({
         where: { projectId },
       });
-
       if (!existingNotes) {
         await tx.notes.create({
+          data: { projectId, notes: [] },
+        });
+      }
+
+      // 3️⃣ Insert initial message if it exists
+      if (initialMessage && Array.isArray(initialMessage)) {
+        await tx.message.create({
           data: {
-            projectId,
-            notes: [], // default empty array
+            taskId: newTask.id,
+            conversation: initialMessage,
           },
         });
+
+        // Optional: broadcast to other users
+        if (currentUser) {
+          broadcastUpdate(initialMessage, newTask.id, currentUser);
+        }
       }
 
       return newTask;
@@ -109,6 +123,7 @@ export const createTask = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to create task" });
   }
 };
+
 
 
 // ✅ Update a task
