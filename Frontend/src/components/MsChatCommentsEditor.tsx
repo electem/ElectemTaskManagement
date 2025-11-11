@@ -568,79 +568,120 @@ export default function MsChatCommentsEditor({
 
   // create task using task icon
 async function handleCreateTask(path) {
-  try {
-    // 1️⃣ Get the thread content from the selected message
-    const threadIndex = path[0];
-    let content = threads[threadIndex]?.content;
+    try {
+      // 1️⃣ Get the thread content from the selected message
+      const threadIndex = path[0];
+      let content = threads[threadIndex]?.content;
 
-    if (path.length > 1) {
-      const reply = getReplyByPath(threads[threadIndex], path.slice(1));
-      if (reply) content = reply.content;
-    }
+      if (path.length > 1) {
+        const reply = getReplyByPath(threads[threadIndex], path.slice(1));
+        if (reply) content = reply.content;
+      }
 
-    if (!content || !content.trim()) {
-      toast.error("Cannot create task from empty content");
-      return;
-    }
+      if (!content || !content.trim()) {
+        toast.error("Cannot create task from empty content");
+        return;
+      }
 
-    // 2️⃣ Strip prefix and HTML tags for task title/description
-    let fullText = stripPrefixClient(content);
-    fullText = fullText.replace(/<[^>]*>/g, "").trim();
-    const lines = fullText.split("\n").map(line => line.trim()).filter(line => line);
-    const title = lines[0]?.slice(0, 50) || "New Task";
-    const description = lines.length > 1 ? lines.slice(1).join("\n") : "";
+      // 2️⃣ Strip prefix and HTML tags for task title/description
+      let fullText = stripPrefixClient(content);
+      fullText = fullText.replace(/<[^>]*>/g, "").trim();
+      const lines = fullText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line);
 
-    // 3️⃣ Get current task details
-    const currentTask = tasks.find(t => t.id === taskId);
-    if (!currentTask) {
-      toast.error("Current task not found");
-      return;
-    }
+      // Detect if the content contains a URL
+      const hasLink = /(https?:\/\/[^\s]+)/.test(fullText);
 
-    // 4️⃣ Prepare payload for task creation
-    const newTaskPayload: any = {
-      projectId: currentTask.projectId,
-      project: currentTask.project.toString(),
-      owner: currentTask.owner.toString(),
-      status: currentTask.status,
-      members: currentTask.members,
-      title,
-      description,
-      dueDate: currentTask.dueDate || null,
-      url: currentTask.url || "",
-      dependentTaskId: [currentTask.id],
-    };
+      let title = "";
+      let description = "";
 
-    // 5️⃣ Prepare first message for the new task (send only for this click)
-    const fullUsername = localStorage.getItem("username") || "---";
-    const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, "0");
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
-    const strippedContent = content.replace(/^[A-Z]{2,4}\(\d{2}\/\d{2} \d{2}:\d{2}\):\s*/, "");
-    const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${strippedContent}`;
-    const firstMessageThread = [{ content: finalInnerHTML, replies: [] }];
+      // If it contains a link: use second line as title (fall back to first if second missing)
+      // Otherwise: keep first line as title (existing behaviour)
+      if (hasLink) {
+        if (lines.length === 1) {
+          // only one line and it's a link → set hardcoded default name
+          title = "Shared Link Task";
+          description = lines[0];
+        } else {
+          // multiple lines with a link
+          title = lines[1]
+            ? lines[1].slice(0, 50)
+            : lines[0]?.slice(0, 50) || "New Task";
+          description = lines.length > 2 ? lines.slice(2).join("\n") : "";
+        }
+      } else {
+        title = lines[0]?.slice(0, 50) || "New Task";
+        description = lines.length > 1 ? lines.slice(1).join("\n") : "";
+      }
 
-    // 6️⃣ Pass initialMessage only for this click
-    newTaskPayload.initialMessage = firstMessageThread;
-    newTaskPayload.currentUser = fullUsername; 
+      // 3️⃣ Get current task details
+      const currentTask = tasks.find((t) => t.id === taskId);
+      if (!currentTask) {
+        toast.error("Current task not found");
+        return;
+      }
 
-    // 7️⃣ Call createTask API — backend will insert the message only if initialMessage exists
-    const res = await api.post("/tasks", newTaskPayload);
+      // 4️⃣ Prepare payload for task creation
+      const newTaskPayload: any = {
+        projectId: currentTask.projectId,
+        project: currentTask.project.toString(),
+        owner: currentTask.owner.toString(),
+        status: currentTask.status,
+        members: currentTask.members,
+        title,
+        description,
+        dueDate: currentTask.dueDate || null,
+        url: currentTask.url || "",
+        dependentTaskId: [currentTask.id],
+      };
 
-    if (res.data?.id) {
-      toast.success("Task created successfully and message added to conversation");
-    } else {
+      // 5️⃣ Prepare first message for the new task: use the entire selected thread (with replies)
+      let selectedThread = threads[threadIndex];
+      if (path.length > 1) {
+        selectedThread = getReplyByPath(threads[threadIndex], path.slice(1));
+      }
+
+      if (!selectedThread) {
+        toast.error("No valid message thread found");
+        return;
+      }
+
+      function mapThreadForMessage(thread) {
+        return {
+          content: thread.content,
+          replies:
+            thread.replies && thread.replies.length > 0
+              ? thread.replies.map(mapThreadForMessage)
+              : [],
+        };
+      }
+
+      const firstMessageThread = [mapThreadForMessage(selectedThread)];
+
+      // (keep username/currentUser usage below — no need to alter)
+
+      // 6️⃣ Pass initialMessage only for this click
+      const fullUsername = localStorage.getItem("username") || "---";
+      newTaskPayload.initialMessage = firstMessageThread;
+      newTaskPayload.currentUser = fullUsername;
+
+      // 7️⃣ Call createTask API — backend will insert the message only if initialMessage exists
+      const res = await api.post("/tasks", newTaskPayload);
+
+      if (res.data?.id) {
+        toast.success(
+          "Task created successfully and message added to conversation"
+        );
+      } else {
+        toast.error("Failed to create task");
+      }
+    } catch (err) {
+      console.error("handleCreateTask error:", err);
       toast.error("Failed to create task");
     }
-  } catch (err) {
-    console.error("handleCreateTask error:", err);
-    toast.error("Failed to create task");
   }
-}
 
 
 
