@@ -30,8 +30,9 @@ const MsgBox: React.FC<MsgBoxProps> = ({
   onCreateTask,
   renderReplies,
   MessageContent,
-  showActions = true, 
+  showActions = true,
 }) => {
+  const cleanedContent = thread.content.replace(/^(?:\(\):\s*)+/g, "");
   return (
    <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-lg">
 
@@ -39,10 +40,10 @@ const MsgBox: React.FC<MsgBoxProps> = ({
   {threadPath.length === 1 && (
     <div className="absolute -top-3 -left-2 bg-white border border-gray-300 px-3 flex rounded-md items-center gap-2 text-xs shadow-sm">
       <span className="font-semibold text-blue-600">
-        {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
+      {cleanedContent.match(/(?:\(\):\s*)*([A-Za-z]+)\(/)?.[1] || "USR"}
       </span>
       <span className="text-gray-500 text-[11px]">
-        {thread.content.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
+        {cleanedContent.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
       </span>
 
       {showActions && (
@@ -82,7 +83,7 @@ const MsgBox: React.FC<MsgBoxProps> = ({
 
   {/* Message Body */}
   <div className="mt-3">
-    <MessageContent htmlContent={thread.content} />
+    <MessageContent htmlContent={cleanedContent} />
   </div>
 
   {/* Replies */}
