@@ -13,7 +13,7 @@ model User {
   email     String   @unique
   role      String
   createdAt DateTime @default(now())
-  lastLogin  DateTime @default(now())
+  lastLogin DateTime @default(now())
 }
 
 model Project {
@@ -21,6 +21,7 @@ model Project {
   name        String   @unique
   description String   @default("No description provided")
   tasks       Task[]   @relation("ProjectTasks") // One-to-many relation
+  notes       Notes? // one-to-one relation (optional if not yet created)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -32,76 +33,88 @@ model Task {
   dueDate     DateTime?
   status      String    @default("Pending")
 
-  projectId   Int
-  project     String    // Project name
+  projectId Int
+  project   String // Project name
 
-  owner       String
-  members     String[]  // store member names as array
+  owner   String
+  members String[] // store member names as array
 
-  url             String?   // 👈 NEW: optional URL field
+  url String? // 👈 NEW: optional URL field
 
   dependentTaskId Int[]    @default([])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relation to Project
-  projectRel  Project   @relation("ProjectTasks", fields: [projectId], references: [id])
+  projectRel Project @relation("ProjectTasks", fields: [projectId], references: [id])
 
   // 👇 Relation to messages
-  messages    Message[]
+  messages Message[]
 
   // Task TaskHistory
-  histories   TaskChangeHistory[]   // 👈 relation to TaskHistory
+  histories     TaskChangeHistory[] // 👈 relation to TaskHistory
   uploadedFiles UploadedFile[]
-
 }
 
 model Message {
-  id              Int       @id @default(autoincrement())
-  taskId          Int       // Foreign key to Task
-  conversation    Json      // All messages stored as JSON array
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id           Int      @id @default(autoincrement())
+  taskId       Int // Foreign key to Task
+  conversation Json // All messages stored as JSON array
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // 👇 Relation to Task
-  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@unique([taskId]) // One conversation per task
 }
 
+model Notes {
+  id        Int      @id @default(autoincrement())
+  projectId Int      @unique // one-to-one: one Notes per Project
+  notes     Json // store all notes as JSON array
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relation to Project (1:1)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}
+
 model UploadedFile {
-  id            Int      @id @default(autoincrement())
-  originalName  String   // Original filename
-  fileName      String   // Stored filename
-  filePath      String   // Path on server
-  mimeType      String   // File type
-  size          Int      // File size in bytes
-  taskId        Int?     // Associated task ID
-  messageId     String?  // Associated message ID
-  uploadDate    DateTime @default(now())
-  task          Task?    @relation(fields: [taskId], references: [id])
+  id           Int      @id @default(autoincrement())
+  originalName String // Original filename
+  fileName     String // Stored filename
+  filePath     String // Path on server
+  mimeType     String // File type
+  size         Int // File size in bytes
+  taskId       Int? // Associated task ID
+  messageId    String? // Associated message ID
+  uploadDate   DateTime @default(now())
+  task         Task?    @relation(fields: [taskId], references: [id])
 
   @@map("uploaded_files")
 }
 
 model TaskChangeHistory {
-  id             Int      @id @default(autoincrement())
-  taskId         Int
-  fieldChanged   String   // "status" or "owner"
-  oldValue       String?
-  newValue       String?
-  changedAt      DateTime @default(now())
-  changeGroupId  String   @default(uuid()) // 👈 unique per update operation
+  id            Int      @id @default(autoincrement())
+  taskId        Int
+  fieldChanged  String // "status" or "owner"
+  oldValue      String?
+  newValue      String?
+  changedAt     DateTime @default(now())
+  changeGroupId String   @default(uuid()) // 👈 unique per update operation
 
-  task           Task     @relation(fields: [taskId], references: [id])
+  task Task @relation(fields: [taskId], references: [id])
 }
 
 model DeveloperPerformanceMetric {
-  id                 Int       @id @default(autoincrement())
-  developerId        String
-  periodType         PeriodType
-  startDate          DateTime
-  endDate            DateTime
+  id          Int        @id @default(autoincrement())
+  developerId String
+  periodType  PeriodType
+  startDate   DateTime
+  endDate     DateTime
 
   cycleEfficiency    Float?
   totalLeadHours     Float?
@@ -111,28 +124,26 @@ model DeveloperPerformanceMetric {
   deliveryRatePerDay Float?
   completedCount     Int?
 
-  reworkRatio        Float?
-  totalReopened      Int?
+  reworkRatio   Float?
+  totalReopened Int?
 
-  computedAt         DateTime   @default(now())
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  computedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([developerId, periodType, startDate, endDate])
 }
 
 model AutoMessageTemplate {
-  id      Int    @id @default(autoincrement())
-  from    String?   // nullable
-  to      String?   // nullable
+  id      Int     @id @default(autoincrement())
+  from    String? // nullable
+  to      String? // nullable
   type    String
   content String
 }
-
 
 enum PeriodType {
   daily
   weekly
   monthly
 }
-

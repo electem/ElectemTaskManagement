@@ -46,28 +46,24 @@ const [tasks, setTasks] = useState<Task[]>([]);
   const username = localStorage.getItem("username");
 
 useEffect(() => {
-  const load = async () => {
+  const loadFilteredTasks = async () => {
+    setLoading(true);
     try {
-      // ✅ Reuse tasks from TaskContext if already available
-      if (Array.isArray(ctxTasks) && ctxTasks.length > 0) {
-        setTasks(ctxTasks as TaskDTO[]);
-      } else {
-        await fetchCtxTasks();
-      }
-
-      // ✅ Reuse projects from ProjectContext if already loaded
-      if (!Array.isArray(projects) || projects.length === 0) {
-        await fetchProjects();
-      }
+      await fetchCtxTasks({
+        project: projectFilter,
+        owner: ownerFilter,
+        status: statusFilter,
+      });
     } catch (err) {
-      console.error("Error loading data:", err);
+      console.error("Error fetching filtered tasks:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  load();
-}, []);
+  loadFilteredTasks();
+}, [projectFilter, ownerFilter, statusFilter]);
+
 
 
 
@@ -183,9 +179,6 @@ useEffect(() => {
     }
     if (projectFilter !== "INTERNAL" && task.project === "INTERNAL")
       return false;
-    if (projectFilter !== "all" && task.project !== projectFilter) return false;
-    if (ownerFilter !== "all" && task.owner !== ownerFilter) return false;
-    if (statusFilter !== "all" && task.status !== statusFilter) return false;
     const isOwner = task.owner === username;
     const isMember = task.members.includes(username);
     if (!isOwner && !isMember) return false;

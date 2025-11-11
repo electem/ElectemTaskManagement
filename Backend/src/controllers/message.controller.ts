@@ -29,20 +29,25 @@ export const getMessagesBulk = async (req: Request, res: Response) => {
     }
 
     // Fetch all message rows for these taskIds
-    const messages = await prisma.message.findMany({
-      where: {
-        taskId: {
-          in: taskIds,
-        },
-      },
-      select: {
-        id: true,
-        taskId: true,
-        conversation: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+     
+const messages = await prisma.$queryRawUnsafe(`
+  SELECT 
+    id, 
+    "taskId", 
+    conversation, 
+    "createdAt", 
+    "updatedAt",
+    (
+      SELECT COALESCE(
+        (conversation->-1->>'createdAt')::timestamptz,
+        (conversation->-1->>'timestamp')::timestamptz,
+        "updatedAt"
+      )
+    ) AS "lastMessageTime"
+  FROM "Message"
+  WHERE "taskId" = ANY($1)
+  ORDER BY "lastMessageTime" DESC
+`, taskIds);
 
     // Return all rows
     res.json(messages);

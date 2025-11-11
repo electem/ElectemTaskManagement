@@ -1,23 +1,55 @@
 import { Request, Response } from "express";
 import prisma from "../prisma/client";
+import { broadcastUpdate } from "../server";
 import { Task } from "@prisma/client";
 
 // ✅ Get all tasks (optionally filter by project)
 export const getTasks = async (req: Request, res: Response) => {
   try {
-    const projectId = req.query.projectId ? Number(req.query.projectId) : undefined;
+    const { project, owner, status, projectId } = req.query;
 
+    // Build filters dynamically
+    const filters: any = {};
+
+    // ✅ Handle projectId safely
+    if (projectId && projectId !== "undefined" && projectId !== "null" && !isNaN(Number(projectId))) {
+      filters.projectId = Number(projectId);
+    }
+
+    // ✅ Only add project filter if it's not "all"
+    if (project && project !== "all") {
+      filters.project = String(project);
+    }
+
+    if (owner && owner !== "all") {
+      filters.owner = String(owner);
+    }
+
+    if (status && status !== "all") {
+      filters.status = String(status);
+    }
+
+    // Fetch tasks with filters + optimized sorting
     const tasks = await prisma.task.findMany({
-      where: projectId ? { projectId } : {},
-      include: { projectRel: true },
+      where: filters,
+      include: { projectRel: true }, // Include project relation
+       orderBy: [
+        { owner: "asc" },     // Owner A–Z
+        { dueDate: "asc" },   // Earlier due dates first
+        { status: "asc" },    // Status alphabetical
+      ],
     });
 
     res.json(tasks);
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching tasks:", error);
     res.status(500).json({ error: "Failed to fetch tasks" });
   }
 };
+
+
+
+
 
 // ✅ Create a task
 export const createTask = async (req: Request, res: Response) => {
@@ -32,25 +64,57 @@ export const createTask = async (req: Request, res: Response) => {
       owner,
       members,
       url,
-      dependentTaskId, // <-- should be an array of numbers
+      dependentTaskId, // <-- array of numbers
+      initialMessage,  // optional first message
+      currentUser,     // optional for broadcasting
     } = req.body;
 
-    const task = await prisma.task.create({
-      data: {
-        title,
-        description,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        status,
-        projectId,
-        project,
-        owner,
-        members,
-        url,
-        // ✅ ensure dependentTaskId is always an Int[]
-        dependentTaskId: Array.isArray(dependentTaskId)
-          ? dependentTaskId.map((id) => Number(id))
-          : [],
-      },
+    // ✅ Wrap in a transaction
+    const task = await prisma.$transaction(async (tx) => {
+      // 1️⃣ Create the new task
+      const newTask = await tx.task.create({
+        data: {
+          title,
+          description,
+          dueDate: dueDate ? new Date(dueDate) : null,
+          status,
+          projectId,
+          project,
+          owner,
+          members,
+          url,
+          dependentTaskId: Array.isArray(dependentTaskId)
+            ? dependentTaskId.map((id) => Number(id))
+            : [],
+        },
+      });
+
+      // 2️⃣ Ensure Notes entry exists for this project
+      const existingNotes = await tx.notes.findUnique({
+        where: { projectId },
+      });
+      if (!existingNotes) {
+        await tx.notes.create({
+          data: { projectId, notes: [] },
+        });
+      }
+
+      // 3️⃣ Insert initial message if it exists
+      if (initialMessage && Array.isArray(initialMessage)) {
+        await tx.message.create({
+          data: {
+            taskId: newTask.id,
+            conversation: initialMessage,
+          },
+        });
+
+        // Optional: broadcast to other users
+        if (currentUser) {
+          broadcastUpdate(initialMessage, newTask.id, currentUser);
+        }
+      }
+
+      return newTask;
     });
 
     res.json(task);
@@ -59,6 +123,8 @@ export const createTask = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to create task" });
   }
 };
+
+
 
 // ✅ Update a task
 export const updateTask = async (req: Request, res: Response) => {
@@ -143,7 +209,9 @@ export const searchTasks = async (req: Request, res: Response) => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     const params = words;
 
-    // For each word, check if it appears in title, description, or conversation
+    
+
+    // Build match conditions (for WHERE)
     const matchConditions = words
       .map(
         (_, i) => `
@@ -154,18 +222,30 @@ export const searchTasks = async (req: Request, res: Response) => {
       )
       .join(" OR ");
 
-    // Each word contributes 1 point if it appears anywhere (title, desc, or chat)
+    // ✅ Improved scoring: count occurrences (not just existence)
     const matchScore = words
       .map(
         (_, i) => `
-          CASE WHEN (
-            POSITION(LOWER($${i + 1}) IN LOWER(t.title)) > 0 OR
-            POSITION(LOWER($${i + 1}) IN LOWER(t.description)) > 0 OR
-            POSITION(LOWER($${i + 1}) IN LOWER(CAST(m.conversation AS TEXT))) > 0
-          ) THEN 1 ELSE 0 END
+          (
+            (
+              LENGTH(LOWER(t.title)) - LENGTH(REPLACE(LOWER(t.title), LOWER($${i + 1}), ''))
+            ) / NULLIF(LENGTH(LOWER($${i + 1})), 0)
+          ) +
+          (
+            (
+              LENGTH(LOWER(t.description)) - LENGTH(REPLACE(LOWER(t.description), LOWER($${i + 1}), ''))
+            ) / NULLIF(LENGTH(LOWER($${i + 1})), 0)
+          ) +
+          (
+            (
+              LENGTH(LOWER(CAST(m.conversation AS TEXT))) - LENGTH(REPLACE(LOWER(CAST(m.conversation AS TEXT)), LOWER($${i + 1}), ''))
+            ) / NULLIF(LENGTH(LOWER($${i + 1})), 0)
+          )
         `
       )
       .join(" + ");
+
+    console.log("🧮 Generated SQL matchScore:\n", matchScore);
 
     const tasks = await prisma.$queryRawUnsafe<
       (Task & { match_score: number })[]
@@ -180,16 +260,18 @@ export const searchTasks = async (req: Request, res: Response) => {
       ...params
     );
 
-    // Now get all tasks with max matched word count
-    let filteredTasks = tasks;
-    if (tasks.length > 0) {
-      const maxScore = Math.max(...tasks.map(t => Math.round(t.match_score)));
-      filteredTasks = tasks.filter(t => Math.round(t.match_score) === maxScore);
-    }
+    tasks.forEach((t, index) => {
+      console.log(`   ${index + 1}. Task ID: ${t.id}, Title: "${t.title}", match_score: ${t.match_score}`);
+    });
 
-    return res.json({ count: filteredTasks.length, results: filteredTasks });
+    // ✅ Return all results (not just the ones with max score)
+    const sortedTasks = tasks.sort((a, b) => b.match_score - a.match_score);
+
+    console.log("✅ Returning sorted tasks count:", sortedTasks.length);
+
+    return res.json({ count: sortedTasks.length, results: sortedTasks });
   } catch (error) {
-    console.error("Error searching tasks:", error);
+    console.error("❌ Error searching tasks:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

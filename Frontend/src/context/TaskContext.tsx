@@ -34,6 +34,7 @@ interface UnreadData {
 interface TaskContextType {
   tasks: Task[];
   fetchTasks: () => Promise<void>;
+  searchTasks: (query: string) => Promise<Task[]>;
   addTask: (task: Omit<Task, "id">) => Promise<void>;
   updateTask: (id: number, task: Partial<Task>) => Promise<void>;
   closeTask: (id: number) => Promise<void>;
@@ -51,7 +52,24 @@ interface TaskContextType {
   latestWsMessage: any;
   registerRefreshHandler: (cb: () => void) => void;
   unregisterRefreshHandler: (cb: () => void) => void;
+
+  // ✅ Add these two
+  filters: {
+    project: string;
+    owner: string;
+    status: string;
+    projectId?: number | undefined;
+  };
+  setFilters: React.Dispatch<
+    React.SetStateAction<{
+      project: string;
+      owner: string;
+      status: string;
+      projectId?: number | undefined;
+    }>
+  >;
 }
+
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
@@ -62,6 +80,13 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [latestWsMessage, setLatestWsMessage] = useState<any>(null);
+  const [filters, setFilters] = useState({
+  project: "all",
+  owner: "all",
+  status: "all",
+  projectId: undefined,
+});
+
 
   const refreshHandlers = useRef<Set<() => void>>(new Set());
   const pendingMessagesRef = useRef<any[]>([]);
@@ -83,11 +108,16 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   // ==========================
   // 🧩 Fetch Tasks
   // ==========================
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await api.get("/tasks");
-      setTasks(res.data);
-      tasksLoadedRef.current = true;
+ const fetchTasks = useCallback(async (filters?: any) => {
+  try {
+    const params = new URLSearchParams();
+    params.append("project", filters?.project || "all");
+    params.append("owner", filters?.owner || "all");
+    params.append("status", filters?.status || "all");
+
+    const res = await api.get(`/tasks?${params.toString()}`);
+    setTasks(res.data);
+    tasksLoadedRef.current = true;
 
       // ✅ Process queued WebSocket messages once tasks are ready
       if (pendingMessagesRef.current.length > 0) {
@@ -101,6 +131,23 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       console.error("Error fetching tasks:", err);
     }
   }, []);
+  // ==========================
+// 🔍 Search Tasks
+// ==========================
+const searchTasks = useCallback(async (query: string): Promise<Task[]> => {
+  try {
+    if (!query.trim()) {
+      const all = await fetchTasks();
+      return all || [];
+    }
+    const res = await api.get("/tasks/search", { params: { q: query } });
+    return res.data.results || [];
+  } catch (err) {
+    console.error("Error searching tasks:", err);
+    return [];
+  }
+}, [fetchTasks]);
+
 
   // ==========================
   // 🔔 Unread Logic
@@ -366,6 +413,9 @@ console.log("🔍 NotificationService imported:", { notificationService });
       value={{
         tasks,
         fetchTasks,
+        searchTasks,
+        setFilters,
+        filters, 
         addTask,
         updateTask,
         closeTask,

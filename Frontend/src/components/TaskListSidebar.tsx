@@ -177,8 +177,7 @@ const TaskDetailComponent: React.FC<TaskDetailProps> = ({ task, onUpdate }) => {
           <input
             type="date"
             value={localDueDate ? localDueDate.split("T")[0] : ""}
-            onChange={handleDueDateChange}
-            disabled={isUpdating}
+           readOnly
             className="text-xs p-1 rounded border border-gray-300 dark:border-gray-600 bg-transparent"
           />
         </div>
@@ -249,34 +248,17 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const navigate = useNavigate();
   // 🎯 MODIFIED: Destructure unreadCounts and markTaskAsRead
-  const { refreshTasks, unreadCounts, markTaskAsRead } = useTaskContext();
+const { tasks: contextTasks, refreshTasks, unreadCounts, markTaskAsRead } = useTaskContext();
   const username = localStorage.getItem("username");
 
-  const loadTasks = useCallback(async () => {
-    setLoading(true);
-    try {
-      const fetchedTasks = await getTasks();
-      setTasks(
-        fetchedTasks.map((t) => ({
-          ...t,
-          id: t.id.toString(), // ✅ convert number → string
-        }))
-      );
-    } catch (error) {
-      toast.error("Could not fetch tasks.");
-      console.error("Fetch Error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+ useEffect(() => {
+  setLoading(true);
+  if (contextTasks) {
+    setTasks(contextTasks.map(t => ({ ...t, id: t.id.toString() })));
+  }
+  setLoading(false);
+}, [contextTasks]);
 
-  useEffect(() => {
-    loadTasks();
-  }, []);
-
-  useEffect(() => {
-    loadTasks();
-  }, [refreshTasks, loadTasks]);
 
   const handleTaskUpdate = useCallback((id: string, updates: Partial<Task>) => {
     setTasks((prevTasks) =>
@@ -308,19 +290,7 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
     );
   }
 
-  const sortedTasks = [...tasks].sort((a, b) => {
-    // 1️⃣ Priority: tasks owned by current user go first
-    const aIsOwner = a.owner === username ? 1 : 0;
-    const bIsOwner = b.owner === username ? 1 : 0;
-
-    if (aIsOwner !== bIsOwner) {
-      return bIsOwner - aIsOwner; // owner task first
-    }
-
-    // 2️⃣ Existing status order
-    const order = { "To Do": 1, "In Progress": 2, Done: 3 };
-    return (order[a.status] || 4) - (order[b.status] || 4);
-  });
+const sortedTasks = tasks;
 
 
   // 🔹 Filter tasks where current user is a member
@@ -328,9 +298,8 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
     (task) =>
       (task.members.includes(username) || task.owner.includes(username)) &&
       !["Cancelled", "Completed"].includes(task.status) &&
-      !task.projectRel.name.toLowerCase().startsWith("int") // ✅ use projectRel.name
+      !(task.projectRel?.name?.toLowerCase().startsWith("int"))// ✅ use projectRel.name
   );
-
 
 
 
@@ -379,7 +348,11 @@ export const TaskListSidebar: React.FC<TaskListSidebarProps> = ({
                       </Button>
                       <Button
                         variant="ghost"
-                        onClick={() => openChat(task)}
+                       onClick={() => {
+                          handleToggle(task.id); 
+                          openChat(task); 
+                        }}
+                        
                         className={`flex-shrink-0 ml-1 h-auto p-2 transition-colors ${expandedTaskId === task.id
                             ? 'bg-gray-100 dark:bg-gray-700'
                             : 'hover:bg-gray-50 dark:hover:bg-gray-800'

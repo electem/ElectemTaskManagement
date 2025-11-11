@@ -2,14 +2,17 @@ import React, { useRef, useState, useEffect } from "react";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import api from "@/lib/api";
-import { Upload } from "lucide-react";
+import { Upload, FileText,X} from "lucide-react";
 import {
   Message,
-  useConversationContext,
+  useConversationContext, 
 } from "@/context/ConversationProvider";
 import { useUsers } from "@/hooks/useUsers";
 import { useTaskContext } from "@/context/TaskContext";
+import { toast } from "sonner";
 import linkifyHtml from 'linkify-html';
+import MsgBox from "./MsgBox";
+
 
 interface Props {
   placeholder?: string;
@@ -46,7 +49,8 @@ export default function MsChatCommentsEditor({
   const [mentionPosition, setMentionPosition] = useState({ x: 0, y: 0 });
   const [mentionSearch, setMentionSearch] = useState("");
   const { users } = useUsers();
-  const { latestWsMessage } = useTaskContext();
+  const { latestWsMessage,tasks } = useTaskContext();
+  
 
   useEffect(() => {
     if (!latestWsMessage) return;
@@ -562,6 +566,142 @@ export default function MsChatCommentsEditor({
     }
   }
 
+  // create task using task icon
+async function handleCreateTask(path) {
+  try {
+    // 1️⃣ Get the thread content from the selected message
+    const threadIndex = path[0];
+    let content = threads[threadIndex]?.content;
+
+    if (path.length > 1) {
+      const reply = getReplyByPath(threads[threadIndex], path.slice(1));
+      if (reply) content = reply.content;
+    }
+
+    if (!content || !content.trim()) {
+      toast.error("Cannot create task from empty content");
+      return;
+    }
+
+    // 2️⃣ Strip prefix and HTML tags for task title/description
+    let fullText = stripPrefixClient(content);
+    fullText = fullText.replace(/<[^>]*>/g, "").trim();
+    const lines = fullText.split("\n").map(line => line.trim()).filter(line => line);
+    const title = lines[0]?.slice(0, 50) || "New Task";
+    const description = lines.length > 1 ? lines.slice(1).join("\n") : "";
+
+    // 3️⃣ Get current task details
+    const currentTask = tasks.find(t => t.id === taskId);
+    if (!currentTask) {
+      toast.error("Current task not found");
+      return;
+    }
+
+    // 4️⃣ Prepare payload for task creation
+    const newTaskPayload: any = {
+      projectId: currentTask.projectId,
+      project: currentTask.project.toString(),
+      owner: currentTask.owner.toString(),
+      status: currentTask.status,
+      members: currentTask.members,
+      title,
+      description,
+      dueDate: currentTask.dueDate || null,
+      url: currentTask.url || "",
+      dependentTaskId: [currentTask.id],
+    };
+
+    // 5️⃣ Prepare first message for the new task (send only for this click)
+    const fullUsername = localStorage.getItem("username") || "---";
+    const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
+    const strippedContent = content.replace(/^[A-Z]{2,4}\(\d{2}\/\d{2} \d{2}:\d{2}\):\s*/, "");
+    const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${strippedContent}`;
+    const firstMessageThread = [{ content: finalInnerHTML, replies: [] }];
+
+    // 6️⃣ Pass initialMessage only for this click
+    newTaskPayload.initialMessage = firstMessageThread;
+    newTaskPayload.currentUser = fullUsername; 
+
+    // 7️⃣ Call createTask API — backend will insert the message only if initialMessage exists
+    const res = await api.post("/tasks", newTaskPayload);
+
+    if (res.data?.id) {
+      toast.success("Task created successfully and message added to conversation");
+    } else {
+      toast.error("Failed to create task");
+    }
+  } catch (err) {
+    console.error("handleCreateTask error:", err);
+    toast.error("Failed to create task");
+  }
+}
+
+
+
+  // Handle notes here
+
+  // reuse same prefix-stripping regex as backend/client edit to be consistent
+function stripPrefixClient(full = "") {
+  return String(full).replace(/^[A-Z]{2,4}\s*\(\d{2}\/\d{2}\s\d{2}:\d{2}\):\s*/, "").trim();
+}
+
+async function handleNotes(path) {
+  try {
+    const threadIndex = path[0];
+    let thread = threads[threadIndex];
+
+    // handle nested reply case
+    if (path.length > 1) {
+      thread = getReplyByPath(threads[threadIndex], path.slice(1));
+    }
+
+    if (!thread) {
+      toast.error("No content for selected thread");
+      return;
+    }
+
+    // Recursively map replies
+    const mapThreadForNote = (t) => ({
+      content: t.content,
+      replies: t.replies && t.replies.length > 0 ? t.replies.map(mapThreadForNote) : [],
+    });
+
+    const messageForNote = mapThreadForNote(thread);
+
+    const currentTask = tasks.find((t) => t.id === taskId);
+    const projectId = currentTask?.projectId;
+
+    if (!projectId) {
+      toast.error("Project not found for this task");
+      return;
+    }
+
+    const payload = { projectId, message: messageForNote };
+
+    const res = await api.post("/notes/addnotes", payload);
+
+    if (res.data?.success) {
+      if (res.data.created) {
+        toast.success("Note added to project notes");
+      } else {
+        toast.info("Note already exists");
+      }
+    } else {
+      toast.error("Failed to add note");
+    }
+  } catch (err) {
+    console.error("handleNotes error:", err);
+    toast.error("Failed to add note");
+  }
+}
+
+
   function toggleCollapse(id) {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
   }
@@ -601,6 +741,8 @@ export default function MsChatCommentsEditor({
       className: "text-blue-600 underline",
 
     });
+
+    
 
     return (
       <div
@@ -676,45 +818,17 @@ export default function MsChatCommentsEditor({
               return (
                 <div key={threadId} className="relative mb-3">
                   {/* Message Box with rounded border */}
-                  <div className="border border-gray-300 shadow-sm bg-white p-4 pl-6 mt-4 relative rounded-lg">
-
-                    {/* Floating Header Box */}
-                    <div className="absolute -top-3 -left-2 bg-white border border-gray-300 px-3 flex rounded-md items-center gap-2 text-xs shadow-sm">
-                      <span className="font-semibold text-blue-600">
-                        {thread.content.match(/^([A-Z]{2,3})/)?.[1] || "USR"}
-                      </span>
-                      <span className="text-gray-500 text-[11px]">
-                        {thread.content.match(/\((\d{2}\/\d{2}\s\d{2}:\d{2})\)/)?.[1] || "--:--"}
-                      </span>
-
-                      <div className="flex gap-4 ml-2">
-                        <button
-                          className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
-                          onClick={() => handleSend(index)}
-                          title="Reply"
-                        >
-                          ↩
-                        </button>
-                        <button
-                          className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
-                          onClick={() => handleEdit(threadPath)}
-                          title="Edit"
-                        >
-                          ✎
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Actual Message Content */}
-                    <div className="mt-3">
-                      <MessageContent htmlContent={thread.content} />
-                    </div>
-
-                    {/* Replies */}
-                    {thread.replies &&
-                      thread.replies.length > 0 &&
-                      renderReplies(thread.replies, threadPath, 1, threadId)}
-                  </div>
+                  <MsgBox
+                    thread={thread}
+                    threadPath={threadPath}
+                    threadId={threadId}
+                    onReply={handleSend}
+                    onEdit={handleEdit}
+                    onAddNote={handleNotes}
+                    onCreateTask={handleCreateTask}
+                    renderReplies={renderReplies}
+                    MessageContent={MessageContent}
+                  />
                 </div>
               );
             })
