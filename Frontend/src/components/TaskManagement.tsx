@@ -163,6 +163,9 @@ useEffect(() => {
     ) {
       return false;
     }
+    if (task.project === "INTERNAL" && projectFilter !== "INTERNAL") {
+      return false;
+    }
   }
     //  Show task if user is either the owner OR a member
     const isOwner = task.owner === username;
