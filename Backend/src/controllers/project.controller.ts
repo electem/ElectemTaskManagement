@@ -30,7 +30,7 @@ export const createProject = async (req: Request, res: Response) => {
 export const updateProject = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name,description } = req.body;
+    const { name } = req.body;
     const project = await prisma.project.update({
       where: { id: Number(id) },
       data: { name },

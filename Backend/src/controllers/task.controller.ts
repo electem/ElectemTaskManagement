@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../prisma/client";
 import { broadcastUpdate } from "../server";
 import { Task } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 // ✅ Get all tasks (optionally filter by project)
 export const getTasks = async (req: Request, res: Response) => {
@@ -9,7 +10,7 @@ export const getTasks = async (req: Request, res: Response) => {
     const { project, owner, status, projectId } = req.query;
 
     // Build filters dynamically
-    const filters: any = {};
+    const filters: Prisma.TaskWhereInput = {};
 
     // ✅ Handle projectId safely
     if (projectId && projectId !== "undefined" && projectId !== "null" && !isNaN(Number(projectId))) {

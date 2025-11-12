@@ -1,7 +1,32 @@
 import { Request, Response } from "express";
 import prisma from "../prisma/client";
+import { Prisma } from "@prisma/client";
 import crypto from "crypto";
 import { broadcastUpdate } from "../server";
+interface ConversationMessage {
+  // common fields from template messages; keep flexible but typed
+  id?: number;
+  content: string;
+  // allow other properties but avoid `any`
+  [key: string]: unknown;
+}
+
+type Conversation = ConversationMessage[];
+
+type ChangeItem = {
+  fieldChanged: string;
+  oldValue: string | null;
+  newValue: string | null;
+};
+
+type GroupAccumulator = Record<
+  string,
+  {
+    changeGroupId: string;
+    changedAt: Date;
+    changes: ChangeItem[];
+  }
+>;
 
 export const createTaskChangeHistory = async (req: Request, res: Response) => {
   try {
@@ -65,13 +90,14 @@ export const createTaskChangeHistory = async (req: Request, res: Response) => {
 
     const formattedTime = `${day}/${month} ${hours}:${minutes}`;
 
-    let contentsToAppend: any[] = [];
+    const contentsToAppend: Conversation = [];
+
 
     for (const change of changes) {
       const template = templates.find((t) => t.type === change.fieldChanged);
       if (!template) continue;
 
-      let messages = JSON.parse(template.content);
+     const messages: ConversationMessage[] = JSON.parse(template.content) as ConversationMessage[];
       let replacingOldValue = `@${username}`;
       let replacingNewValue = `@${username}`;
 
@@ -119,14 +145,15 @@ export const createTaskChangeHistory = async (req: Request, res: Response) => {
 
       updatedConversation = [...existingConversation, ...contentsToAppend];
 
-      await prisma.message.upsert({
-        where: { taskId: Number(taskId) },
-        update: { conversation: updatedConversation },
-        create: {
-          taskId: Number(taskId),
-          conversation: updatedConversation,
-        },
-      });
+    await prisma.message.upsert({
+  where: { taskId: Number(taskId) },
+  update: { conversation: updatedConversation as Prisma.InputJsonValue },
+  create: {
+    taskId: Number(taskId),
+    conversation: updatedConversation as Prisma.InputJsonValue,
+  },
+});
+
 
       // Broadcast message update
       broadcastUpdate(updatedConversation, taskId, currentUser);
@@ -169,25 +196,26 @@ export const getTaskChangeHistory = async (req: Request, res: Response) => {
     }
 
     // Group by changeGroupId
-    const groupedHistory = Object.values(
-      history.reduce((acc: Record<string, any>, record) => {
-        if (!acc[record.changeGroupId]) {
-          acc[record.changeGroupId] = {
-            changeGroupId: record.changeGroupId,
-            changedAt: record.changedAt,
-            changes: [],
-          };
-        }
+   const groupedHistory = Object.values(
+  history.reduce((acc: GroupAccumulator, record) => {
+    if (!acc[record.changeGroupId]) {
+      acc[record.changeGroupId] = {
+        changeGroupId: record.changeGroupId,
+        changedAt: record.changedAt,
+        changes: [],
+      };
+    }
 
-        acc[record.changeGroupId].changes.push({
-          fieldChanged: record.fieldChanged,
-          oldValue: record.oldValue,
-          newValue: record.newValue,
-        });
+    acc[record.changeGroupId].changes.push({
+      fieldChanged: record.fieldChanged,
+      oldValue: record.oldValue as string | null,
+      newValue: record.newValue as string | null,
+    });
 
-        return acc;
-      }, {})
-    );
+    return acc;
+  }, {} as GroupAccumulator)
+);
+
 
     return res.status(200).json({
       taskId: Number(taskId),
