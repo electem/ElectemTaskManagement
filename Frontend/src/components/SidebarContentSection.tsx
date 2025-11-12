@@ -12,7 +12,7 @@ import { LogOut } from "lucide-react";
 
 interface SidebarContentSectionProps {
   open: boolean;
-  menuItems: { title: string; url: string; icon: any }[];
+  menuItems: { title: string; url: string; icon: React.ComponentType<{ className?: string }> }[];
   handleLogout: () => void;
 }
 

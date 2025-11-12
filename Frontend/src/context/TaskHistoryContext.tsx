@@ -9,6 +9,16 @@ export interface TaskChange {
   oldValue: string;
   newValue: string;
 }
+export interface TaskMinimal {
+  id?: number;
+  title?: string;
+  description?: string;
+  status?: string;
+  dueDate?: string;
+  owner?: string;
+  [key: string]: unknown; // optional, allows extra fields safely
+}
+
 
 export interface TaskChangeGroup {
   changeGroupId: string;
@@ -25,8 +35,8 @@ export interface TaskHistoryResponse {
 interface TaskHistoryContextType {
   logTaskHistory: (
     taskId: number,
-    oldTask: any,
-    updatedTask: any
+    oldTask: TaskMinimal,
+    updatedTask: TaskMinimal
   ) => Promise<void>;
   fetchTaskHistory: (taskId: number) => Promise<TaskHistoryResponse | null>;
 }
@@ -39,8 +49,8 @@ export const TaskHistoryProvider = ({ children }: { children: ReactNode }) => {
   const { fetchConversation } = useConversationContext();
   const logTaskHistory = async (
     taskId: number,
-    oldTask: any,
-    updatedTask: any
+    oldTask: TaskMinimal,
+    updatedTask: TaskMinimal
   ) => {
     console.log("▶️ logTaskHistory triggered", {
       taskId,

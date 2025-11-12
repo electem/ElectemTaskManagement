@@ -114,8 +114,6 @@ export default function MsChatCommentsEditor({
       const usernames = users
         .map((user) => user.username)
         .filter((username) => (Boolean(username)) && username !== currentUser); // remove undefined/null if any
-      const username = localStorage.getItem("username")
-
       setMentionList(usernames);
     }
   }, [users]);
@@ -205,7 +203,7 @@ export default function MsChatCommentsEditor({
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
+      .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
   }
 
@@ -421,7 +419,7 @@ export default function MsChatCommentsEditor({
     return current;
   }
 
-  async function uploadThreadsToBackend(messageData: any, isEdit = false) {
+  async function uploadThreadsToBackend(messageData: unknown, isEdit = false) {
     try {
       await api.post("/messages/upsert", {
         taskId,
@@ -624,7 +622,7 @@ async function handleCreateTask(path) {
       }
 
       // 4️⃣ Prepare payload for task creation
-      const newTaskPayload: any = {
+      const newTaskPayload: Record<string, unknown> = {
         projectId: currentTask.projectId,
         project: currentTask.project.toString(),
         owner: currentTask.owner.toString(),
@@ -798,6 +796,8 @@ async function handleNotes(path) {
       />
     );
   });
+  MessageContent.displayName = "MessageContent";
+
 
   const renderReplies = (replies, path, level = 1, parentId = "") => {
     return replies.map((reply, i) => {

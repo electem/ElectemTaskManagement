@@ -1,5 +1,6 @@
 // src/components/Dashboard.tsx
 import React, { useEffect, useState } from "react";
+
 import {
   LineChart,
   Line,
@@ -11,6 +12,8 @@ import {
   Legend,
 } from "recharts";
 import api from "@/lib/api";
+import { TooltipProps } from "recharts";
+
 
 interface MetricsRecord {
   developerId: string;
@@ -25,6 +28,16 @@ interface MetricsRecord {
   completedCount: number;
   computedAt: string;
 }
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: {
+    name: string;
+    value: number | string | null;
+    color?: string;
+  }[];
+  label?: string;
+}
+
 
 export const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<MetricsRecord[]>([]);
@@ -140,6 +153,11 @@ const adjustColorShade = (color: string, percent: number): string => {
     });
 
   // Transform data for Recharts - ENSURING ALL DEVELOPERS START AT SAME POINT
+  type ChartData = {
+  date: string;
+  [developer: string]: string | number | null;
+};
+
   const transformDataForChart = () => {
     const dates = Array.from(new Set(metrics.map(m => m.startDate))).sort();
     const allDevelopers = Array.from(
@@ -175,8 +193,7 @@ const adjustColorShade = (color: string, percent: number): string => {
     const filteredDates = startIndex >= 0 ? dates.slice(startIndex) : dates;
 
     return filteredDates.map(date => {
-      const dateData: any = { date };
-      
+      const dateData: ChartData = { date };
       // Initialize all developers with null for this date
       allDevelopers.forEach(dev => {
         dateData[dev] = null;
@@ -200,27 +217,26 @@ const adjustColorShade = (color: string, percent: number): string => {
   );
 
   // Tooltip for chart
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800">{formatDate(label)}</p>
-          {payload.map((entry: any, index: number) => (
-            <p
-              key={index}
-              className="text-sm"
-              style={{ color: entry.color }}
-            >{`${entry.name}: ${entry.value}${
+ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+        <p className="font-semibold text-gray-800">{formatDate(label || "")}</p>
+        {payload.map((entry, index) => (
+          <p key={index} className="text-sm" style={{ color: entry.color }}>
+            {`${entry.name}: ${entry.value}${
               selectedMetric === "cycleEfficiency" || selectedMetric === "reworkRatio"
                 ? "%"
                 : ""
-            }`}</p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
+            }`}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 
   if (loading) {
     return (
@@ -335,8 +351,8 @@ const adjustColorShade = (color: string, percent: number): string => {
                     <button
                       key={p}
                       onClick={() => {
-                        setPeriod(p as any);
-                        setSelectedMetric(metric.key as any);
+                        setPeriod(p as "daily" | "weekly" | "monthly");
+                        setSelectedMetric(metric.key as "cycleEfficiency" | "deliveryRatePerDay" | "reworkRatio");
                       }}
                       className={`px-3 py-1 text-xs rounded-full border transition-all duration-200 ${
                         period === p && selectedMetric === metric.key

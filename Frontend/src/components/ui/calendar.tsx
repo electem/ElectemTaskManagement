@@ -4,12 +4,21 @@ import { DayPicker, DayPickerProps } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+type CustomNavProps = {
+  className?: string;
+  style?: React.CSSProperties;
+  onPreviousClick?: React.MouseEventHandler<HTMLButtonElement>;
+  onNextClick?: React.MouseEventHandler<HTMLButtonElement>;
+  previousMonth?: Date;
+  nextMonth?: Date;
+};
+
 
 export type CalendarProps = DayPickerProps;
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
   // Custom Nav component
-  const CustomNav = ({ className, style, onPreviousClick, onNextClick }: any) => {
+const CustomNav = ({ className, style, onPreviousClick, onNextClick }: CustomNavProps) => {
     return (
       <div className={cn("flex justify-between items-center", className)} style={style}>
         <button
