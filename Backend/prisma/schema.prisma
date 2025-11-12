@@ -30,7 +30,7 @@ model Task {
   id          Int       @id @default(autoincrement())
   title       String
   description String?
-  dueDate     DateTime?
+  dueDate DateTime @default(now())
   status      String    @default("Pending")
 
   projectId Int
