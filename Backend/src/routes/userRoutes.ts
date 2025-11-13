@@ -1,7 +1,6 @@
 // src/routes/userRoutes.ts
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
-import { authGuard } from "../middlewares/auth.middleware";
 
 const router = Router();
 const prisma = new PrismaClient();

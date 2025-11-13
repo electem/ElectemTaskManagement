@@ -195,20 +195,23 @@ wss.on("connection", (ws) => {
 });
 
 export function broadcastUpdate(
-  payload: any,
+  payload: unknown[] | Record<string, unknown> | string,
   taskId: string,
   currentUser: string,
   skipSelf: boolean = true
 ) {
-  const message = JSON.stringify(payload);
 
   let latestUsername = currentUser; // fallback  to currentUser
   try {
     if (Array.isArray(payload) && payload.length > 0) {
-      const lastMessage = payload[payload.length - 1].content; // e.g. "RAV(03/11 10:02): hi"
-      const match = lastMessage.match(/^([A-Za-z0-9_]+)\(/); // Extract username before '('
-      if (match && match[1]) latestUsername = match[1];
-    }
+  const last = payload[payload.length - 1];
+  if (typeof last === "object" && last !== null && "content" in last && typeof (last as { content: unknown }).content === "string") {
+    const lastMessage = (last as { content: string }).content; // e.g. "RAV(03/11 10:02): hi"
+    const match = lastMessage.match(/^([A-Za-z0-9_]+)\(/); // Extract username before '('
+    if (match && match[1]) latestUsername = match[1];
+  }
+}
+
   } catch (e) {
     console.error("Error extracting latest username:", e);
   }

@@ -60,18 +60,11 @@ const messages = await prisma.$queryRawUnsafe(`
 
 export const upsertMessage = async (req: Request, res: Response) => {
   try {
-    const { taskId, newMessage, currentUser, isEdit } = req.body;
+    const { taskId, newMessage, currentUser, } = req.body;
 
     if (!taskId || !newMessage) {
       return res.status(400).json({ error: "taskId and newMessage are required" });
     }
-
-    // Find existing conversation
-    const existing = await prisma.message.findUnique({
-      where: { taskId },
-    });
-
-
     // Upsert the message record
     const result = await prisma.message.upsert({
       where: { taskId },
@@ -107,9 +100,10 @@ export const appendMessages = async (req: Request, res: Response) => {
     });
 
     // Ensure existing conversation is an array
-    const existingConversation: any[] = Array.isArray(existing?.conversation)
-      ? existing.conversation
-      : [];
+   const existingConversation: unknown[] = Array.isArray(existing?.conversation)
+  ? (existing.conversation as unknown[])
+  : [];
+
 
     // Append new contents
     const updatedConversation = [...existingConversation, ...contents];
