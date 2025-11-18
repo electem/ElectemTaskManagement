@@ -143,13 +143,28 @@ export const updateTask = async (req: Request, res: Response) => {
       url,
       dependentTaskId, // <-- array of numbers 
     } = req.body;
+     // 1️⃣ Fetch the existing task
+    const existingTask = await prisma.task.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!existingTask) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    // 2️⃣ Decide due date:
+    // - If frontend sends valid date → use it
+    // - If null → use createdAt
+    const finalDueDate = dueDate
+      ? new Date(dueDate)
+      : existingTask.createdAt;  // 👈 use createdAt date
 
     const task = await prisma.task.update({
       where: { id: Number(id) },
       data: {
         title,
         description,
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: finalDueDate,
         status,
         projectId,
         project,

@@ -114,7 +114,12 @@ const TaskDetailComponent: React.FC<TaskDetailProps> = ({ task, onUpdate }) => {
 
     try {
       // Update backend
-      await updateTask(Number(task.id), updates);
+     await updateTask(Number(task.id), {
+       ...task,
+       id: Number(task.id), 
+       ...updates,
+     });
+
       onUpdate(task.id, updates);
 
       // Show toast

@@ -630,7 +630,7 @@ async function handleCreateTask(path) {
         members: currentTask.members,
         title,
         description,
-        dueDate: currentTask.dueDate || null,
+        dueDate: currentTask.dueDate || new Date().toISOString(),
         url: currentTask.url || "",
         dependentTaskId: [currentTask.id],
       };
