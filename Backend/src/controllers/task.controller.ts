@@ -89,7 +89,7 @@ export const createTask = async (req: Request, res: Response) => {
             : [],
         },
       });
-      
+
       // 3️⃣ Insert initial message if it exists
       if (initialMessage && Array.isArray(initialMessage)) {
         await tx.message.create({
@@ -108,7 +108,7 @@ export const createTask = async (req: Request, res: Response) => {
       return newTask;
     });
 
-    res.json(task);
+    res.json(task); 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to create task" });
