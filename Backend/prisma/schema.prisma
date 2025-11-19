@@ -19,78 +19,65 @@ model User {
 model Project {
   id          Int      @id @default(autoincrement())
   name        String   @unique
-  description String   @default("No description provided")
-  tasks       Task[]   @relation("ProjectTasks") // One-to-many relation
-  notes       Notes? // one-to-one relation (optional if not yet created)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  description String   @default("No description provided")
+  tasks       Task[]   @relation("ProjectTasks")
+  
 }
 
 model Task {
-  id          Int       @id @default(autoincrement())
-  title       String
-  description String?
-   dueDate     DateTime? @default(now())
-  status      String    @default("Pending")
-
-  projectId Int
-  project   String // Project name
-
-  owner   String
-  members String[] // store member names as array
-
-  url String? // 👈 NEW: optional URL field
-
-  dependentTaskId Int[]    @default([])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relation to Project
-  projectRel Project @relation("ProjectTasks", fields: [projectId], references: [id])
-
-  // 👇 Relation to messages
-  messages Message[]
-
-  // Task TaskHistory
-  histories     TaskChangeHistory[] // 👈 relation to TaskHistory
-  uploadedFiles UploadedFile[]
+  id              Int                 @id @default(autoincrement())
+  title           String
+  description     String?
+  createdAt       DateTime            @default(now())
+  dueDate         DateTime?           @default(now())
+  members         String[]
+  projectId       Int
+  updatedAt       DateTime            @updatedAt
+  status          String              @default("Pending")
+  owner           String
+  project         String
+  url             String?
+  dependentTaskId Int[]               @default([])
+  messages        Message?
+  notes           Notes?
+  projectRel      Project             @relation("ProjectTasks", fields: [projectId], references: [id])
+  histories       TaskChangeHistory[]
+  uploadedFiles   UploadedFile[]
 }
 
 model Message {
   id           Int      @id @default(autoincrement())
-  taskId       Int // Foreign key to Task
-  conversation Json // All messages stored as JSON array
+  taskId       Int      @unique
+  conversation Json
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  // 👇 Relation to Task
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@unique([taskId]) // One conversation per task
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model Notes {
   id        Int      @id @default(autoincrement())
-  projectId Int      @unique // one-to-one: one Notes per Project
-  notes     Json // store all notes as JSON array
+  taskId    Int      @unique // one-to-one: one Notes per Task
+  notes     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relation to Project (1:1)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@map("notes")
 }
 
+
 model UploadedFile {
   id           Int      @id @default(autoincrement())
-  originalName String // Original filename
-  fileName     String // Stored filename
-  filePath     String // Path on server
-  mimeType     String // File type
-  size         Int // File size in bytes
-  taskId       Int? // Associated task ID
-  messageId    String? // Associated message ID
+  originalName String
+  fileName     String
+  filePath     String
+  mimeType     String
+  size         Int
+  taskId       Int?
+  messageId    String?
   uploadDate   DateTime @default(now())
   task         Task?    @relation(fields: [taskId], references: [id])
 
@@ -100,44 +87,39 @@ model UploadedFile {
 model TaskChangeHistory {
   id            Int      @id @default(autoincrement())
   taskId        Int
-  fieldChanged  String // "status" or "owner"
+  fieldChanged  String
   oldValue      String?
   newValue      String?
   changedAt     DateTime @default(now())
-  changeGroupId String   @default(uuid()) // 👈 unique per update operation
-
-  task Task @relation(fields: [taskId], references: [id])
+  changeGroupId String   @default(uuid())
+  task          Task     @relation(fields: [taskId], references: [id])
 }
 
 model DeveloperPerformanceMetric {
-  id          Int        @id @default(autoincrement())
-  developerId String
-  periodType  PeriodType
-  startDate   DateTime
-  endDate     DateTime
-
+  id                 Int        @id @default(autoincrement())
+  developerId        String
+  periodType         PeriodType
+  startDate          DateTime
+  endDate            DateTime
   cycleEfficiency    Float?
   totalLeadHours     Float?
   totalActiveHours   Float?
   completedTaskCount Int?
-
   deliveryRatePerDay Float?
   completedCount     Int?
-
-  reworkRatio   Float?
-  totalReopened Int?
-
-  computedAt DateTime @default(now())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  reworkRatio        Float?
+  totalReopened      Int?
+  computedAt         DateTime   @default(now())
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   @@unique([developerId, periodType, startDate, endDate])
 }
 
 model AutoMessageTemplate {
   id      Int     @id @default(autoincrement())
-  from    String? // nullable
-  to      String? // nullable
+  from    String?
+  to      String?
   type    String
   content String
 }

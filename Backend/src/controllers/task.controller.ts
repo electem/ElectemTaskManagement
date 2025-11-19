@@ -89,17 +89,7 @@ export const createTask = async (req: Request, res: Response) => {
             : [],
         },
       });
-
-      // 2️⃣ Ensure Notes entry exists for this project
-      const existingNotes = await tx.notes.findUnique({
-        where: { projectId },
-      });
-      if (!existingNotes) {
-        await tx.notes.create({
-          data: { projectId, notes: [] },
-        });
-      }
-
+      
       // 3️⃣ Insert initial message if it exists
       if (initialMessage && Array.isArray(initialMessage)) {
         await tx.message.create({
