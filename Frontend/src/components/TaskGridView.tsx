@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState,useMemo  } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskContext } from "@/context/TaskContext";
 import { useProjectContext } from "@/context/ProjectContext";
@@ -99,106 +99,112 @@ useEffect(() => {
 
 
   // ✅ Fetch last 2 messages per task
- useEffect(() => {
-  const fetchMessages = async () => {
-    if (tasks.length === 0) return;
 
-    try {
-      const taskIds = tasks.map((t) => t.id);
-      const res = await api.post("/messages/allMessages", { taskIds });
-      const data = res.data || [];
-      setBulkMessages(data);
-      const results: Record<number, string[]> = {};
-      const messageTimes: Record<number, number> = {};
-
-      data.forEach((msg: BulkMessage) => {
-
-        const convo = msg.conversation || [];
-
-        // take last 2 messages from conversation
-        const lastTwo = convo.slice(-2).map((m: string | ConversationMessage) => {
-          const raw = typeof m === "string" ? m : m?.content || m?.text || "";
-
-          // ✅ Extract sender, timestamp, and message text cleanly
-          const match = raw.match(
-            /^(\w+)\((\d{2}\/\d{2}\s+\d{2}:\d{2}(?::\d{2})?)\):\s*(.*)$/
-          );
-
-          let sender = "";
-          let time = "";
-          let text = raw;
-
-          if (match) {
-            sender = match[1];
-            time = match[2];
-            text = match[3]; // remove prefix from message text
-          }
-
-          // ✅ Handle image or video previews
-          if (/<img\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text)) {
-            text = "📷 Image";
-          } else if (
-            /<video\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text) ||
-            /\.(mp4|mov|avi|mkv|webm)/i.test(text)
-          ) {
-            text = "🎬 Video";
-          } else {
-            // clean text & limit length
-            text = text.replace(/<[^>]*>/g, "").trim();
-            if (text.length > 200) text = text.slice(0, 200) + "...";
-          }
-
-          // ✅ Format sender in navy blue and bold
-          const formatted = `<span class="text-blue-800 font-semibold">${sender}</span> (${time}): ${text}`;
-
-
-          return formatted;
-        });
-
-        results[msg.taskId] = lastTwo;
-
-        // record message time for sorting
-        if (convo.length > 0) {
-          const lastMsg = convo[convo.length - 1];
-          const lastTime = new Date(
-            lastMsg.createdAt || lastMsg.timestamp || msg.updatedAt || Date.now()
-          ).getTime();
-          messageTimes[msg.taskId] = lastTime;
-        } else {
-          messageTimes[msg.taskId] = 0;
-        }
-      });
-
-      setMessages(results);
-    } catch (error) {
-      console.error("Error fetching bulk messages:", error);
-    }
-  };
-
-  fetchMessages();
-}, [tasks]);
 
 
 
   const owners = Array.from(new Set(tasks.map((t) => t.owner)));
 
-  const filteredTasks = tasks.filter((task) => {
-    const isSearching = searchQuery.trim().length > 0;
-    if (!isSearching) {
-      if (
-        (statusFilter !== "Completed" && task.status === "Completed") ||
-        (statusFilter !== "Cancelled" && task.status === "Cancelled")
-      ) {
-        return false;
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const isSearching = searchQuery.trim().length > 0;
+      if (!isSearching) {
+        if (
+          (statusFilter !== "Completed" && task.status === "Completed") ||
+          (statusFilter !== "Cancelled" && task.status === "Cancelled")
+        ) {
+          return false;
+        }
       }
-    }
-    if (projectFilter !== "INTERNAL" && task.project === "INTERNAL")
-      return false;
-    const isOwner = task.owner === username;
-    const isMember = task.members.includes(username);
-    if (!isOwner && !isMember) return false;
-    return true;
-  });
+      if (projectFilter !== "INTERNAL" && task.project === "INTERNAL")
+        return false;
+      const isOwner = task.owner === username;
+      const isMember = task.members.includes(username);
+      return isOwner || isMember;
+    });
+  }, [tasks, searchQuery, statusFilter, projectFilter, username]);
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (filteredTasks.length === 0) return;
+
+      try {
+        const taskIds = filteredTasks.map((t) => t.id);
+        const res = await api.post("/messages/allMessages", { taskIds });
+        const data = res.data || [];
+        setBulkMessages(data);
+        const results: Record<number, string[]> = {};
+        const messageTimes: Record<number, number> = {};
+
+        data.forEach((msg: BulkMessage) => {
+          const convo = msg.conversation || [];
+
+          // take last 2 messages from conversation
+          const lastTwo = convo
+            .slice(-2)
+            .map((m: string | ConversationMessage) => {
+              const raw =
+                typeof m === "string" ? m : m?.content || m?.text || "";
+
+              // ✅ Extract sender, timestamp, and message text cleanly
+              const match = raw.match(
+                /^(\w+)\((\d{2}\/\d{2}\s+\d{2}:\d{2}(?::\d{2})?)\):\s*(.*)$/
+              );
+
+              let sender = "";
+              let time = "";
+              let text = raw;
+
+              if (match) {
+                sender = match[1];
+                time = match[2];
+                text = match[3]; // remove prefix from message text
+              }
+
+              // ✅ Handle image or video previews
+              if (/<img\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text)) {
+                text = "📷 Image";
+              } else if (
+                /<video\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text) ||
+                /\.(mp4|mov|avi|mkv|webm)/i.test(text)
+              ) {
+                text = "🎬 Video";
+              } else {
+                // clean text & limit length
+                text = text.replace(/<[^>]*>/g, "").trim();
+                if (text.length > 200) text = text.slice(0, 200) + "...";
+              }
+
+              // ✅ Format sender in navy blue and bold
+              const formatted = `<span class="text-blue-800 font-semibold">${sender}</span> (${time}): ${text}`;
+
+              return formatted;
+            });
+
+          results[msg.taskId] = lastTwo;
+
+          // record message time for sorting
+          if (convo.length > 0) {
+            const lastMsg = convo[convo.length - 1];
+            const lastTime = new Date(
+              lastMsg.createdAt ||
+                lastMsg.timestamp ||
+                msg.updatedAt ||
+                Date.now()
+            ).getTime();
+            messageTimes[msg.taskId] = lastTime;
+          } else {
+            messageTimes[msg.taskId] = 0;
+          }
+        });
+
+        setMessages(results);
+      } catch (error) {
+        console.error("Error fetching bulk messages:", error);
+      }
+    };
+
+    fetchMessages();
+  }, [filteredTasks]);
 
   const handleChatClick = (id: string, title: string, desc?: string) => {
     markTaskAsRead(id);
