@@ -28,34 +28,36 @@ export const getMessagesBulk = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "taskIds (array) are required" });
     }
 
-    // Fetch all message rows for these taskIds
-     
-const messages = await prisma.$queryRawUnsafe(`
-  SELECT 
-    id, 
-    "taskId", 
-    conversation, 
-    "createdAt", 
-    "updatedAt",
-    (
-      SELECT COALESCE(
-        (conversation->-1->>'createdAt')::timestamptz,
-        (conversation->-1->>'timestamp')::timestamptz,
-        "updatedAt"
-      )
-    ) AS "lastMessageTime"
-  FROM "Message"
-  WHERE "taskId" = ANY($1)
-  ORDER BY "lastMessageTime" DESC
-`, taskIds);
+    const messages = await prisma.$queryRawUnsafe(`
+      SELECT
+        id,
+        "taskId",
+        -- take last 2 messages (if available)
+        CASE
+          WHEN jsonb_array_length(conversation) >= 2 THEN
+            jsonb_build_array(
+              conversation -> (jsonb_array_length(conversation) - 2),
+              conversation -> (jsonb_array_length(conversation) - 1)
+            )
+          ELSE
+            conversation
+        END AS conversation,
+        "createdAt",
+        "updatedAt",
+        "updatedAt" AS "lastMessageTime"
+      FROM "Message"
+      WHERE "taskId" = ANY($1)
+      ORDER BY "lastMessageTime" DESC
+    `, taskIds);
 
-    // Return all rows
     res.json(messages);
   } catch (error) {
     console.error("Error fetching bulk messages:", error);
     res.status(500).json({ error: "Failed to fetch messages in bulk" });
   }
 };
+
+
 
 
 export const upsertMessage = async (req: Request, res: Response) => {

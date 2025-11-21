@@ -37,6 +37,8 @@ export default function ChatView() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [projectNotes, setProjectNotes] = useState<{ content: string }[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
+  const notesContainerRef = useRef<HTMLDivElement | null>(null);
+
   const { conversations, fetchConversation, addMessage } =
     useConversationContext();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -49,6 +51,16 @@ export default function ChatView() {
       localStorage.removeItem("opendTaskId");
     };
   }, [taskIdNumber]);
+
+  useEffect(() => {
+  if (notesOpen && notesContainerRef.current) {
+    notesContainerRef.current.scrollTo({
+      top: notesContainerRef.current.scrollHeight,
+      behavior: "smooth", // smooth scrolling
+    });
+  }
+}, [notesOpen, projectNotes]);
+
 
   useEffect(() => {
     if (latestWsMessage && latestWsMessage.taskId === taskIdNumber) {
@@ -212,7 +224,10 @@ function NoteItem({ note }: { note: Note }) {
               <X size={20} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          <div
+            ref={notesContainerRef}
+            className="flex-1 overflow-y-auto p-3 space-y-2"
+          >
             {loadingNotes && (
               <div className="text-sm text-gray-500">Loading...</div>
             )}
@@ -224,7 +239,7 @@ function NoteItem({ note }: { note: Note }) {
                 key={idx}
                 className="p-2 border rounded-md bg-gray-50 dark:bg-gray-900"
               >
-                 <NoteItem key={idx} note={note} />
+                <NoteItem key={idx} note={note} />
               </div>
             ))}
           </div>
