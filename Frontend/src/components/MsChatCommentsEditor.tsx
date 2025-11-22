@@ -696,7 +696,7 @@ async function handleNotes(path) {
       return;
     }
 
-    const payload = { projectId, message: messageForNote };
+    const payload = { taskId, message: messageForNote };
 
     const res = await api.post("/notes/addnotes", payload);
 

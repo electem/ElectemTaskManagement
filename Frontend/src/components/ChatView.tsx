@@ -110,14 +110,14 @@ export default function ChatView() {
 
     setComment("");
   };
-  async function fetchProjectNotes() {
+ async function fetchProjectNotes() {
   const currentTask = tasks.find((t) => t.id === taskIdNumber);
   const projectId = currentTask?.projectId;
   if (!projectId) return;
 
   setLoadingNotes(true);
   try {
-    const res = await api.get(`/notes/${projectId}`);
+    const res = await api.get(`/notes/${projectId}`); 
     if (res.data?.found) {
       setProjectNotes(res.data.notes);
     } else {
@@ -130,6 +130,7 @@ export default function ChatView() {
     setLoadingNotes(false);
   }
 }
+
 function toggleNotesSlider() {
   if (!notesOpen) fetchProjectNotes(); // fetch when opening
   setNotesOpen(prev => !prev);

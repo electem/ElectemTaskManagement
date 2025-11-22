@@ -91,7 +91,10 @@ const TaskManagement = () => {
   >("owner");
   const [loading, setLoading] = useState(true);
   const [copyingTaskId, setCopyingTaskId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>(
+    sessionStorage.getItem("taskSearchQuery") || ""
+  );
+
   const [projectFilter, setProjectFilter] = useState("all");
 const [ownerFilter, setOwnerFilter] = useState("all");
 const [statusFilter, setStatusFilter] = useState("all");
@@ -262,6 +265,12 @@ const handleCopyTask = async (task: Task) => {
     setCopyingTaskId(null);
   }
 };
+const handleSearchChange = (e) => {
+  const value = e.target.value;
+  setSearchQuery(value);
+  sessionStorage.setItem("taskSearchQuery", value);
+};
+
   return (
     <>
       <div className="h-full flex flex-col">
@@ -289,11 +298,11 @@ const handleCopyTask = async (task: Task) => {
                     type="text"
                     placeholder="Search tasks..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className=" pl-10 pr-4 w-[300px]"
+                    onChange={handleSearchChange}
+                    className="pl-10 pr-4 w-[300px]"
                   />
                 </div>
-               <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <Select value={projectFilter} onValueChange={setProjectFilter}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Projects" />
                   </SelectTrigger>
@@ -308,7 +317,6 @@ const handleCopyTask = async (task: Task) => {
                 </Select>
 
                 <Select value={ownerFilter} onValueChange={setOwnerFilter}>
-
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Owners" />
                   </SelectTrigger>
@@ -323,7 +331,6 @@ const handleCopyTask = async (task: Task) => {
                 </Select>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Status" />
                   </SelectTrigger>
@@ -358,110 +365,107 @@ const handleCopyTask = async (task: Task) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {[...filteredTasks]
-                    .map((task) => {
-                      const taskIdStr = task.id.toString();
-                      // 🎯 GET UNREAD COUNT
-                      const unreadCount = unreadCounts[taskIdStr] || 0;
+                  {[...filteredTasks].map((task) => {
+                    const taskIdStr = task.id.toString();
+                    // 🎯 GET UNREAD COUNT
+                    const unreadCount = unreadCounts[taskIdStr] || 0;
 
-                      return (
-                        <TableRow key={task.id}>
-                          {/* Title cell - now clickable for edit */}
-                          <TableCell className="font-medium text-primary flex items-center gap-2">
-                            <span
-                              className="cursor-pointer hover:underline"
-                              onClick={() =>
-                                handleTitleClick(task.id.toString())
-                              }
-                              title="Click to Edit Task"
+                    return (
+                      <TableRow key={task.id}>
+                        {/* Title cell - now clickable for edit */}
+                        <TableCell className="font-medium text-primary flex items-center gap-2">
+                          <span
+                            className="cursor-pointer hover:underline"
+                            onClick={() => handleTitleClick(task.id.toString())}
+                            title="Click to Edit Task"
+                          >
+                            {task.title}
+                          </span>
+
+                          {/* ✅ Copy icon wrapped in span to support title */}
+                          <span
+                            title="Copy Task"
+                            onClick={() => handleCopyTask(task)}
+                            className="inline-flex items-center cursor-pointer"
+                          >
+                            <Copy
+                              className={`h-4 w-4 text-gray-500 hover:text-primary ${
+                                copyingTaskId === task.id.toString()
+                                  ? "animate-spin"
+                                  : ""
+                              }`}
+                            />
+                          </span>
+                        </TableCell>
+
+                        {/* Description cell - truncated to 20 characters */}
+                        <TableCell title={task.description}>
+                          {truncateText(task.description, 20)}
+                        </TableCell>
+                        <TableCell
+                          className="cursor-pointer hover:underline text-blue-600"
+                          onClick={() => {
+                            setHistoryModalTask(Number(task.id));
+                            setHistoryColumn("owner"); // or "status", "dueDate"
+                          }}
+                        >
+                          {task.owner}
+                        </TableCell>
+                        {/* Due Date cell - now formatted */}
+                        <TableCell
+                          className="cursor-pointer hover:underline text-blue-600"
+                          onClick={() => {
+                            setHistoryModalTask(Number(task.id));
+                            setHistoryColumn("dueDate");
+                          }}
+                        >
+                          {formatDate(task.dueDate)}
+                        </TableCell>
+
+                        <TableCell
+                          className="cursor-pointer hover:underline text-blue-600"
+                          onClick={() => {
+                            setHistoryModalTask(Number(task.id));
+                            setHistoryColumn("status");
+                          }}
+                        >
+                          <Badge className={getStatusColor(task.status)}>
+                            {task.status}
+                          </Badge>
+                        </TableCell>
+                        {/* New Message cell - clickable for chat */}
+                        <TableCell
+                          className="cursor-pointer hover:text-primary flex items-center gap-1"
+                          onClick={() =>
+                            handleChatClick(
+                              taskIdStr,
+                              task.title,
+                              task.description
+                            )
+                          }
+                          title={`Click to view chat${
+                            unreadCount > 0 ? ` (${unreadCount} unread)` : ""
+                          }`}
+                        >
+                          <MessageCircle className="h-4 w-4 mr-1" />
+
+                          {/* 🎯 DISPLAY UNREAD BUBBLE */}
+                          {unreadCount > 0 ? (
+                            <Badge
+                              variant="destructive"
+                              className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs font-bold animate-pulse"
                             >
-                              {task.title}
-                            </span>
-
-                            {/* ✅ Copy icon wrapped in span to support title */}
-                            <span
-                              title="Copy Task"
-                              onClick={() => handleCopyTask(task)}
-                              className="inline-flex items-center cursor-pointer"
-                            >
-                              <Copy
-                                className={`h-4 w-4 text-gray-500 hover:text-primary ${
-                                  copyingTaskId === task.id.toString()
-                                    ? "animate-spin"
-                                    : ""
-                                }`}
-                              />
-                            </span>
-                          </TableCell>
-
-                          {/* Description cell - truncated to 20 characters */}
-                          <TableCell title={task.description}> 
-                            {truncateText(task.description, 20)}
-                          </TableCell> 
-                          <TableCell
-                            className="cursor-pointer hover:underline text-blue-600"
-                            onClick={() => {
-                              setHistoryModalTask(Number(task.id));
-                              setHistoryColumn("owner"); // or "status", "dueDate"
-                            }}
-                          >
-                            {task.owner}
-                          </TableCell>
-                          {/* Due Date cell - now formatted */}
-                          <TableCell
-                            className="cursor-pointer hover:underline text-blue-600"
-                            onClick={() => {
-                              setHistoryModalTask(Number(task.id));
-                              setHistoryColumn("dueDate");
-                            }}
-                          >
-                            {formatDate(task.dueDate)}
-                          </TableCell>
-
-                          <TableCell
-                            className="cursor-pointer hover:underline text-blue-600"
-                            onClick={() => {
-                              setHistoryModalTask(Number(task.id));
-                              setHistoryColumn("status");
-                            }}
-                          >
-                            <Badge className={getStatusColor(task.status)}>
-                              {task.status}
+                              {unreadCount > 9 ? "9+" : unreadCount}
                             </Badge>
-                          </TableCell>
-                          {/* New Message cell - clickable for chat */}
-                          <TableCell
-                            className="cursor-pointer hover:text-primary flex items-center gap-1"
-                            onClick={() =>
-                              handleChatClick(
-                                taskIdStr,
-                                task.title,
-                                task.description
-                              )
-                            }
-                            title={`Click to view chat${
-                              unreadCount > 0 ? ` (${unreadCount} unread)` : ""
-                            }`}
-                          >
-                            <MessageCircle className="h-4 w-4 mr-1" />
-
-                            {/* 🎯 DISPLAY UNREAD BUBBLE */}
-                            {unreadCount > 0 ? (
-                              <Badge
-                                variant="destructive"
-                                className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs font-bold animate-pulse"
-                              >
-                                {unreadCount > 9 ? "9+" : unreadCount}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">
-                                Chat
-                              </span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                          ) : (
+                            <span className="text-muted-foreground text-sm">
+                              Chat
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
