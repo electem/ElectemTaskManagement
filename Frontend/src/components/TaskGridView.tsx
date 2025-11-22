@@ -28,6 +28,12 @@ export interface Task {
   dueDate?: string;
   status: string;
 }
+type ParsedMessage = {
+  sender: string;
+  time: string;
+  text: string;
+};
+
 interface ConversationMessage {
   content?: string;
   text?: string;
@@ -50,13 +56,15 @@ const TaskGridView = () => {
 
 const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [messages, setMessages] = useState<Record<number, string[]>>({});
+  const [messages, setMessages] = useState<Record<number, ParsedMessage[]>>({});
 
   const [projectFilter, setProjectFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [bulkMessages, setBulkMessages] = useState<BulkMessage[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [taskIds, setTaskIds] = useState<number[]>([]);
+
   const username = localStorage.getItem("username");
 
 useEffect(() => {
@@ -68,6 +76,7 @@ useEffect(() => {
         owner: ownerFilter,
         status: statusFilter,
       });
+      // setTaskIds(ctxTasks.map(t => t.id));
     } catch (err) {
       console.error("Error fetching filtered tasks:", err);
     } finally {
@@ -96,9 +105,12 @@ useEffect(() => {
 
   return () => clearTimeout(delay);
 }, [searchQuery, ctxTasks]);
-
-
-  // ✅ Fetch last 2 messages per task
+useEffect(() => {
+  if (Array.isArray(ctxTasks)) {
+    setTasks(ctxTasks);         // refresh task list
+    setTaskIds(ctxTasks.map(t => t.id));  // correct timing
+  }
+}, [ctxTasks]);
 
 
 
@@ -123,88 +135,60 @@ useEffect(() => {
       return isOwner || isMember;
     });
   }, [tasks, searchQuery, statusFilter, projectFilter, username]);
+  // ✅ Fetch last 2 messages per task
   useEffect(() => {
-    const fetchMessages = async () => {
-      if (filteredTasks.length === 0) return;
+  const fetchMessages = async () => {
+    if (taskIds.length === 0) return;
 
-      try {
-        const taskIds = filteredTasks.map((t) => t.id);
-        const res = await api.post("/messages/allMessages", { taskIds });
-        const data = res.data || [];
-        setBulkMessages(data);
-        const results: Record<number, string[]> = {};
-        const messageTimes: Record<number, number> = {};
+    try {
+      const res = await api.post("/messages/allMessages", { taskIds });
 
-        data.forEach((msg: BulkMessage) => {
-          const convo = msg.conversation || [];
+      const data = res.data || [];
+      setBulkMessages(data);
 
-          // take last 2 messages from conversation
-          const lastTwo = convo
-            .slice(-2)
-            .map((m: string | ConversationMessage) => {
-              const raw =
-                typeof m === "string" ? m : m?.content || m?.text || "";
+      const results: Record<number, any[]> = {};
 
-              // ✅ Extract sender, timestamp, and message text cleanly
-              const match = raw.match(
-                /^(\w+)\((\d{2}\/\d{2}\s+\d{2}:\d{2}(?::\d{2})?)\):\s*(.*)$/
-              );
+      data.forEach((msg: BulkMessage) => {
+        const convo = msg.conversation || [];
 
-              let sender = "";
-              let time = "";
-              let text = raw;
+        const parsedMessages = convo.map((entry: any) => {
+          const raw =
+            typeof entry === "string"
+              ? entry
+              : entry?.content || entry?.text || "";
 
-              if (match) {
-                sender = match[1];
-                time = match[2];
-                text = match[3]; // remove prefix from message text
-              }
+          const match = raw.match(
+            /^(\w+)\((\d{2}\/\d{2}\s+\d{2}:\d{2}(?::\d{2})?)\):\s*(.*)$/
+          );
 
-              // ✅ Handle image or video previews
-              if (/<img\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text)) {
-                text = "📷 Image";
-              } else if (
-                /<video\s+[^>]*src=["'][^"']+["'][^>]*>/i.test(text) ||
-                /\.(mp4|mov|avi|mkv|webm)/i.test(text)
-              ) {
-                text = "🎬 Video";
-              } else {
-                // clean text & limit length
-                text = text.replace(/<[^>]*>/g, "").trim();
-                if (text.length > 200) text = text.slice(0, 200) + "...";
-              }
+          let sender = "";
+          let time = "";
+          let text = raw;
 
-              // ✅ Format sender in navy blue and bold
-              const formatted = `<span class="text-blue-800 font-semibold">${sender}</span> (${time}): ${text}`;
-
-              return formatted;
-            });
-
-          results[msg.taskId] = lastTwo;
-
-          // record message time for sorting
-          if (convo.length > 0) {
-            const lastMsg = convo[convo.length - 1];
-            const lastTime = new Date(
-              lastMsg.createdAt ||
-                lastMsg.timestamp ||
-                msg.updatedAt ||
-                Date.now()
-            ).getTime();
-            messageTimes[msg.taskId] = lastTime;
-          } else {
-            messageTimes[msg.taskId] = 0;
+          if (match) {
+            sender = match[1];
+            time = match[2];
+            text = match[3];
           }
+
+          text = text.replace(/<[^>]*>/g, "").trim();
+          if (text.length > 200) text = text.slice(0, 200) + "...";
+
+          return { sender, time, text };
         });
 
-        setMessages(results);
-      } catch (error) {
-        console.error("Error fetching bulk messages:", error);
-      }
-    };
+        results[msg.taskId] = parsedMessages;
+      });
 
-    fetchMessages();
-  }, [filteredTasks]);
+      setMessages(results);
+    } catch (error) {
+      console.error("Error fetching bulk messages:", error);
+    }
+  };
+
+  fetchMessages();
+}, [taskIds.join(",")]); 
+
 
   const handleChatClick = (id: string, title: string, desc?: string) => {
     markTaskAsRead(id);
@@ -360,14 +344,18 @@ useEffect(() => {
 
                 {/* ✅ Show last 2 messages */}
                 <div className="flex flex-col flex-grow text-sm text-gray-700 mt-1 leading-tight">
-                  {taskMessages.map((msg, i) => (
+                  {taskMessages.map((m, i) => (
                     <p
                       key={i}
-                      className="whitespace-pre-line break-words w-full text-gray-700"
-                      dangerouslySetInnerHTML={{
-                        __html: `${i === 0 ? "💬 " : "🗨️ "} ${msg}`,
-                      }}
-                    />
+                      className="text-sm text-gray-700 leading-tight mb-1 break-words whitespace-pre-wrap overflow-hidden max-w-full"
+                    >
+                      {i === 0 ? "💬 " : "🗨️ "}
+                      <span className="font-semibold text-blue-800">
+                        {m.sender}
+                      </span>{" "}
+                      <span className="text-gray-500 text-xs">({m.time})</span>:{" "}
+                      {m.text}
+                    </p>
                   ))}
                 </div>
               </div>

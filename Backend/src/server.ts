@@ -23,7 +23,7 @@ dotenv.config();
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:5173", // your frontend origin
+    origin: ["http://localhost:5173", "http://localhost:5174"], // your frontend origin
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"], // <-- include Authorization
   })
@@ -110,7 +110,9 @@ wss.on("connection", (ws) => {
         // Fetch user tasks
         const userTasks = await prisma.task.findMany({
           where: {
-            OR: [{ owner: username }, { members: { has: username } }],
+            OR: [{ owner: username }, { members: { has: username } }],NOT: {
+              status: { in: ["Completed", "Cancelled"] },
+            },
           },
           select: { id: true },
         });

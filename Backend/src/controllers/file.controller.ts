@@ -54,46 +54,46 @@ export const upload = multer({
   },
 });
 
-export const uploadFile = async (req: Request, res: Response) => {
+export const uploadFiles = async (req: Request, res: Response) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
     }
 
-    const { taskId, messageId } = req.body; // Optional: associate with specific task/message
-    const file = req.file;
+    const { taskId, messageId } = req.body;
+    const uploadedFiles = [];
 
-    // Create file record in database
-    const fileRecord = await prisma.uploadedFile.create({
-      data: {
+    for (const file of files) {
+      const fileRecord = await prisma.uploadedFile.create({
+        data: {
+          originalName: file.originalname,
+          fileName: file.filename,
+          filePath: file.path,
+          mimeType: file.mimetype,
+          size: file.size,
+          taskId: taskId ? Number(taskId) : null,
+          messageId: messageId || null,
+          uploadDate: new Date(),
+        },
+      });
+
+      uploadedFiles.push({
+        id: fileRecord.id,
         originalName: file.originalname,
-        fileName: file.filename,
-        filePath: file.path,
+        url: `https://iot.electems.com/task/api/uploads/${file.filename}`,
         mimeType: file.mimetype,
         size: file.size,
-        taskId: taskId ? Number(taskId) : null,
-        messageId: messageId || null,
-        uploadDate: new Date(),
-      },
-    });
+      });
+    }
 
-    // Generate public URL for the file
-    const fileUrl = `https://iot.electems.com/task/api/uploads/${file.filename}`;
-
-    res.json({
-      success: true,
-      url: fileUrl,
-      fileId: fileRecord.id,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
-    });
-
+    res.json({ success: true, files: uploadedFiles });
   } catch (error) {
     console.error("File upload error:", error);
-    res.status(500).json({ error: "Failed to upload file" });
+    res.status(500).json({ error: "Failed to upload files" });
   }
 };
+
 
 export const getFile = async (req: Request, res: Response) => {
   try {
@@ -143,7 +143,7 @@ export const getFilesByTask = async (req: Request, res: Response) => {
     // Add full URLs to each file
     const filesWithUrls = files.map(file => ({
       ...file,
-      url: `http://localhost:4000/uploads/${file.fileName}`
+      url: `https://iot.electems.com/task/api/uploads/${file.fileName}`
     }));
 
     res.json(filesWithUrls);

@@ -251,89 +251,64 @@ export default function MsChatCommentsEditor({
   }
 
   async function handleFileUpload(e, taskId) {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      for (const file of files) {
+        formData.append("file", file);
+      }
       formData.append("taskId", taskId);
 
       const res = await api.post("/uploads", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
-      const data = res.data;
-      if (data && data.url) {
-        // Get username and timestamp (same logic as handleSend)
-        const fullUsername = localStorage.getItem("username") || "---";
-        const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
+      const uploadedFiles = res.data.files; // ✅ array of uploaded files
+      if (!uploadedFiles || uploadedFiles.length === 0) return;
 
-        const now = new Date();
-        const day = String(now.getDate()).padStart(2, "0");
-        const month = String(now.getMonth() + 1).padStart(2, "0");
-        const hours = String(now.getHours()).padStart(2, "0");
-        const minutes = String(now.getMinutes()).padStart(2, "0");
+      const updatedThreads = [...threads];
+      const fullUsername = localStorage.getItem("username") || "---";
+      const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
 
-        const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, "0");
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
 
-        // Create proper file embed HTML based on file type
+      for (const fileData of uploadedFiles) {
         let fileEmbedHtml = "";
-        if (file.type.startsWith("image/")) {
-          fileEmbedHtml = `<img src="${data.url}" alt="${file.name}" class="max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer" />`;
-        } else if (file.type.startsWith("video/")) {
-          fileEmbedHtml = `<video src="${data.url}" controls class="w-[300px] h-[200px] rounded-md my-2 object-cover"></video>`;
+        if (fileData.mimeType.startsWith("image/")) {
+          fileEmbedHtml = `<img src="${fileData.url}" alt="${fileData.originalName}" class="max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer" />`;
+        } else if (fileData.mimeType.startsWith("video/")) {
+          fileEmbedHtml = `<video src="${fileData.url}" controls class="w-[300px] h-[200px] rounded-md my-2 object-cover"></video>`;
         } else {
-          // For PDFs and other files, show as downloadable link
-          fileEmbedHtml = `<a href="${data.url}" target="_blank" download="${file.name}" class="text-blue-600 underline">${file.name}</a>`;
+          fileEmbedHtml = `<a href="${fileData.url}" target="_blank" download="${fileData.originalName}" class="text-blue-600 underline">${fileData.originalName}</a>`;
         }
 
-        // Create the complete message content with user info and file
         const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${fileEmbedHtml}`;
-
-        // Use the SAME LOGIC as handleSend for updating threads
-        const updatedThreads = [...threads];
-        const newThread = { content: finalInnerHTML, replies: [] };
-
-        // For file uploads, always create as top-level message (parentIndex = null)
-        const parentIndex = null; // Top-level message
-        const replyIndex = null;
-
-        if (parentIndex === null) {
-          updatedThreads.push(newThread);
-        } else {
-          // Reply case
-          const parentThread = updatedThreads[parentIndex];
-          if (replyIndex !== null) {
-            parentThread.replies[replyIndex].replies = [
-              ...(parentThread.replies[replyIndex].replies || []),
-              newThread,
-            ];
-          } else {
-            parentThread.replies = [...(parentThread.replies || []), newThread];
-          }
-
-          // Move parent thread to bottom
-          const movedThread = updatedThreads.splice(parentIndex, 1)[0];
-          updatedThreads.push(movedThread);
-        }
-        setThreads(updatedThreads);
-
-        // Use the SAME LOGIC as handleSend for backend upload
-        await uploadThreadsToBackend(updatedThreads, false);
-
-        // Clear the file input
-        e.target.value = '';
+        updatedThreads.push({ content: finalInnerHTML, replies: [] });
       }
+
+      setThreads(updatedThreads);
+
+      // Upload all threads to backend
+      await uploadThreadsToBackend(updatedThreads, false);
+
+      // Clear the file input after upload
+      e.target.value = "";
     } catch (err) {
       console.error("Upload failed:", err);
     } finally {
       setUploading(false);
     }
   }
+
+
 
   function getCaretCoordinates() {
     const selection = window.getSelection();
@@ -921,6 +896,7 @@ async function handleNotes(path) {
                 onChange={(e) => handleFileUpload(e, taskId)}
                 disabled={uploading}
                 accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                multiple 
               />
             </label>
 

@@ -8,36 +8,63 @@ import { Prisma } from "@prisma/client";
 export const getTasks = async (req: Request, res: Response) => {
   try {
     const { project, owner, status, projectId } = req.query;
+    const username = (req as any).user.username; // ⬅️ From JWT middleware
 
-    // Build filters dynamically
-    const filters: Prisma.TaskWhereInput = {};
+    const filters: Prisma.TaskWhereInput = {
+      // ⬅️ Return only tasks where user is owner OR a member
+      OR: [
+        { owner: username },
+        { members: { has: username } },
+      ],
+    };
 
-    // ✅ Handle projectId safely
-    if (projectId && projectId !== "undefined" && projectId !== "null" && !isNaN(Number(projectId))) {
+    // ============================
+    // PROJECT ID FILTER
+    // ============================
+    if (
+      projectId &&
+      projectId !== "undefined" &&
+      projectId !== "null" &&
+      !isNaN(Number(projectId))
+    ) {
       filters.projectId = Number(projectId);
     }
 
-    // ✅ Only add project filter if it's not "all"
+    // ============================
+    // PROJECT FILTER
+    // ============================
     if (project && project !== "all") {
       filters.project = String(project);
     }
 
+    // ============================
+    // OWNER FILTER
+    // ============================
     if (owner && owner !== "all") {
       filters.owner = String(owner);
     }
 
-    if (status && status !== "all") {
-      filters.status = String(status);
+    // ============================
+    // STATUS FILTER LOGIC
+    // ============================
+    if (status === "Completed") {
+      filters.status = "Completed";
+    } else if (status === "Cancelled") {
+      filters.status = "Cancelled";
+    } else {
+      // Default → exclude completed and cancelled
+      filters.status = {
+        notIn: ["Completed", "Cancelled"],
+      };
     }
 
-    // Fetch tasks with filters + optimized sorting
     const tasks = await prisma.task.findMany({
       where: filters,
-      include: { projectRel: true }, // Include project relation
-       orderBy: [
-        { owner: "asc" },     // Owner A–Z
-        { dueDate: "asc" },   // Earlier due dates first
-        { status: "asc" },    // Status alphabetical
+      include: { projectRel: true },
+      orderBy: [
+        { owner: "asc" },
+        { dueDate: "asc" },
+        { status: "asc" },
       ],
     });
 
@@ -47,10 +74,6 @@ export const getTasks = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to fetch tasks" });
   }
 };
-
-
-
-
 
 // ✅ Create a task
 export const createTask = async (req: Request, res: Response) => {
