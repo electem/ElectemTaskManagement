@@ -151,30 +151,9 @@ useEffect(() => {
   const owners = Array.from(new Set(contextTasks.map((task) => task.owner)));
 
   // Filter tasks
-  const filteredTasks = displayTasks.filter((task) => {
-    // Note: The logic below seems to be designed to exclude 'Completed' tasks unless the filter is explicitly set to 'Completed'
-    const isSearching = searchQuery.trim().length > 0;
+  const filteredTasks = displayTasks;
 
-   if (!isSearching) {
-    // Exclude completed/cancelled only when not searching
-    if (
-      (statusFilter !== "Completed" && task.status === "Completed") ||
-      (statusFilter !== "Cancelled" && task.status === "Cancelled")
-    ) {
-      return false;
-    }
-    if (task.project === "INTERNAL" && projectFilter !== "INTERNAL") {
-      return false;
-    }
-  }
-    //  Show task if user is either the owner OR a member
-    const isOwner = task.owner === username;
-    const isMember = task.members.includes(username);
-    if (!isOwner && !isMember) return false;  
-    return true;
-  });
-  console.log("filteredTasks", filteredTasks);
-  
+
 
   if (loading)
     return (
