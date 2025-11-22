@@ -801,7 +801,7 @@ async function handleNotes(path) {
           /* if some parent uses display:flex forcing nowrap for this node,
              enforce block layout here */
           .message-content {
-            display: block !important;
+            display: block !important; 
           }
         `}</style>
       </>
