@@ -7,15 +7,20 @@ import { Prisma } from "@prisma/client";
 // ✅ Get all tasks (optionally filter by project)
 export const getTasks = async (req: Request, res: Response) => {
   try {
-    const { project, owner, status, projectId } = req.query;
-    const username = (req as any).user.username; // ⬅️ From JWT middleware
+    const { project, owner, status, projectId, search } = req.query;
+    const username = (req as any).user.username;
 
+    // Normalize string query params
+    const statusStr = typeof status === "string" ? status : undefined;
+    const projectStr = typeof project === "string" ? project : undefined;
+    const ownerStr = typeof owner === "string" ? owner : undefined;
+    const searchStr = typeof search === "string" ? search.trim() : "";
+
+    const isSearching = searchStr.length > 0;
+
+    // Base filter → user should be owner or member
     const filters: Prisma.TaskWhereInput = {
-      // ⬅️ Return only tasks where user is owner OR a member
-      OR: [
-        { owner: username },
-        { members: { has: username } },
-      ],
+      OR: [{ owner: username }, { members: { has: username } }],
     };
 
     // ============================
@@ -23,6 +28,7 @@ export const getTasks = async (req: Request, res: Response) => {
     // ============================
     if (
       projectId &&
+      typeof projectId === "string" &&
       projectId !== "undefined" &&
       projectId !== "null" &&
       !isNaN(Number(projectId))
@@ -33,39 +39,59 @@ export const getTasks = async (req: Request, res: Response) => {
     // ============================
     // PROJECT FILTER
     // ============================
-    if (project && project !== "all") {
-      filters.project = String(project);
+    if (projectStr && projectStr !== "all") {
+      filters.project = projectStr;
     }
 
     // ============================
     // OWNER FILTER
     // ============================
-    if (owner && owner !== "all") {
-      filters.owner = String(owner);
+    if (ownerStr && ownerStr !== "all") {
+      filters.owner = ownerStr;
     }
 
     // ============================
     // STATUS FILTER LOGIC
     // ============================
-    if (status === "Completed") {
-      filters.status = "Completed";
-    } else if (status === "Cancelled") {
-      filters.status = "Cancelled";
-    } else {
-      // Default → exclude completed and cancelled
-      filters.status = {
-        notIn: ["Completed", "Cancelled"],
-      };
+
+    if (!isSearching) {
+      // 🔥 ONLY APPLY STATUS LOGIC WHEN NOT SEARCHING
+
+      if (statusStr === "Completed" || statusStr === "Cancelled") {
+        filters.status = statusStr;
+      } else if (statusStr === "all" || statusStr === undefined) {
+        filters.status = {
+          notIn: ["Completed", "Cancelled"],
+        };
+      } else if (statusStr) {
+        filters.status = statusStr;
+      }
+    }
+    // else: searching → do NOT apply any status filter
+
+    // ============================
+    // SEARCH LOGIC
+    // ============================
+    if (isSearching) {
+      filters.AND = [
+        {
+          OR: [
+            { title: { contains: searchStr, mode: "insensitive" } },
+            { description: { contains: searchStr, mode: "insensitive" } },
+            { status: { contains: searchStr, mode: "insensitive" } },
+            { project: { contains: searchStr, mode: "insensitive" } },
+          ],
+        },
+      ];
     }
 
+    // ============================
+    // FETCH TASKS
+    // ============================
     const tasks = await prisma.task.findMany({
       where: filters,
       include: { projectRel: true },
-      orderBy: [
-        { owner: "asc" },
-        { dueDate: "asc" },
-        { status: "asc" },
-      ],
+      orderBy: [{ owner: "asc" }, { dueDate: "asc" }, { status: "asc" }],
     });
 
     res.json(tasks);
@@ -74,6 +100,7 @@ export const getTasks = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to fetch tasks" });
   }
 };
+
 
 // ✅ Create a task
 export const createTask = async (req: Request, res: Response) => {
@@ -113,15 +140,6 @@ export const createTask = async (req: Request, res: Response) => {
         },
       });
 
-      // 2️⃣ Ensure Notes entry exists for this project
-      const existingNotes = await tx.notes.findUnique({
-        where: { projectId },
-      });
-      if (!existingNotes) {
-        await tx.notes.create({
-          data: { projectId, notes: [] },
-        });
-      }
 
       // 3️⃣ Insert initial message if it exists
       if (initialMessage && Array.isArray(initialMessage)) {
