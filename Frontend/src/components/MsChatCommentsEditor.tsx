@@ -741,36 +741,73 @@ async function handleNotes(path) {
     const handleImageClick = (url: string) => {
       window.open(url, "_blank");
     };
-
+  
     // First extract username/timestamp part
     let formattedContent = htmlContent.replace(
       /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
       `<span class="font-bold text-blue-600">$1</span>($2):`
     );
-
+  
     // Use linkifyjs for robust URL detection
     formattedContent = linkifyHtml(formattedContent, {
       target: "_blank",
       rel: "noopener noreferrer",
       className: "text-blue-600 underline",
-
     });
-
-    
-
+  
     return (
-      <div
-        className="message-content flex items-center flex-wrap"
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.tagName === "IMG") {
-            handleImageClick((target as HTMLImageElement).src);
+      <>
+        <div
+          className="message-content break-words break-all whitespace-pre-wrap"
+          style={{
+            // double insurance for older browsers / CSS specificity issues
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+            whiteSpace: "pre-wrap",
+          }}
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.tagName === "IMG") {
+              handleImageClick((target as HTMLImageElement).src);
+            }
+          }}
+          // IMPORTANT: keep dangerouslySetInnerHTML as you had it
+          dangerouslySetInnerHTML={{ __html: formattedContent }}
+        />
+        {/* Scoped CSS fallback for child nodes that may resist Tailwind classes */}
+        <style>{`
+          /* ensure anchors / spans wrap */
+          .message-content, 
+          .message-content * {
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
           }
-        }}
-        dangerouslySetInnerHTML={{ __html: formattedContent }}
-      />
+  
+          /* make sure block elements inside still wrap */
+          .message-content pre,
+          .message-content code {
+            white-space: pre-wrap !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+          }
+  
+          /* images scale inside container instead of forcing a wide line */
+          .message-content img {
+            max-width: 100%;
+            height: auto;
+            display: inline-block;
+          }
+  
+          /* if some parent uses display:flex forcing nowrap for this node,
+             enforce block layout here */
+          .message-content {
+            display: block !important;
+          }
+        `}</style>
+      </>
     );
   });
+  
   MessageContent.displayName = "MessageContent";
 
 
