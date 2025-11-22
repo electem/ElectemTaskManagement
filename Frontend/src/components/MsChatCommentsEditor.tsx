@@ -251,62 +251,62 @@ export default function MsChatCommentsEditor({
   }
 
   async function handleFileUpload(e, taskId) {
-  const files = e.target.files;
-  if (!files || files.length === 0) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-  setUploading(true);
-  try {
-    const formData = new FormData();
-    for (const file of files) {
-      formData.append("file", file);
-    }
-    formData.append("taskId", taskId);
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append("file", file);
+      }
+      formData.append("taskId", taskId);
 
-    const res = await api.post("/uploads", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+      const res = await api.post("/uploads", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-    const uploadedFiles = res.data.files; // ✅ array of uploaded files
-    if (!uploadedFiles || uploadedFiles.length === 0) return;
+      const uploadedFiles = res.data.files; // ✅ array of uploaded files
+      if (!uploadedFiles || uploadedFiles.length === 0) return;
 
-    const updatedThreads = [...threads];
-    const fullUsername = localStorage.getItem("username") || "---";
-    const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
+      const updatedThreads = [...threads];
+      const fullUsername = localStorage.getItem("username") || "---";
+      const usernamePrefix = fullUsername.substring(0, 3).toUpperCase();
 
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, "0");
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, "0");
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const dateTimeString = `${day}/${month} ${hours}:${minutes}`;
 
-    for (const fileData of uploadedFiles) {
-      let fileEmbedHtml = "";
-      if (fileData.mimeType.startsWith("image/")) {
-        fileEmbedHtml = `<img src="${fileData.url}" alt="${fileData.originalName}" class="max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer" />`;
-      } else if (fileData.mimeType.startsWith("video/")) {
-        fileEmbedHtml = `<video src="${fileData.url}" controls class="w-[300px] h-[200px] rounded-md my-2 object-cover"></video>`;
-      } else {
-        fileEmbedHtml = `<a href="${fileData.url}" target="_blank" download="${fileData.originalName}" class="text-blue-600 underline">${fileData.originalName}</a>`;
+      for (const fileData of uploadedFiles) {
+        let fileEmbedHtml = "";
+        if (fileData.mimeType.startsWith("image/")) {
+          fileEmbedHtml = `<img src="${fileData.url}" alt="${fileData.originalName}" class="max-w-[200px] w-auto h-auto rounded-md my-2 cursor-pointer" />`;
+        } else if (fileData.mimeType.startsWith("video/")) {
+          fileEmbedHtml = `<video src="${fileData.url}" controls class="w-[300px] h-[200px] rounded-md my-2 object-cover"></video>`;
+        } else {
+          fileEmbedHtml = `<a href="${fileData.url}" target="_blank" download="${fileData.originalName}" class="text-blue-600 underline">${fileData.originalName}</a>`;
+        }
+
+        const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${fileEmbedHtml}`;
+        updatedThreads.push({ content: finalInnerHTML, replies: [] });
       }
 
-      const finalInnerHTML = `${usernamePrefix}(${dateTimeString}): ${fileEmbedHtml}`;
-      updatedThreads.push({ content: finalInnerHTML, replies: [] });
+      setThreads(updatedThreads);
+
+      // Upload all threads to backend
+      await uploadThreadsToBackend(updatedThreads, false);
+
+      // Clear the file input after upload
+      e.target.value = "";
+    } catch (err) {
+      console.error("Upload failed:", err);
+    } finally {
+      setUploading(false);
     }
-
-    setThreads(updatedThreads);
-
-    // Upload all threads to backend
-    await uploadThreadsToBackend(updatedThreads, false);
-
-    // Clear the file input after upload
-    e.target.value = "";
-  } catch (err) {
-    console.error("Upload failed:", err);
-  } finally {
-    setUploading(false);
   }
-}
 
 
 
