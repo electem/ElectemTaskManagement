@@ -213,12 +213,13 @@ const TaskForm = () => {
     <div className="p-8">
       <Button
         variant="ghost"
-        onClick={() => navigate("/tasks")}
-        className="mb-4"
+        onClick={() => navigate(-1)}
+        className="mb-4 flex items-center"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Tasks
       </Button>
+
 
       <Card className="shadow-md max-w-3xl">
         <CardHeader>
