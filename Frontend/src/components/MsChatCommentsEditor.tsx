@@ -5,7 +5,7 @@ import api from "@/lib/api";
 import { Upload, FileText,X} from "lucide-react";
 import {
   Message,
-  useConversationContext, 
+  useConversationContext,
 } from "@/context/ConversationProvider";
 import { useUsers } from "@/hooks/useUsers";
 import { useTaskContext } from "@/context/TaskContext";
@@ -50,7 +50,7 @@ export default function MsChatCommentsEditor({
   const [mentionSearch, setMentionSearch] = useState("");
   const { users } = useUsers();
   const { latestWsMessage,tasks } = useTaskContext();
-  
+
 
   useEffect(() => {
     if (!latestWsMessage) return;
@@ -741,20 +741,20 @@ async function handleNotes(path) {
     const handleImageClick = (url: string) => {
       window.open(url, "_blank");
     };
-  
+
     // First extract username/timestamp part
     let formattedContent = htmlContent.replace(
       /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
       `<span class="font-bold text-blue-600">$1</span>($2):`
     );
-  
+
     // Use linkifyjs for robust URL detection
     formattedContent = linkifyHtml(formattedContent, {
       target: "_blank",
       rel: "noopener noreferrer",
       className: "text-blue-600 underline",
     });
-  
+
     return (
       <>
         <div
@@ -777,12 +777,12 @@ async function handleNotes(path) {
         {/* Scoped CSS fallback for child nodes that may resist Tailwind classes */}
         <style>{`
           /* ensure anchors / spans wrap */
-          .message-content, 
+          .message-content,
           .message-content * {
             overflow-wrap: anywhere !important;
             word-break: break-word !important;
           }
-  
+
           /* make sure block elements inside still wrap */
           .message-content pre,
           .message-content code {
@@ -790,24 +790,24 @@ async function handleNotes(path) {
             word-break: break-word !important;
             overflow-wrap: anywhere !important;
           }
-  
+
           /* images scale inside container instead of forcing a wide line */
           .message-content img {
             max-width: 100%;
             height: auto;
             display: inline-block;
           }
-  
+
           /* if some parent uses display:flex forcing nowrap for this node,
              enforce block layout here */
           .message-content {
-            display: block !important; 
+            display: block !important;
           }
         `}</style>
       </>
     );
   });
-  
+
   MessageContent.displayName = "MessageContent";
 
 
@@ -932,8 +932,8 @@ async function handleNotes(path) {
                 className="hidden"
                 onChange={(e) => handleFileUpload(e, taskId)}
                 disabled={uploading}
-                accept="image/*,video/*,.pdf,.doc,.docx,.txt"
-                multiple 
+                // accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                multiple
               />
             </label>
 
