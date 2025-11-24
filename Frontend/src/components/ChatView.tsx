@@ -8,6 +8,7 @@ import { FileText, X } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import MsgBox from "./MsgBox.tsx";
+import linkifyHtml from "linkify-html";
 
 interface Message {
   id: number;
@@ -136,9 +137,54 @@ function toggleNotesSlider() {
 }
 function NoteItem({ note }: { note: Note }) {
   // MessageContent renderer
-  const MessageContent = ({ htmlContent }: { htmlContent: string }) => (
-    <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+ const MessageContent = ({ htmlContent }: { htmlContent: string }) => {
+  // Make URLs clickable
+  const clickable = linkifyHtml(htmlContent, {
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "text-blue-600 underline",
+  });
+
+  return (
+    <>
+      <div
+        className="message-content break-words break-all whitespace-pre-wrap"
+        style={{
+          wordBreak: "break-word",
+          overflowWrap: "anywhere",
+          whiteSpace: "pre-wrap",
+        }}
+        dangerouslySetInnerHTML={{ __html: clickable }}
+      />
+
+      <style>{`
+        .message-content, 
+        .message-content * {
+          overflow-wrap: anywhere !important;
+          word-break: break-word !important;
+        }
+
+        .message-content pre,
+        .message-content code {
+          white-space: pre-wrap !important;
+          word-break: break-word !important;
+          overflow-wrap: anywhere !important;
+        }
+
+        .message-content img {
+          max-width: 100%;
+          height: auto;
+          display: inline-block;
+        }
+
+        .message-content {
+          display: block !important;
+        }
+      `}</style>
+    </>
   );
+};
+
 
  const renderReplies = (replies: Note[],) => (
     <div className="ml-4">
