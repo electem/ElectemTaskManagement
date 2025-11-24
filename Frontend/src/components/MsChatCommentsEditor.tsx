@@ -801,7 +801,7 @@ export default function MsChatCommentsEditor({
           /* images scale inside container instead of forcing a wide line */
          .message-content img {
          max-width: 300px;
-         max-height: 200px;
+         max-height: 200px; 
          width: auto;
          height: auto;
          object-fit: cover;
