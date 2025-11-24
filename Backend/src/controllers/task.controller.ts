@@ -79,7 +79,7 @@ export const getTasks = async (req: Request, res: Response) => {
     // ============================
     if (isSearching) {
       filters.AND = [
-        {
+        { 
           OR: [
             { title: { contains: searchStr, mode: "insensitive" } },
             { description: { contains: searchStr, mode: "insensitive" } },
