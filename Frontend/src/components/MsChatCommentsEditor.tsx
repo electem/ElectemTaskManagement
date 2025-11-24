@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import api from "@/lib/api";
-import { Upload, FileText,X} from "lucide-react";
+import { Upload, FileText, X } from "lucide-react";
 import {
   Message,
   useConversationContext,
@@ -10,9 +10,8 @@ import {
 import { useUsers } from "@/hooks/useUsers";
 import { useTaskContext } from "@/context/TaskContext";
 import { toast } from "sonner";
-import linkifyHtml from 'linkify-html';
+import linkifyHtml from "linkify-html";
 import MsgBox from "./MsgBox";
-
 
 interface Props {
   placeholder?: string;
@@ -49,14 +48,13 @@ export default function MsChatCommentsEditor({
   const [mentionPosition, setMentionPosition] = useState({ x: 0, y: 0 });
   const [mentionSearch, setMentionSearch] = useState("");
   const { users } = useUsers();
-  const { latestWsMessage,tasks } = useTaskContext();
-
+  const { latestWsMessage, tasks } = useTaskContext();
 
   useEffect(() => {
     if (!latestWsMessage) return;
 
     const { taskId, currentUser, payload } = latestWsMessage;
-    console.log("taskID",taskId);
+    console.log("taskID", taskId);
 
     // only update if this message belongs to the same task we're viewing
     if (taskId === currentTaskID && Array.isArray(payload)) {
@@ -100,7 +98,6 @@ export default function MsChatCommentsEditor({
     };
   }, [threads]);
 
-
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -113,7 +110,7 @@ export default function MsChatCommentsEditor({
       const currentUser = localStorage.getItem("username");
       const usernames = users
         .map((user) => user.username)
-        .filter((username) => (Boolean(username)) && username !== currentUser); // remove undefined/null if any
+        .filter((username) => Boolean(username) && username !== currentUser); // remove undefined/null if any
       setMentionList(usernames);
     }
   }, [users]);
@@ -127,7 +124,6 @@ export default function MsChatCommentsEditor({
   useEffect(() => {
     highlightCodeBlocks();
   }, [threads]);
-
 
   function highlightCodeBlocks() {
     if (!editorRef.current) return;
@@ -167,7 +163,9 @@ export default function MsChatCommentsEditor({
           const blob = item.getAsFile();
           if (blob) {
             // ✅ Convert blob to a File object
-            const file = new File([blob], "pasted-image.png", { type: blob.type });
+            const file = new File([blob], "pasted-image.png", {
+              type: blob.type,
+            });
 
             // ✅ Reuse your handleFileUpload logic
             await handleFileUpload({ target: { files: [file] } }, taskId);
@@ -308,8 +306,6 @@ export default function MsChatCommentsEditor({
     }
   }
 
-
-
   function getCaretCoordinates() {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return { x: 0, y: 0 };
@@ -334,7 +330,8 @@ export default function MsChatCommentsEditor({
     if (!range) return;
 
     // Get text before cursor
-    const textBeforeCursor = range.startContainer.textContent?.substring(0, range.startOffset) || "";
+    const textBeforeCursor =
+      range.startContainer.textContent?.substring(0, range.startOffset) || "";
 
     const mentionMatch = textBeforeCursor.match(/@(\w*)$/); // detect @ + partial name
     if (mentionMatch) {
@@ -349,7 +346,6 @@ export default function MsChatCommentsEditor({
       // Get cursor position for dropdown
       const coords = getCaretCoordinates();
       setMentionPosition(coords);
-
     } else {
       setShowMentions(false);
     }
@@ -452,7 +448,11 @@ export default function MsChatCommentsEditor({
         const idx = path[0];
         if (updatedThreads[idx]) {
           const existingReplies = updatedThreads[idx].replies || [];
-          const thread = { ...updatedThreads[idx], content: finalInnerHTML, replies: existingReplies };
+          const thread = {
+            ...updatedThreads[idx],
+            content: finalInnerHTML,
+            replies: existingReplies,
+          };
 
           // Remove old, push updated to bottom
           updatedThreads.splice(idx, 1);
@@ -466,7 +466,11 @@ export default function MsChatCommentsEditor({
         const replyPath = path.slice(1);
 
         if (parentIdx >= 0 && parentIdx < updatedThreads.length) {
-          const success = updateNested(updatedThreads[parentIdx].replies, replyPath, finalInnerHTML);
+          const success = updateNested(
+            updatedThreads[parentIdx].replies,
+            replyPath,
+            finalInnerHTML
+          );
           if (success) {
             // Move parent to bottom
             const movedParent = updatedThreads.splice(parentIdx, 1)[0];
@@ -540,7 +544,7 @@ export default function MsChatCommentsEditor({
   }
 
   // create task using task icon
-async function handleCreateTask(path) {
+  async function handleCreateTask(path) {
     try {
       // 1️⃣ Get the thread content from the selected message
       const threadIndex = path[0];
@@ -656,65 +660,67 @@ async function handleCreateTask(path) {
     }
   }
 
-
-
   // Handle notes here
 
   // reuse same prefix-stripping regex as backend/client edit to be consistent
-function stripPrefixClient(full = "") {
-  return String(full).replace(/^[A-Z]{2,4}\s*\(\d{2}\/\d{2}\s\d{2}:\d{2}\):\s*/, "").trim();
-}
+  function stripPrefixClient(full = "") {
+    return String(full)
+      .replace(/^[A-Z]{2,4}\s*\(\d{2}\/\d{2}\s\d{2}:\d{2}\):\s*/, "")
+      .trim();
+  }
 
-async function handleNotes(path) {
-  try {
-    const threadIndex = path[0];
-    let thread = threads[threadIndex];
+  async function handleNotes(path) {
+    try {
+      const threadIndex = path[0];
+      let thread = threads[threadIndex];
 
-    // handle nested reply case
-    if (path.length > 1) {
-      thread = getReplyByPath(threads[threadIndex], path.slice(1));
-    }
-
-    if (!thread) {
-      toast.error("No content for selected thread");
-      return;
-    }
-
-    // Recursively map replies
-    const mapThreadForNote = (t) => ({
-      content: t.content,
-      replies: t.replies && t.replies.length > 0 ? t.replies.map(mapThreadForNote) : [],
-    });
-
-    const messageForNote = mapThreadForNote(thread);
-
-    const currentTask = tasks.find((t) => t.id === taskId);
-    const projectId = currentTask?.projectId;
-
-    if (!projectId) {
-      toast.error("Project not found for this task");
-      return;
-    }
-
-    const payload = { projectId, message: messageForNote };
-
-    const res = await api.post("/notes/addnotes", payload);
-
-    if (res.data?.success) {
-      if (res.data.created) {
-        toast.success("Note added to project notes");
-      } else {
-        toast.info("Note already exists");
+      // handle nested reply case
+      if (path.length > 1) {
+        thread = getReplyByPath(threads[threadIndex], path.slice(1));
       }
-    } else {
+
+      if (!thread) {
+        toast.error("No content for selected thread");
+        return;
+      }
+
+      // Recursively map replies
+      const mapThreadForNote = (t) => ({
+        content: t.content,
+        replies:
+          t.replies && t.replies.length > 0
+            ? t.replies.map(mapThreadForNote)
+            : [],
+      });
+
+      const messageForNote = mapThreadForNote(thread);
+
+      const currentTask = tasks.find((t) => t.id === taskId);
+      const projectId = currentTask?.projectId;
+
+      if (!projectId) {
+        toast.error("Project not found for this task");
+        return;
+      }
+
+      const payload = { projectId, message: messageForNote };
+
+      const res = await api.post("/notes/addnotes", payload);
+
+      if (res.data?.success) {
+        if (res.data.created) {
+          toast.success("Note added to project notes");
+        } else {
+          toast.info("Note already exists");
+        }
+      } else {
+        toast.error("Failed to add note");
+      }
+    } catch (err) {
+      console.error("handleNotes error:", err);
       toast.error("Failed to add note");
     }
-  } catch (err) {
-    console.error("handleNotes error:", err);
-    toast.error("Failed to add note");
   }
-}
-
 
   function toggleCollapse(id) {
     setCollapsed({ ...collapsed, [id]: !collapsed[id] });
@@ -737,45 +743,46 @@ async function handleNotes(path) {
     };
   }, [showMentions]);
 
-  const MessageContent = React.memo(({ htmlContent }: { htmlContent: string }) => {
-    const handleImageClick = (url: string) => {
-      window.open(url, "_blank");
-    };
+  const MessageContent = React.memo(
+    ({ htmlContent }: { htmlContent: string }) => {
+      const handleImageClick = (url: string) => {
+        window.open(url, "_blank");
+      };
 
-    // First extract username/timestamp part
-    let formattedContent = htmlContent.replace(
-      /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
-      `<span class="font-bold text-blue-600">$1</span>($2):`
-    );
+      // First extract username/timestamp part
+      let formattedContent = htmlContent.replace(
+        /^([A-Z]{2,3})\((\d{2}\/\d{2}\s\d{2}:\d{2})\):/,
+        `<span class="font-bold text-blue-600">$1</span>($2):`
+      );
 
-    // Use linkifyjs for robust URL detection
-    formattedContent = linkifyHtml(formattedContent, {
-      target: "_blank",
-      rel: "noopener noreferrer",
-      className: "text-blue-600 underline",
-    });
+      // Use linkifyjs for robust URL detection
+      formattedContent = linkifyHtml(formattedContent, {
+        target: "_blank",
+        rel: "noopener noreferrer",
+        className: "text-blue-600 underline",
+      });
 
-    return (
-      <>
-        <div
-          className="message-content break-words break-all whitespace-pre-wrap"
-          style={{
-            // double insurance for older browsers / CSS specificity issues
-            wordBreak: "break-word",
-            overflowWrap: "anywhere",
-            whiteSpace: "pre-wrap",
-          }}
-          onClick={(e) => {
-            const target = e.target as HTMLElement;
-            if (target.tagName === "IMG") {
-              handleImageClick((target as HTMLImageElement).src);
-            }
-          }}
-          // IMPORTANT: keep dangerouslySetInnerHTML as you had it
-          dangerouslySetInnerHTML={{ __html: formattedContent }}
-        />
-        {/* Scoped CSS fallback for child nodes that may resist Tailwind classes */}
-        <style>{`
+      return (
+        <>
+          <div
+            className="message-content break-words break-all whitespace-pre-wrap"
+            style={{
+              // double insurance for older browsers / CSS specificity issues
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+              whiteSpace: "pre-wrap",
+            }}
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.tagName === "IMG") {
+                handleImageClick((target as HTMLImageElement).src);
+              }
+            }}
+            // IMPORTANT: keep dangerouslySetInnerHTML as you had it
+            dangerouslySetInnerHTML={{ __html: formattedContent }}
+          />
+          {/* Scoped CSS fallback for child nodes that may resist Tailwind classes */}
+          <style>{`
           /* ensure anchors / spans wrap */
           .message-content,
           .message-content * {
@@ -792,11 +799,14 @@ async function handleNotes(path) {
           }
 
           /* images scale inside container instead of forcing a wide line */
-          .message-content img {
-            max-width: 100%;
-            height: auto;
-            display: inline-block;
-          }
+         .message-content img {
+         max-width: 300px;
+         max-height: 200px;
+         width: auto;
+         height: auto;
+         object-fit: cover;
+         display: inline-block;
+        }
 
           /* if some parent uses display:flex forcing nowrap for this node,
              enforce block layout here */
@@ -804,12 +814,12 @@ async function handleNotes(path) {
             display: block !important;
           }
         `}</style>
-      </>
-    );
-  });
+        </>
+      );
+    }
+  );
 
   MessageContent.displayName = "MessageContent";
-
 
   const renderReplies = (replies, path, level = 1, parentId = "") => {
     return replies.map((reply, i) => {
@@ -830,7 +840,6 @@ async function handleNotes(path) {
           }`}
         >
           <div className="message-content flex items-center flex-wrap">
-
             <div className="flex gap-4 text-sm mr-3">
               <button
                 className="hover:text-blue-600 transition w-7 h-7 flex items-center justify-center rounded-md text-base font-bold hover:bg-blue-50"
@@ -849,7 +858,7 @@ async function handleNotes(path) {
             </div>
             <MessageContent htmlContent={reply.content} />
           </div>
-          { reply.replies && reply.replies.length > 0 && (
+          {reply.replies && reply.replies.length > 0 && (
             <div>
               {renderReplies(reply.replies, replyPath, level + 1, replyId)}
             </div>
@@ -860,7 +869,9 @@ async function handleNotes(path) {
   };
 
   return (
-    <div className={`${className} flex flex-col h-[90vh] bg-gray-50 rounded-md shadow-md`}>
+    <div
+      className={`${className} flex flex-col h-[90vh] bg-gray-50 rounded-md shadow-md`}
+    >
       {/* 🔹 Middle Scrollable Section */}
       <div className="flex-1 overflow-y-auto p-4 text-sm text-slate-600 bg-slate-50">
         <div className="p-3 rounded text-xs whitespace-pre-wrap prose prose-slate list-disc pl-5">
