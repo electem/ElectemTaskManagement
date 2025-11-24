@@ -40,8 +40,13 @@ export const getTasks = async (req: Request, res: Response) => {
     // PROJECT FILTER
     // ============================
     if (projectStr && projectStr !== "all") {
+      // If user selects a specific project, use it
       filters.project = projectStr;
+    } else {
+      // Initial load → exclude INTERNAL projects
+      filters.project = { not: "INTERNAL" };
     }
+
 
     // ============================
     // OWNER FILTER
