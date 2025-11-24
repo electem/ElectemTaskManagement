@@ -22,29 +22,26 @@ const storage = multer.diskStorage({
   },
 });
 
-// File filter to allow specific file types
+// File filter to block harmful files only
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "video/mp4",
-    "video/mpeg",
-    "video/quicktime",
-    "application/pdf",
-    "text/plain",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  const blockedTypes = [
+    "application/x-msdownload",                 // .exe
+    "application/x-ms-installer",               // .msi
+    "application/vnd.microsoft.portable-executable",
+    "application/x-sh",                         // .sh
+    "application/x-bat",                        // .bat
+    "application/x-cmd",                        // .cmd
+    "application/vnd.android.package-archive",  // .apk
+    "application/x-dosexec",                    // .dll
   ];
 
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
+  if (blockedTypes.includes(file.mimetype)) {
+    cb(new Error("This file type is not allowed for security reasons"), false);
   } else {
-    cb(new Error("Invalid file type"), false);
+    cb(null, true); // Allow all other types
   }
 };
+
 
 export const upload = multer({
   storage: storage,
