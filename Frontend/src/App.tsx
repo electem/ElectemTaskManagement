@@ -21,6 +21,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import TaskGridView from "./components/TaskGridView";
 import { TaskProvider } from "./context/TaskContext";
 import { Dashboard } from "./components/Dashboard";
+import AutoLogout from "./components/AutoLogout";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+       <AutoLogout />
         <TaskProvider>
           <ConversationProvider>
             <ProjectProvider>
