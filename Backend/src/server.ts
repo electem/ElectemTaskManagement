@@ -68,6 +68,7 @@ console.log("✅ Server started");
 const wss = new WebSocketServer({ port: 8089 });
 
 const taskConnections = new Map();
+const onlineUsers = new Map();
 
 wss.on("connection", (ws) => {
   console.log("🟢 New WebSocket client connected");
@@ -87,6 +88,10 @@ wss.on("connection", (ws) => {
         taskConnections.set(username, ws);
         ws.username = username;
         console.log(`✅ Connection saved for user ${username}`);
+        // Mark user online
+        onlineUsers.set(username, true);
+
+        broadcastUserStatus(username, "online");
 
         const user = await prisma.user.findUnique({ where: { username } });
         let lastLogin = user?.lastLogin ?? new Date(0);
@@ -189,6 +194,8 @@ wss.on("connection", (ws) => {
         where: { username: ws.username },
         data: { lastLogin: new Date() },
       });
+      onlineUsers.set(ws.username, false);
+      broadcastUserStatus(ws.username, "offline");
       taskConnections.delete(ws.username);
     } else {
       console.log("🔴 Unidentified WebSocket client disconnected");
@@ -232,3 +239,18 @@ export function broadcastUpdate(
     }
   }
 }
+function broadcastUserStatus(username, status) {
+  const data = {
+    type: "USER_STATUS",
+    username,
+    status,
+  };
+
+  for (const [, client] of taskConnections) {
+    if (client.readyState === 1) {
+      client.send(JSON.stringify(data));
+    }
+  }
+}
+
+export { onlineUsers };
