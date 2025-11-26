@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect,useLayoutEffect  } from "react";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import api from "@/lib/api";
@@ -98,12 +98,57 @@ export default function MsChatCommentsEditor({
     };
   }, [threads]);
 
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const editorFooterRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null); // optional keep if you want
 
-  useEffect(() => {
-    // Scroll smoothly to bottom when threads change
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Helper: scroll the scrollable container accounting for sticky footer
+  function scrollToBottom(smooth = true) {
+  const sc = scrollContainerRef.current;
+  const footer = editorFooterRef.current;
+  if (!sc) return;
+
+  const footerHeight = footer ? footer.getBoundingClientRect().height : 0;
+
+  // subtract a tiny amount so messages sit snugly against the input
+  const target = sc.scrollHeight - sc.clientHeight + (footerHeight - 6);
+  sc.scrollTo({ top: target > 0 ? target : 0, behavior: smooth ? "smooth" : "auto" });
+}
+
+
+
+   useLayoutEffect(() => {
+    if (!threads || threads.length === 0) return;
+    // run a frame after layout to ensure DOM dims are stable, then scroll
+    requestAnimationFrame(() => scrollToBottom(true));
   }, [threads]);
+
+    useEffect(() => {
+    const sc = scrollContainerRef.current;
+    if (!sc) return;
+
+    // ensure highlighting runs and then scroll (you already call highlightCodeBlocks elsewhere)
+    highlightCodeBlocks();
+    requestAnimationFrame(() => scrollToBottom(false));
+
+    const imgs = sc.querySelectorAll("img");
+    const onImgLoad = () => requestAnimationFrame(() => scrollToBottom(false));
+    imgs.forEach((img) => {
+      if (!(img as HTMLImageElement).complete) {
+        img.addEventListener("load", onImgLoad);
+      }
+    });
+
+    const videos = sc.querySelectorAll("video");
+    const onVideoLoadMeta = () => requestAnimationFrame(() => scrollToBottom(false));
+    videos.forEach((v) => v.addEventListener("loadedmetadata", onVideoLoadMeta));
+
+    return () => {
+      imgs.forEach((img) => img.removeEventListener("load", onImgLoad));
+      videos.forEach((v) => v.removeEventListener("loadedmetadata", onVideoLoadMeta));
+    };
+  }, [threads]);
+
 
   useEffect(() => {
     if (Array.isArray(users) && users.length > 0) {
@@ -873,7 +918,7 @@ export default function MsChatCommentsEditor({
       className={`${className} flex flex-col h-[90vh] bg-gray-50 rounded-md shadow-md`}
     >
       {/* 🔹 Middle Scrollable Section */}
-      <div className="flex-1 overflow-y-auto p-4 text-sm text-slate-600 bg-slate-50">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 text-sm text-slate-600 bg-slate-50">
         <div className="p-3 rounded text-xs whitespace-pre-wrap prose prose-slate list-disc pl-5">
           {threads.length > 0 ? (
             threads.map((thread, index) => {
@@ -908,7 +953,7 @@ export default function MsChatCommentsEditor({
       </div>
 
       {/* 🔹 Bottom Fixed Editor Section */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3 sticky bottom-0 z-10">
+        <div ref={editorFooterRef} className="flex-shrink-0 border-t border-gray-200 bg-white p-3 sticky bottom-0 z-10">
         <div className="flex items-end border rounded-2xl shadow-sm bg-white p-2 w-full max-w-full overflow-hidden">
           <div
             ref={editorRef}
