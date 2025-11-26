@@ -53,14 +53,17 @@ export default function ChatView() {
     };
   }, [taskIdNumber]);
 
-  useEffect(() => {
-  if (notesOpen && notesContainerRef.current) {
-    notesContainerRef.current.scrollTo({
-      top: notesContainerRef.current.scrollHeight,
-      behavior: "smooth", // smooth scrolling
-    });
-  }
+useEffect(() => {
+  if (!notesOpen) return;
+
+  setTimeout(() => {
+    const el = notesContainerRef.current;
+    if (!el) return;
+
+    el.scrollTop = el.scrollHeight; 
+  }, 50);
 }, [notesOpen, projectNotes]);
+
 
 
   useEffect(() => {
@@ -260,7 +263,7 @@ function NoteItem({ note }: { note: Note }) {
         />
       </div>
       {notesOpen && (
-        <div className="fixed top-0 right-0 w-96 h-full bg-white dark:bg-gray-800 shadow-xl z-50 flex flex-col">
+        <div className="fixed top-0 right-0 w-96 h-[100dvh] bg-white dark:bg-gray-800 shadow-xl z-50 flex flex-col">
           <div className="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold">Project Notes</h2>
             <button
@@ -271,23 +274,25 @@ function NoteItem({ note }: { note: Note }) {
             </button>
           </div>
           <div
+            className="flex-1 overflow-y-auto overscroll-contain"
             ref={notesContainerRef}
-            className="flex-1 overflow-y-auto p-3 space-y-2"
           >
-            {loadingNotes && (
-              <div className="text-sm text-gray-500">Loading...</div>
-            )}
-            {!loadingNotes && projectNotes.length === 0 && (
-              <div className="text-sm text-gray-400">No notes yet.</div>
-            )}
-            {projectNotes.map((note, idx) => (
-              <div
-                key={idx}
-                className="p-2 border rounded-md bg-gray-50 dark:bg-gray-900"
-              >
-                <NoteItem key={idx} note={note} />
-              </div>
-            ))}
+            <div className="p-3 space-y-2">
+              {loadingNotes && (
+                <div className="text-sm text-gray-500">Loading...</div>
+              )}
+              {!loadingNotes && projectNotes.length === 0 && (
+                <div className="text-sm text-gray-400">No notes yet.</div>
+              )}
+              {projectNotes.map((note, idx) => (
+                <div
+                  key={idx}
+                  className="p-2 border rounded-md bg-gray-50 dark:bg-gray-900"
+                >
+                  <NoteItem key={idx} note={note} />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
