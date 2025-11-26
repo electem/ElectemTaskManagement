@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
+import { useTaskContext } from "@/context/TaskContext";
 import {
   Tooltip,
   TooltipContent,
@@ -18,78 +19,36 @@ const getInitials = (username: string, dup: boolean): string =>
   dup ? username.substring(0, 2).toUpperCase() : username.charAt(0).toUpperCase();
 
 export default function OnlineUsersPage() {
+  const { userStatuses } = useTaskContext();
   const [users, setUsers] = useState<UserStatus[]>([]);
-  const [ws, setWs] = useState<WebSocket | null>(null);
 
   /** ✅ Fetch full users status list once (so offline users appear) */
-  const fetchInitialUsers = async () => {
-    try {
-      const res = await api.get("/api/users/online-status");
-      setUsers(res.data);
-    } catch (err) {
-      console.error("Failed to load user list", err);
-    }
-  };
-
-  /** ✅ Setup WebSocket with reconnect */
   useEffect(() => {
+    const fetchInitialUsers = async () => {
+      try {
+        const res = await api.get("/api/users/online-status");
+        setUsers(res.data);
+      } catch (err) {
+        console.error("Failed to load user list", err);
+      }
+    };
+
     fetchInitialUsers();
-
-    const connectWS = () => {
-      const socket = new WebSocket("ws://localhost:8089");
-      setWs(socket);
-
-      socket.onopen = () => {
-        console.log("✅ WebSocket connected");
-
-        const currentUser = localStorage.getItem("username");
-
-        socket.send(
-          JSON.stringify({
-            type: "INIT",
-            currentUser,
-          })
-        );
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.type === "USER_STATUS") {
-            setUsers((prev) =>
-              prev.map((u) =>
-                u.username === data.username
-                  ? { ...u, online: data.status === "online" }
-                  : u
-              )
-            );
-          }
-        } catch (err) {
-          console.error("Invalid message", err);
-        }
-      };
-
-      socket.onclose = () => {
-        console.log("🔴 WebSocket disconnected — reconnecting in 3s");
-        setTimeout(connectWS, 3000);
-      };
-    };
-
-    connectWS();
-
-    return () => {
-      ws?.close();
-    };
   }, []);
+
+  /** ✅ Merge backend users with live websocket status */
+  const mergedUsers = users.map((u) => ({
+    ...u,
+    online: userStatuses[u.username] ?? u.online,
+  }));
 
   /** ✅ Memoized rendering list */
   const processedUsers = useMemo(() => {
-    const sorted = [...users].sort((a, b) =>
+    const sorted = [...mergedUsers].sort((a, b) =>
       a.online === b.online ? 0 : a.online ? -1 : 1
     );
 
-    const counts = users.reduce<Record<string, number>>((acc, u) => {
+    const counts = mergedUsers.reduce<Record<string, number>>((acc, u) => {
       const first = u.username.charAt(0).toUpperCase();
       acc[first] = (acc[first] || 0) + 1;
       return acc;
@@ -102,7 +61,7 @@ export default function OnlineUsersPage() {
         counts[u.username.charAt(0).toUpperCase()] > 1
       ),
     }));
-  }, [users]);
+  }, [mergedUsers]);
 
   return (
     <TooltipProvider delayDuration={150}>

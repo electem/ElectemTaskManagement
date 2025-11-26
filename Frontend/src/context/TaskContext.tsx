@@ -51,6 +51,7 @@ interface TaskContextType {
   closeTask: (id: number) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
   refreshTasks: boolean;
+  userStatuses: Record<string, boolean>;
   triggerTaskRefresh: () => void;
   unreadCounts: Record<string, UnreadData>;
   markTaskAsRead: (taskId: string) => void;
@@ -91,6 +92,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [latestWsMessage, setLatestWsMessage] = useState<WsMessage | null>(null);
+  const [userStatuses, setUserStatuses] = useState<Record<string, boolean>>({});
   const [filters, setFilters] = useState({
   project: "all",
   owner: "all",
@@ -301,6 +303,14 @@ console.log("🔍 NotificationService imported:", { notificationService });
           pendingMessagesRef.current.push(response);
           return;
         }
+        // ✅ Capture USER_STATUS broadcasts
+        if (response.type === "USER_STATUS") {
+          setUserStatuses((prev) => ({
+            ...prev,
+            [response.username]: response.status === "online",
+          }));
+          return; // prevent message handling logic
+        }
 
         // ✅ Process immediately
         handleWebSocketMessage(response);
@@ -431,6 +441,7 @@ console.log("🔍 NotificationService imported:", { notificationService });
         updateTask,
         closeTask,
         deleteTask,
+        userStatuses,
         refreshTasks,
         triggerTaskRefresh,
         unreadCounts,
