@@ -84,23 +84,13 @@ wss.on("connection", (ws) => {
         const username = data.currentUser;
         console.log(`⚙️ INIT received from: ${username}`);
 
-        // Track multiple sockets per user
-        if (!taskConnections.has(username)) {
-          taskConnections.set(username, new Set());
-        }
-        taskConnections.get(username).add(ws);
-
-        // Track connection count
-        const count = onlineUsers.get(username) || 0;
-        onlineUsers.set(username, count + 1);
-
-        // If first session → broadcast online
-        if (count === 0) {
-          broadcastUserStatus(username, "online");
-        }
-
+        // ✅ Save connection FIRST before processing updates
+        taskConnections.set(username, ws);
         ws.username = username;
+        console.log(`✅ Connection saved for user ${username}`);
+         onlineUsers.set(username, true);
 
+        broadcastUserStatus(username, "online");
 
         const user = await prisma.user.findUnique({ where: { username } });
         let lastLogin = user?.lastLogin ?? new Date(0);
@@ -184,11 +174,11 @@ wss.on("connection", (ws) => {
             }
           }
         }, 100); // 100ms delay to ensure frontend is ready
-        await prisma.user.updateMany({
-          where: { username: ws.username },
-          data: { lastLogin: new Date() },
-        });
       }
+      await prisma.user.updateMany({
+        where: { username: ws.username },
+        data: { lastLogin: new Date() },
+      });
     } catch (e) {
       console.error("❌ Invalid WebSocket message or processing error:", e);
     }
@@ -203,29 +193,9 @@ wss.on("connection", (ws) => {
         where: { username: ws.username },
         data: { lastLogin: new Date() },
       });
-     const username = ws.username;
-
-      if (taskConnections.has(username)) {
-        const socketSet = taskConnections.get(username);
-        socketSet.delete(ws);
-
-        if (socketSet.size === 0) {
-          taskConnections.delete(username);
-
-
-          const count = onlineUsers.get(username) || 0;
-          const newCount = count - 1;
-
-          if (newCount <= 0) {
-            onlineUsers.delete(username);
-            broadcastUserStatus(username, "offline");
-          } else {
-            onlineUsers.set(username, newCount);
-          }
-
-        }
-      }
-
+       onlineUsers.set(ws.username, false);
+      broadcastUserStatus(ws.username, "offline");
+      taskConnections.delete(ws.username);
     } else {
       console.log("🔴 Unidentified WebSocket client disconnected");
     }
@@ -253,33 +223,33 @@ export function broadcastUpdate(
   } catch (e) {
     console.error("Error extracting latest username:", e);
   }
-  for (const [username, socketSet] of taskConnections) {
-  if (skipSelf && username === currentUser) continue;
+  for (const [key, client] of taskConnections) {
+    if (skipSelf && key === currentUser) continue; // Skip this key
+    console.log(`Value for ${key}:`, client.readyState);
 
-  for (const client of socketSet) {
     if (client.readyState === 1) {
       const data = {
-        payload,
-        taskId,
-        currentUser: latestUsername,
+        payload: payload,
+        taskId: taskId,
+        currentUser: !skipSelf && key === currentUser ? latestUsername : currentUser,
       };
+      client.send(JSON.stringify(data));
+      console.log(skipSelf && key === currentUser);
+    }
+  }
+}
+function broadcastUserStatus(username, status) {
+  const data = {
+    type: "USER_STATUS",
+    username,
+    status,
+  };
+
+  for (const [, client] of taskConnections) {
+    if (client.readyState === 1) {
       client.send(JSON.stringify(data));
     }
   }
 }
-
-}
-function broadcastUserStatus(username, status) {
-  const data = { type: "USER_STATUS", username, status };
-
-  for (const [, socketSet] of taskConnections) {
-    for (const client of socketSet) {
-      if (client.readyState === 1) {
-        client.send(JSON.stringify(data));
-      }
-    }
-  }
-}
-
 
 export { onlineUsers };

@@ -25,7 +25,7 @@ router.get("/online-status", async (req, res) => {
   const result = users.map(u => ({
     id: u.id,
     username: u.username,
-    online: (onlineUsers.get(u.username) || 0) > 0
+    online: onlineUsers.get(u.username) === true
 
   }));
 
