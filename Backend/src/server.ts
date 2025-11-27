@@ -206,11 +206,12 @@ wss.on("connection", (ws) => {
      const username = ws.username;
 
       if (taskConnections.has(username)) {
-        const set = taskConnections.get(username);
-        set.delete(ws);
+        const socketSet = taskConnections.get(username);
+        socketSet.delete(ws);
 
-        if (set.size === 0) {
+        if (socketSet.size === 0) {
           taskConnections.delete(username);
+
 
           const count = onlineUsers.get(username) || 0;
           const newCount = count - 1;
@@ -252,20 +253,21 @@ export function broadcastUpdate(
   } catch (e) {
     console.error("Error extracting latest username:", e);
   }
-  for (const [key, client] of taskConnections) {
-    if (skipSelf && key === currentUser) continue; // Skip this key
-    console.log(`Value for ${key}:`, client.readyState);
+  for (const [username, socketSet] of taskConnections) {
+  if (skipSelf && username === currentUser) continue;
 
+  for (const client of socketSet) {
     if (client.readyState === 1) {
       const data = {
-        payload: payload,
-        taskId: taskId,
-        currentUser: !skipSelf && key === currentUser ? latestUsername : currentUser,
+        payload,
+        taskId,
+        currentUser: latestUsername,
       };
       client.send(JSON.stringify(data));
-      console.log(skipSelf && key === currentUser);
     }
   }
+}
+
 }
 function broadcastUserStatus(username, status) {
   const data = { type: "USER_STATUS", username, status };
