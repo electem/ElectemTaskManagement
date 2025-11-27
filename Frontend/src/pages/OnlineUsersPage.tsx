@@ -63,13 +63,42 @@ export default function OnlineUsersPage() {
     }));
   }, [mergedUsers]);
 
+  const storedUsername =
+  typeof window !== "undefined" ? localStorage.getItem("username") : null;
+
+const loggedInUser = processedUsers.find(
+  (u) => u.username === storedUsername
+);
+
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="p-6">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">
-          Team Presence
-        </h2>
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center justify-between">
+          <span>Team Presence</span>
+          {loggedInUser && (
+            <div className="flex flex-col items-center ">
+              <div className="relative">
+                <div
+                  className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 
+          flex items-center justify-center font-bold text-gray-800 shadow-inner text-base"
+                >
+                  {loggedInUser.initials}
+                </div>
 
+                <span
+                  className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${
+                    loggedInUser.online ? "bg-green-500" : "bg-red-500"
+                  }`}
+                />
+              </div>
+
+              <div className="text-xs font-semibold text-gray-700">
+                {loggedInUser.username}
+              </div>
+            </div>
+          )}
+        </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {processedUsers.map((u) => (
             <Tooltip key={u.id}>
