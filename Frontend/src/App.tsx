@@ -22,6 +22,7 @@ import TaskGridView from "./components/TaskGridView";
 import { TaskProvider } from "./context/TaskContext";
 import { Dashboard } from "./components/Dashboard";
 import AutoLogout from "./components/AutoLogout";
+import OnlineUsersPage from "./pages/OnlineUsersPage";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,8 @@ const AppLayout = () => {
             <Route path="/tasks/new" element={<TaskFormPage />} />
             <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
             <Route path="/tasks/:taskId/:title/chat" element={<ChatView />} />
+            <Route path="/users/online" element={<OnlineUsersPage />} />
+
           </Route> 
 
           {/* Fallback */}
