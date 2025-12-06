@@ -63,7 +63,7 @@ const statusOptions = [
   // "Waiting for Client Approval",
   // "Approved by Client",
   "Changes Requested",
- 
+
   //  "Open",
   // "Assigned",
   // "In Review",
@@ -128,16 +128,16 @@ const TaskForm = () => {
   useEffect(() => {
     const loadTask = async () => {
       if (!isEditMode || !taskId) return;
-   
+
       //  If no tasks are loaded yet, fetch them first
       if (tasks.length === 0) {
         await fetchTasks();
         return;
       }
-   
+
       //  Once tasks are loaded, find the matching one
       const task = tasks.find((t) => t.id === Number(taskId));
-   
+
       if (task) {
         setFormData({
           project: task.project || "",
@@ -155,7 +155,7 @@ const TaskForm = () => {
         });
       }
     };
-   
+
     loadTask();
   }, [isEditMode, taskId, tasks, fetchTasks]);
 
@@ -206,7 +206,7 @@ const TaskForm = () => {
       toast.success("Task created successfully!");
     }
 
-    navigate("/tasks");
+    navigate("/task/tasks");
   };
 
   return (
@@ -493,7 +493,7 @@ const TaskForm = () => {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate("/tasks")}
+                onClick={() => navigate("/task/tasks")}
                 className="flex-1"
               >
                 Cancel

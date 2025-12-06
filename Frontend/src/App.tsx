@@ -39,21 +39,21 @@ const AppLayout = () => {
       <main className="flex-1 bg-gradient-subtle overflow-hidden">
         <Routes>
           {/* Public Route */}
-          <Route path="/login" element={<Login />} />
+          <Route path="/task/login" element={<Login />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/task/dashboard" element={<Dashboard />} />
             <Route path="/task" element={<Index />} />
-            <Route path="/tasks" element={<TasksPage />} />
-            <Route path="/tasks/grid" element={<TaskGridView />} />
-            <Route path="/files" element={<FilesPage />} />
-            <Route path="/tasks/new" element={<TaskFormPage />} />
-            <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
-            <Route path="/tasks/:taskId/:title/chat" element={<ChatView />} />
-            <Route path="/users/online" element={<OnlineUsersPage />} />
+            <Route path="/task/tasks" element={<TasksPage />} />
+            <Route path="/task/tasks/grid" element={<TaskGridView />} />
+            <Route path="/task/files" element={<FilesPage />} />
+            <Route path="/task/tasks/new" element={<TaskFormPage />} />
+            <Route path="/task/tasks/:taskId/edit" element={<TaskFormPage />} />
+            <Route path="/task/tasks/:taskId/:title/chat" element={<ChatView />} />
+            <Route path="/task/users/online" element={<OnlineUsersPage />} />
 
-          </Route> 
+          </Route>
 
           {/* Fallback */}
           <Route path="*" element={<NotFound />} />

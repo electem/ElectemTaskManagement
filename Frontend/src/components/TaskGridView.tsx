@@ -51,7 +51,7 @@ interface BulkMessage {
 
 const TaskGridView = () => {
   const navigate = useNavigate();
-  const { tasks: ctxTasks, fetchTasks: fetchCtxTasks, unreadCounts, markTaskAsRead } = useTaskContext();  
+  const { tasks: ctxTasks, fetchTasks: fetchCtxTasks, unreadCounts, markTaskAsRead } = useTaskContext();
   const { projects, fetchProjects } = useProjectContext();
 
 const [tasks, setTasks] = useState<Task[]>([]);
@@ -187,17 +187,17 @@ useEffect(() => {
   };
 
   fetchMessages();
-}, [taskIds.join(",")]); 
+}, [taskIds.join(",")]);
 
 
   const handleChatClick = (id: string, title: string, desc?: string) => {
     markTaskAsRead(id);
     if (desc) localStorage.setItem("taskDescription", desc);
-    navigate(`/tasks/${id}/${title}/chat`);
+    navigate(`/task/tasks/${id}/${title}/chat`);
   };
 
   const handleEditClick = (id: string) => {
-    navigate(`/tasks/${id}/edit`);
+    navigate(`/task/tasks/${id}/edit`);
   };
 
   if (loading)
@@ -288,7 +288,7 @@ useEffect(() => {
     return getLastUpdated(b.id) - getLastUpdated(a.id);
   })
 
-  
+
           .map((task) => {
             const unread = unreadCounts[task.id.toString()] || 0;
             const taskMessages = messages[task.id] || [];
@@ -367,4 +367,3 @@ useEffect(() => {
 };
 
 export default TaskGridView;
- 

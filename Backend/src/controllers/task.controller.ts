@@ -79,7 +79,7 @@ export const getTasks = async (req: Request, res: Response) => {
     // ============================
     if (isSearching) {
       filters.AND = [
-        { 
+        {
           OR: [
             { title: { contains: searchStr, mode: "insensitive" } },
             { description: { contains: searchStr, mode: "insensitive" } },
@@ -187,7 +187,7 @@ export const updateTask = async (req: Request, res: Response) => {
       owner,
       members,
       url,
-      dependentTaskId, // <-- array of numbers 
+      dependentTaskId, // <-- array of numbers
     } = req.body;
      // 1️⃣ Fetch the existing task
     const existingTask = await prisma.task.findUnique({
@@ -260,6 +260,19 @@ export const updateTaskStatus = async (req: Request, res: Response) => {
   }
 };
 
+// Utility function to convert BigInts to Number/String for JSON serialization
+const safeJsonSerialize = (data: any) => {
+  return JSON.parse(
+    JSON.stringify(data, (_, value) => {
+      if (typeof value === 'bigint') {
+        return Number(value);
+      }
+      return value;
+    })
+  );
+};
+
+
 // ✅ Search tasks by title, description, or message conversation
 export const searchTasks = async (req: Request, res: Response) => {
   try {
@@ -268,47 +281,62 @@ export const searchTasks = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing search query parameter 'q'." });
     }
 
+    // Split into words, filter out empty strings
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     const params = words;
 
-    
+    // The boundary for the end of the word is now:
+    // s? followed by a character class [\\s\\.,!?:;] (whitespace OR common punctuation) OR end of string ($)
+    const END_BOUNDARY = 's?([\\s\\.,!?:;]|$)';
 
-    // Build match conditions (for WHERE)
+    // ------------------------------------------------------
+    // 1️⃣ ROBUST WHOLE WORD MATCH CONDITIONS (with punctuation support)
+    // ------------------------------------------------------
     const matchConditions = words
       .map(
         (_, i) => `
-          (POSITION(LOWER($${i + 1}) IN LOWER(t.title)) > 0 OR
-           POSITION(LOWER($${i + 1}) IN LOWER(t.description)) > 0 OR
-           POSITION(LOWER($${i + 1}) IN LOWER(CAST(m.conversation AS TEXT))) > 0)
-        `
+        (
+          LOWER(t.title) ~ ('(^|\\s)' || LOWER($${i + 1}) || '${END_BOUNDARY}') OR
+          LOWER(t.description) ~ ('(^|\\s)' || LOWER($${i + 1}) || '${END_BOUNDARY}') OR
+          LOWER(CAST(m.conversation AS TEXT)) ~ ('(^|\\s)' || LOWER($${i + 1}) || '${END_BOUNDARY}')
+        )
+      `
       )
       .join(" OR ");
 
-    // ✅ Improved scoring: count occurrences (not just existence)
+    console.log("Generated SQL Match Conditions:\n", matchConditions);
+
+    // ------------------------------------------------------
+    // 2️⃣ EXACT WORD MATCH COUNT (score) (with punctuation support)
+    // ------------------------------------------------------
     const matchScore = words
       .map(
         (_, i) => `
           (
-            (
-              LENGTH(LOWER(t.title)) - LENGTH(REPLACE(LOWER(t.title), LOWER($${i + 1}), ''))
-            ) / NULLIF(LENGTH(LOWER($${i + 1})), 0)
+            SELECT
+              COUNT(*)
+            FROM regexp_matches(LOWER(t.title), '(^|\\s)' || LOWER($${i + 1}) || '${END_BOUNDARY}', 'g')
           ) +
           (
-            (
-              LENGTH(LOWER(t.description)) - LENGTH(REPLACE(LOWER(t.description), LOWER($${i + 1}), ''))
-            ) / NULLIF(LENGTH(LOWER($${i + 1})), 0)
+            SELECT
+              COUNT(*)
+            FROM regexp_matches(LOWER(t.description), '(^|\\s)' || LOWER($${i + 1}) || '${END_BOUNDARY}', 'g')
           ) +
           (
-            (
-              LENGTH(LOWER(CAST(m.conversation AS TEXT))) - LENGTH(REPLACE(LOWER(CAST(m.conversation AS TEXT)), LOWER($${i + 1}), ''))
-            ) / NULLIF(LENGTH(LOWER($${i + 1})), 0)
+            SELECT
+              COUNT(*)
+            FROM regexp_matches(LOWER(CAST(m.conversation AS TEXT)), '(^|\\s)' || LOWER($${i + 1}) || '${END_BOUNDARY}', 'g')
           )
         `
       )
       .join(" + ");
 
-    console.log("🧮 Generated SQL matchScore:\n", matchScore);
+    console.log("Generated robust word-match SQL scoring:\n", matchScore);
+    console.log("SQL Parameters (words):\n", params);
 
+    // ------------------------------------------------------
+    // 3️⃣ Execute Query
+    // ------------------------------------------------------
     const tasks = await prisma.$queryRawUnsafe<
       (Task & { match_score: number })[]
     >(
@@ -318,25 +346,25 @@ export const searchTasks = async (req: Request, res: Response) => {
       LEFT JOIN "Message" m ON m."taskId" = t.id
       WHERE ${matchConditions}
       ORDER BY match_score DESC, t."createdAt" DESC;
-    `,
+      `,
       ...params
     );
 
-    tasks.forEach((t, index) => {
-      console.log(`   ${index + 1}. Task ID: ${t.id}, Title: "${t.title}", match_score: ${t.match_score}`);
+    // Log results
+    tasks.forEach((t, i) => {
+      console.log(`Result ${i + 1}: ID=${t.id}, Score=${t.match_score}, Title=${t.title}`);
     });
 
-    // ✅ Return all results (not just the ones with max score)
-    const sortedTasks = tasks.sort((a, b) => b.match_score - a.match_score);
+    const responsePayload = safeJsonSerialize(tasks);
+    console.log(`Serialization Check: Successfully serialized ${responsePayload.length} results.`);
 
-    console.log("✅ Returning sorted tasks count:", sortedTasks.length);
-
-    return res.json({ count: sortedTasks.length, results: sortedTasks });
+    return res.json({ count: responsePayload.length, results: responsePayload });
   } catch (error) {
     console.error("❌ Error searching tasks:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 
 

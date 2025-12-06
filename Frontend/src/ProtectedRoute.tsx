@@ -5,7 +5,7 @@ const ProtectedRoute = () => {
   const token = localStorage.getItem("token");
 
   if (!token) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/task/login" replace />;
   }
 
   try {
@@ -14,11 +14,11 @@ const ProtectedRoute = () => {
 
     if (Date.now() >= exp * 1000) {
       localStorage.removeItem("token");
-      return <Navigate to="/login" replace />;
+      return <Navigate to="/task/login" replace />;
     }
   } catch {
     localStorage.removeItem("token");
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/task/login" replace />;
   }
 
   return <Outlet />;

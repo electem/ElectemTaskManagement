@@ -97,9 +97,9 @@ const [ownerFilter, setOwnerFilter] = useState("all");
 const [statusFilter, setStatusFilter] = useState("all");
 
 
-  
+
   const { projects, fetchProjects } = useProjectContext();
-  
+
   const username = localStorage.getItem("username");
 
 useEffect(() => {
@@ -162,7 +162,7 @@ useEffect(() => {
       </div>
     );
 
-const getStatusColor = (status: string) => { 
+const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       Pending: "bg-yellow-500",
       "In Progress": "bg-blue-500",
@@ -200,14 +200,14 @@ const getStatusColor = (status: string) => {
   if (description) {
     localStorage.setItem("taskDescription", description);
   }
-    navigate(`/tasks/${taskId}/${title}/chat`);
+    navigate(`/task/tasks/${taskId}/${title}/chat`);
 
   };
 
   const handleTitleClick = (taskId: string) => {
-    navigate(`/tasks/${taskId}/edit`);
+    navigate(`/task/tasks/${taskId}/edit`);
   };
- 
+
   // 🧩 Copy task function using context
 const handleCopyTask = async (task: Task) => {
   try {
@@ -232,7 +232,7 @@ const handleCopyTask = async (task: Task) => {
 
     if (newTask?.id) {
       toast.success("Task copied successfully!");
-      navigate(`/tasks/${newTask.id}/edit`);
+      navigate(`/task/tasks/${newTask.id}/edit`);
     }
   } catch (err) {
     console.error("Error copying task:", err);
@@ -253,7 +253,7 @@ const handleCopyTask = async (task: Task) => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => navigate("/tasks/new")}
+                  onClick={() => navigate("/task/tasks/new")}
                   className="h-8 w-8"
                   title="Create Task"
                 >
@@ -374,9 +374,9 @@ const handleCopyTask = async (task: Task) => {
                           </TableCell>
 
                           {/* Description cell - truncated to 20 characters */}
-                          <TableCell title={task.description}> 
+                          <TableCell title={task.description}>
                             {truncateText(task.description, 20)}
-                          </TableCell> 
+                          </TableCell>
                           <TableCell
                             className="cursor-pointer hover:underline text-blue-600"
                             onClick={() => {

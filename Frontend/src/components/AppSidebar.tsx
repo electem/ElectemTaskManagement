@@ -12,17 +12,17 @@ import {
   Sidebar,
   SidebarTrigger,
   useSidebar,
-} from "@/components/ui/sidebar"; 
+} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SidebarContentSection } from "./SidebarContentSection"; // ✅ Import the new component
 
 const menuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Task Management", url: "/tasks", icon: ListTodo },
-  { title: "Files", url: "/files", icon: FileText }, 
-  { title: "Grid View", url: "/tasks/grid", icon: Grid3X3 },
-  { title: "Users Status", url: "/users/online", icon: Users },
+  { title: "Dashboard", url: "/task/dashboard", icon: LayoutDashboard },
+  { title: "Task Management", url: "/task/tasks", icon: ListTodo },
+  { title: "Files", url: "/task/files", icon: FileText },
+  { title: "Grid View", url: "/task/tasks/grid", icon: Grid3X3 },
+  { title: "Users Status", url: "/task/users/online", icon: Users },
 ];
 
 export function AppSidebar() {
@@ -31,7 +31,7 @@ export function AppSidebar() {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate("/login");
+    navigate("/task/login");
     toast.success("Logged out successfully!");
   };
 

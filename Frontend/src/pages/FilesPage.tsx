@@ -51,7 +51,7 @@ export default function FilesPage() {
   const handleTitleClick = (taskId?: number, title?: string) => {
     if (!taskId || !title) return;
     const safeTitle = encodeURIComponent(title);
-    navigate(`/tasks/${taskId}/${safeTitle}/chat`);
+    navigate(`/task/tasks/${taskId}/${safeTitle}/chat`);
   };
 
  const handleDownload = (url: string, fileName: string) => {
@@ -60,14 +60,14 @@ export default function FilesPage() {
   link.href = url;
   link.setAttribute("download", fileName);
   link.style.display = "none";
-  
+
   // Append to DOM
   document.body.appendChild(link);
 
   // Trigger download
   link.click();
 
-  // Clean up 
+  // Clean up
   document.body.removeChild(link);
 };
 

@@ -116,7 +116,7 @@ const TaskDetailComponent: React.FC<TaskDetailProps> = ({ task, onUpdate }) => {
       // Update backend
      await updateTask(Number(task.id), {
        ...task,
-       id: Number(task.id), 
+       id: Number(task.id),
        ...updates,
      });
 
@@ -281,10 +281,10 @@ const { tasks: contextTasks, refreshTasks, unreadCounts, markTaskAsRead } = useT
     if (task) {
       localStorage.setItem("taskDescription", task.description);
     }
-  
-    navigate(`/tasks/`);
-    navigate(`/tasks/${task.id}/${task.title}/chat`);
-  
+
+    navigate(`/task/tasks/`);
+    navigate(`/task/tasks/${task.id}/${task.title}/chat`);
+
   };
 
   if (!sidebarOpen) {
@@ -354,10 +354,10 @@ const sortedTasks = tasks;
                       <Button
                         variant="ghost"
                        onClick={() => {
-                          handleToggle(task.id); 
-                          openChat(task); 
+                          handleToggle(task.id);
+                          openChat(task);
                         }}
-                        
+
                         className={`flex-shrink-0 ml-1 h-auto p-2 transition-colors ${expandedTaskId === task.id
                             ? 'bg-gray-100 dark:bg-gray-700'
                             : 'hover:bg-gray-50 dark:hover:bg-gray-800'

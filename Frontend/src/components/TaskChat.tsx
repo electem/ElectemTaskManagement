@@ -50,7 +50,7 @@ const TaskChat = () => {
       setTask(foundTask);
     } else {
       toast.error("Task not found");
-      navigate("/tasks");
+      navigate("/task/tasks");
     }
 
     // Mock messages
@@ -128,7 +128,7 @@ const TaskChat = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate("/tasks")}
+          onClick={() => navigate("/task/tasks")}
           className="hover:bg-primary/10"
         >
           <ArrowLeft className="h-5 w-5" />

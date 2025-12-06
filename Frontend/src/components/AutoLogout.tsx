@@ -16,7 +16,7 @@ const AutoLogout = () => {
       // Token already expired — logout instantly
       if (decoded.exp <= now) {
         localStorage.removeItem("token");
-        navigate("/login");
+        navigate("/task/login");
         return;
       }
 
@@ -25,14 +25,14 @@ const AutoLogout = () => {
       // AUTO LOGOUT TIMER
       const timer = setTimeout(() => {
         localStorage.removeItem("token");
-        navigate("/login");
+        navigate("/task/login");
       }, msUntilExpire);
 
       return () => clearTimeout(timer);
     } catch (err) {
       // Token invalid or corrupted
       localStorage.removeItem("token");
-      navigate("/login");
+      navigate("/task/login");
     }
   }, [navigate]);
 

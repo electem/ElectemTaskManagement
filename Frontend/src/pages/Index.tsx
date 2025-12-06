@@ -9,9 +9,9 @@ const Index = () => {
   const navigate = useNavigate();
 
   const menuItems = [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Projects", url: "/projects", icon: FolderKanban },
-    { title: "Tasks", url: "/tasks", icon: ListTodo },
+    { title: "Dashboard", url: "/task/dashboard", icon: LayoutDashboard },
+    { title: "Projects", url: "/task/projects", icon: FolderKanban },
+    { title: "Tasks", url: "/task/tasks", icon: ListTodo },
   ];
 
   const handleLogout = () => {
@@ -19,7 +19,7 @@ const Index = () => {
   };
 
   const handleGridButtonClick = () => {
-    navigate("/tasks/grid");
+    navigate("/task/tasks/grid");
   };
 
   return (
